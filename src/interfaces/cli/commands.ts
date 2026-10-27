@@ -1,8 +1,10 @@
 import type { Command } from 'commander';
+import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerMaintenanceCommands } from './commands/maintenance.js';
 import { registerMutationCommands } from './commands/mutations.js';
 import { registerNoteCommands } from './commands/notes.js';
+import { registerPluginCommands } from './commands/plugins.js';
 import { registerQueryCommands } from './commands/query.js';
 import type { CliIo } from './context.js';
 
@@ -14,4 +16,6 @@ export const registerCommands = (program: Command, io: CliIo, exit: Exit): void 
   const reference = registerQueryCommands(program, io, exit);
   registerMutationCommands(program, reference, io, exit);
   registerMaintenanceCommands(program, io, exit);
+  registerPluginCommands(program, io, exit);
+  registerCapabilitiesCommand(program, io, exit);
 };

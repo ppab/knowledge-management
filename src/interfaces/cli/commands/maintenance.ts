@@ -13,7 +13,7 @@ import type { AppError } from '../../../domain/errors.js';
 import { ok, type Result } from '../../../domain/result.js';
 import { availableVaults, isComposite, type Scope } from '../../../domain/scope/scope.js';
 import type { Exit } from '../commands.js';
-import { contextFor, currentScope, inScope, type CliIo } from '../context.js';
+import { contextFor, currentScope, inScope, inScopeWithPlugins, type CliIo } from '../context.js';
 import { emit, EXIT_CODES, table } from '../output.js';
 
 /** Runs `work` against every available vault of the scope, one index at a time. */
@@ -108,14 +108,16 @@ export const registerMaintenanceCommands = (program: Command, io: CliIo, exit: E
 
   program
     .command('doctor')
-    .description('check the scope: unavailable vaults, duplicate ids, dangling references')
+    .description(
+      'check the scope: unavailable vaults, duplicate ids, dangling references, declared fields',
+    )
     .action(async (_opts: unknown, cmd: Command) => {
       const ctx = contextFor(io, cmd);
       const state = { healthy: true };
       const code = await emit(
         ctx,
-        inScope(ctx, async (scope) => {
-          const result = await diagnose(ctx.deps, scope);
+        inScopeWithPlugins(ctx, async (scope, registry) => {
+          const result = await diagnose(ctx.deps, scope, registry);
           if (!result.ok) return result;
           state.healthy = result.value.ok;
           return ok({ composite: isComposite(scope), ...result.value });

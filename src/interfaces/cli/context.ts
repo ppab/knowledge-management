@@ -1,9 +1,12 @@
 import type { Command } from 'commander';
+import type { PluginRegistry } from '../../application/plugin/plugin.js';
+import { buildRegistry } from '../../application/plugin/registry.js';
 import type { AppDeps } from '../../application/ports.js';
 import { loadScope } from '../../application/vault/vault.js';
 import type { AppError } from '../../domain/errors.js';
 import type { Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
+import { firstPartyPlugins } from '../../plugins/index.js';
 
 export interface GlobalOptions {
   readonly json?: boolean;
@@ -50,11 +53,28 @@ export const currentScope = (ctx: CliContext): Promise<Result<Scope, AppError>> 
     vaults: ctx.vaultRoots,
   });
 
-/** Wraps a use case that needs the current scope; scope loading errors pass straight through. */
-export const inScope =
-  <T>(ctx: CliContext, work: (scope: Scope) => Promise<Result<T, AppError>>) =>
+/** The plugins the scope's vaults enable; a conflicting configuration fails here (exit 6). */
+export const registryFor = (scope: Scope): Result<PluginRegistry, AppError> =>
+  buildRegistry(firstPartyPlugins, scope);
+
+/**
+ * Wraps a use case that needs the current scope. The plugin registry is built every time so
+ * that a broken `plugins:` configuration is an error at vault open, whatever the command.
+ */
+export const inScopeWithPlugins =
+  <T>(
+    ctx: CliContext,
+    work: (scope: Scope, registry: PluginRegistry) => Promise<Result<T, AppError>>,
+  ) =>
   async (): Promise<Result<T, AppError>> => {
     const scope = await currentScope(ctx);
     if (!scope.ok) return scope;
-    return work(scope.value);
+    const registry = registryFor(scope.value);
+    if (!registry.ok) return registry;
+    return work(scope.value, registry.value);
   };
+
+export const inScope = <T>(
+  ctx: CliContext,
+  work: (scope: Scope) => Promise<Result<T, AppError>>,
+): (() => Promise<Result<T, AppError>>) => inScopeWithPlugins(ctx, (scope) => work(scope));

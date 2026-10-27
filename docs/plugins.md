@@ -37,7 +37,7 @@ M2 already indexes every frontmatter key the core does not interpret (`fields(pa
 value, kind)`, `EntrySummary.fields`, `NoteIndex.byField`). A plugin adds the schema:
 
 ```ts
-// src/application/plugins/plugin.ts
+// src/application/plugin/plugin.ts
 export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'list';
 
 export interface FieldSpec {
@@ -285,7 +285,7 @@ src/plugins/
 │   ├── templates.ts
 │   └── plugin.test.ts    # against test/fakes, like any use case
 └── expenses/ …
-src/application/plugins/
+src/application/plugin/   # singular, so the lint rule against importing `plugins` cannot match it
 ├── plugin.ts             # the interfaces above
 ├── registry.ts           # buildRegistry(plugins, scope) → Result<PluginRegistry>
 ├── api.ts                # createPluginApi(deps, scope, settings) — the only place plugins get deps

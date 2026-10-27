@@ -21,6 +21,8 @@ const schema = z.object({
     ])
     .default({ strategy: 'ulid' }),
   editor: z.string().min(1).optional(),
+  // `todos:` with nothing after it parses as null; it means "enabled, default settings".
+  plugins: z.record(z.string().min(1), z.unknown()).optional(),
 });
 
 export type VaultConfigFile = z.input<typeof schema>;
@@ -36,7 +38,7 @@ export const parseVaultConfig = (data: unknown): Result<VaultConfig, AppError> =
   }
   const identity = validateIdentityConfig(parsed.data.identity);
   if (!identity.ok) return identity;
-  const { vault, notes, editor } = parsed.data;
+  const { vault, notes, editor, plugins } = parsed.data;
   return ok({
     id: asVaultId(vault.id),
     name: vault.name,
@@ -44,6 +46,11 @@ export const parseVaultConfig = (data: unknown): Result<VaultConfig, AppError> =
     exclude: notes.exclude,
     identity: parsed.data.identity,
     ...(editor !== undefined && { editor }),
+    ...(plugins !== undefined && {
+      plugins: Object.fromEntries(
+        Object.entries(plugins).map(([name, settings]) => [name, settings ?? {}]),
+      ),
+    }),
   });
 };
 
@@ -52,4 +59,5 @@ export const toVaultConfigFile = (config: VaultConfig): VaultConfigFile => ({
   notes: { include: [...config.include], exclude: [...config.exclude] },
   identity: config.identity,
   ...(config.editor !== undefined && { editor: config.editor }),
+  ...(config.plugins !== undefined && { plugins: { ...config.plugins } }),
 });

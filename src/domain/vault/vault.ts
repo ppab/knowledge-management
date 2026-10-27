@@ -15,6 +15,8 @@ export interface VaultConfig {
   readonly exclude: readonly string[];
   readonly identity: IdentityConfig;
   readonly editor?: string;
+  /** Enabled plugins by name with their raw settings (`{}` for a bare key); absent = none. */
+  readonly plugins?: Readonly<Record<string, unknown>>;
 }
 
 /** A vault that has been located and whose configuration validated. */

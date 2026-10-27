@@ -180,6 +180,8 @@ identity:
   strategy: ulid | uuidv7 | formatted
   format: '{vault}-{type}-{date}-{ulid}' # formatted only
 editor: nvim # optional; else $VISUAL / $EDITOR
+plugins: # optional, see §9; a bare key enables a plugin with default settings
+  todos:
 publications: # optional, see §7
   site:
     format: html

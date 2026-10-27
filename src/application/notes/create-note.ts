@@ -6,7 +6,7 @@ import { err, ok, type Result } from '../../domain/result.js';
 import { renderTemplate, type TemplateVariables } from '../../domain/template/render.js';
 import { normalizeVaultPath } from '../../domain/vault/paths.js';
 import { globStaticPrefix } from '../../domain/vault/vault.js';
-import type { AppDeps } from '../ports.js';
+import type { AppDeps, TemplateSource } from '../ports.js';
 import { prepareTemplate, unprotectPlaceholders } from '../templates/prepare-template.js';
 import type { VaultHandle } from '../vault/vault.js';
 import { loadNoteEntry } from './load-note.js';
@@ -23,14 +23,33 @@ export interface CreateNoteInput {
 export const isoDate = (d: Date): string =>
   `${String(d.getFullYear()).padStart(4, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+/** The vault's template of that name, else a built-in one (plugins register `<plugin>/<name>`). */
+const findTemplate = async (
+  deps: AppDeps,
+  root: string,
+  name: string,
+  builtins: Readonly<Record<string, string>>,
+): Promise<Result<TemplateSource, AppError>> => {
+  const own = await deps.templates.getTemplate(root, name);
+  if (own.ok || own.error.code !== 'NOT_FOUND') return own;
+  const builtin = builtins[name];
+  return builtin === undefined ? own : ok({ name, source: builtin });
+};
+
 export const createNote = async (
   deps: AppDeps,
   vault: VaultHandle,
   input: CreateNoteInput,
+  builtinTemplates: Readonly<Record<string, string>> = {},
 ): Promise<Result<Note, AppError>> => {
   if (input.title.trim() === '') return err(validation('Title must not be empty'));
 
-  const source = await deps.templates.getTemplate(vault.root, input.template ?? 'default');
+  const source = await findTemplate(
+    deps,
+    vault.root,
+    input.template ?? 'default',
+    builtinTemplates,
+  );
   if (!source.ok) return source;
   const template = prepareTemplate(deps, source.value);
   if (!template.ok) return template;

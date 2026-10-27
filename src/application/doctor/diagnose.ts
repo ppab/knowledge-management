@@ -3,13 +3,24 @@ import { findDuplicateIds } from '../../domain/note/duplicates.js';
 import { ok, type Result } from '../../domain/result.js';
 import { availableVaults, type Scope } from '../../domain/scope/scope.js';
 import { applyPlan, isStale, planRefresh, staleOf } from '../index/refresh-index.js';
+import { createPluginApi } from '../plugin/api.js';
+import type { PluginRegistry } from '../plugin/plugin.js';
+import { validateFields } from '../plugin/validate-fields.js';
 import type { AppDeps } from '../ports.js';
 import type { OpenedVault } from '../scope/session.js';
 
 export type Severity = 'error' | 'warning' | 'info';
 
-export type FindingKind =
-  'duplicate-id' | 'dangling-reference' | 'unidentified' | 'stale-index' | 'unavailable-vault';
+export type CoreFindingKind =
+  | 'duplicate-id'
+  | 'dangling-reference'
+  | 'unidentified'
+  | 'stale-index'
+  | 'unavailable-vault'
+  | 'field';
+
+/** Core kinds, or a plugin check's kind namespaced as `<plugin>:<kind>`. */
+export type FindingKind = CoreFindingKind | `${string}:${string}`;
 
 export interface Finding {
   readonly kind: FindingKind;
@@ -26,14 +37,87 @@ export interface Diagnosis {
   readonly findings: readonly Finding[];
 }
 
+/** Notes of an owned type are checked against the owner's field specs (docs/plugins.md §2). */
+const fieldFindings = (registry: PluginRegistry, opened: readonly OpenedVault[]): Finding[] => {
+  const findings: Finding[] = [];
+  for (const { vault, index } of opened) {
+    for (const entry of index.all()) {
+      if (entry.type === undefined) continue;
+      const owner = registry.ownerOf(entry.type);
+      if (!owner) continue;
+      const enabledHere = registry.enabled.some(
+        (e) => e.plugin === owner && e.scope.members.some((m) => m.root === vault.root),
+      );
+      if (!enabledHere) continue;
+      for (const issue of validateFields(owner.fields, entry.fields)) {
+        findings.push({
+          kind: 'field',
+          severity: issue.problem === 'undeclared' ? 'info' : 'warning',
+          vault: vault.config.name,
+          message: `${entry.path} (${entry.type}): ${issue.message}`,
+          details: {
+            path: entry.path,
+            type: entry.type,
+            plugin: owner.name,
+            field: issue.field,
+            problem: issue.problem,
+            ...(issue.allowed && { allowed: issue.allowed }),
+          },
+        });
+      }
+    }
+  }
+  return findings;
+};
+
+const pluginFindings = async (
+  deps: AppDeps,
+  registry: PluginRegistry,
+): Promise<Result<Finding[], AppError>> => {
+  const findings: Finding[] = [];
+  for (const enabled of registry.enabled) {
+    const api = createPluginApi(deps, registry, enabled);
+    for (const check of enabled.plugin.checks ?? []) {
+      const results = await check.run(api);
+      if (!results.ok) return results;
+      for (const result of results.value) {
+        findings.push({
+          kind: `${enabled.plugin.name}:${check.kind}`,
+          severity: result.severity,
+          vault: result.vault,
+          message: result.message,
+          details: { path: result.path, ...result.details },
+        });
+      }
+    }
+  }
+  return ok(findings);
+};
+
 /**
  * Checks every vault in the scope. Indexes are refreshed first so the checks see current
  * files; whether an index was stale is itself reported. A reference that dangles in its own
- * vault but resolves in another vault of the scope is not dangling.
+ * vault but resolves in another vault of the scope is not dangling. With a registry, notes of
+ * owned types are validated against their declared fields and every enabled plugin's checks
+ * run after the core's.
  */
 export const diagnose = async (
   deps: AppDeps,
   scope: Scope,
+  registry?: PluginRegistry,
+): Promise<Result<Diagnosis, AppError>> => {
+  const core = await diagnoseCore(deps, scope, registry);
+  if (!core.ok || !registry) return core;
+  const plugins = await pluginFindings(deps, registry);
+  if (!plugins.ok) return plugins;
+  const findings = [...core.value.findings, ...plugins.value];
+  return ok({ ok: !findings.some((f) => f.severity === 'error'), findings });
+};
+
+const diagnoseCore = async (
+  deps: AppDeps,
+  scope: Scope,
+  registry: PluginRegistry | undefined,
 ): Promise<Result<Diagnosis, AppError>> => {
   const findings: Finding[] = [];
   const opened: OpenedVault[] = [];
@@ -136,6 +220,7 @@ export const diagnose = async (
         });
       }
     }
+    if (registry) findings.push(...fieldFindings(registry, opened));
     return ok({ ok: !findings.some((f) => f.severity === 'error'), findings });
   } finally {
     for (const { index } of opened) index.close();

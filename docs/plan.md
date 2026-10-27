@@ -294,6 +294,17 @@ the panel registry.
 - plugins: `todos` queries and commands against `test/fakes`.
 - integration: the acceptance flow above through the CLI.
 
+**Status.** Done 2026-10-27. Deviations: the application-side modules live under
+`src/application/plugin/` (singular) because the lint rule that forbids importing `plugins`
+from the core is a path pattern and would otherwise match the core's own directory; a plugin's
+API scope is the sub-scope of members that enable it (unavailable members included), so reads
+and writes never touch a vault that did not opt in; `capabilities` exists now in a first form
+(commands from commander, exit codes, plugins with enablement) rather than waiting for M9;
+every command builds the registry after loading the scope, so a broken `plugins:` key fails any
+command with exit 6; plugin command groups are registered statically and answer "not enabled"
+(exit 2) at run time, so `--help` lists `todos` even where it is off. The field-type conflict
+case is covered by registry unit tests, since only one first-party plugin exists.
+
 ---
 
 ## M5 — TUI core

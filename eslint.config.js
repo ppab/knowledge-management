@@ -4,13 +4,16 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 /**
- * Layer boundaries (see docs/architecture.md §1). Dependencies point inward only:
+ * Layer boundaries (see docs/architecture.md §1 and docs/plugins.md §6). Dependencies point
+ * inward only:
  *
- *   interfaces → application → domain
+ *   interfaces → plugins, application → domain
  *   infrastructure → application, domain
+ *   plugins → application, domain
  *
- * `domain` and `application` may only import relative modules: no packages, no `node:` builtins.
- * Anything they need from the outside world arrives through a port.
+ * `domain`, `application` and `plugins` may only import relative modules: no packages, no
+ * `node:` builtins. Anything they need from the outside world arrives through a port (or, for
+ * plugins, through the plugin API). Nothing below `interfaces` may import `plugins`.
  */
 const onlyRelativeImports = {
   regex: String.raw`^(?!\.)`,
@@ -51,7 +54,7 @@ export default defineConfig([
         {
           patterns: [
             onlyRelativeImports,
-            ...forbidLayers('application', 'infrastructure', 'interfaces'),
+            ...forbidLayers('application', 'infrastructure', 'interfaces', 'plugins'),
           ],
         },
       ],
@@ -62,14 +65,28 @@ export default defineConfig([
     rules: {
       'no-restricted-imports': [
         'error',
-        { patterns: [onlyRelativeImports, ...forbidLayers('infrastructure', 'interfaces')] },
+        {
+          patterns: [
+            onlyRelativeImports,
+            ...forbidLayers('infrastructure', 'interfaces', 'plugins'),
+          ],
+        },
       ],
     },
   },
   {
     files: ['src/infrastructure/**'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: forbidLayers('interfaces') }],
+      'no-restricted-imports': ['error', { patterns: forbidLayers('interfaces', 'plugins') }],
+    },
+  },
+  {
+    files: ['src/plugins/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [onlyRelativeImports, ...forbidLayers('infrastructure', 'interfaces')] },
+      ],
     },
   },
   {

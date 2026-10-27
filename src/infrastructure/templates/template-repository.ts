@@ -28,7 +28,10 @@ const readNamed = async (
   dir: string,
   name: string,
 ): Promise<Result<TemplateSource, AppError>> => {
-  if (!/^[\w.-]+$/.test(name)) return err(notFound(`Invalid ${kind} name "${name}"`, { name }));
+  // One directory level is allowed so a vault can override a plugin's `<plugin>/<name>`.
+  if (!/^[\w.-]+(?:\/[\w.-]+)?$/.test(name)) {
+    return err(notFound(`Invalid ${kind} name "${name}"`, { name }));
+  }
   try {
     return ok({ name, source: await readFile(join(dir, `${name}.md`), 'utf8') });
   } catch (cause) {
