@@ -117,8 +117,22 @@ lookup, with incremental refresh and full rebuild.
   version check, incremental update keyed on `(path, version)`.
 - CLI: `search`, `backlinks`, `reference list`, `index rebuild|status`, `doctor`; `list` and
   `show` now read from the index and fall back to a rebuild when the cache is absent.
+- Plugin groundwork (added 2026-10-27): the `fields` table and `EntrySummary.fields` carry
+  every non-core frontmatter key, so future plugins (todos, goals, expenses, …) can query by
+  field without their own index.
 
 **Dependencies.** M1.
+
+**Status.** Done 2026-10-27. Deviations: application tests run against the real SQLite adapter
+on an in-memory database rather than a hand-written fake (same reasoning as for the Markdown
+parser and YAML codec); `list --json` now returns index summaries, not full notes (`show` does);
+`create`/`adopt` do not yet call `refreshIndex([path])` (reads refresh on their own; the
+mutation pipeline lands in M3).
+
+**Follow-up before M5.** Write an architecture addendum defining the `NotePlugin` interface
+(declared fields with types, commands, doctor checks) and the TUI panel registry, so the TUI is
+built around a registry from the start. First-party plugins live under `src/plugins/<name>/`
+under the same layer rules as the rest.
 
 **Acceptance criteria**
 

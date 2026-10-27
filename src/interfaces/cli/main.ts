@@ -37,8 +37,8 @@ try {
   }).parseAsync();
 } catch (error) {
   if (error instanceof CommanderError) {
-    const informational = ['commander.helpDisplayed', 'commander.version', 'commander.help'];
-    process.exitCode = informational.includes(error.code) ? 0 : EXIT_CODES.USAGE;
+    // `--help`/`--version` exit 0; help shown because of a usage mistake carries exitCode 1.
+    process.exitCode = error.exitCode === 0 ? 0 : EXIT_CODES.USAGE;
   } else {
     io.errOut(`error: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
     process.exitCode = EXIT_CODES.INTERNAL;

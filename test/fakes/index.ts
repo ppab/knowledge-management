@@ -10,15 +10,24 @@ import { conflict, notFound, unavailable } from '../../src/domain/errors.js';
 import { err, ok } from '../../src/domain/result.js';
 import { asVaultId, defaultVaultConfig, type VaultConfig } from '../../src/domain/vault/vault.js';
 import { createMarkdownParser } from '../../src/infrastructure/markdown/parser.js';
+import { openSqlite } from '../../src/infrastructure/sqlite/driver.js';
+import { createSqliteNoteIndex } from '../../src/infrastructure/sqlite/note-index.js';
 import { createFrontmatterCodec } from '../../src/infrastructure/yaml/frontmatter-codec.js';
 import { BUILTIN_DEFAULT_TEMPLATE } from '../../src/infrastructure/templates/template-repository.js';
 
 /*
- * In-memory ports for application tests. The Markdown parser and YAML codec are pure and
- * fast, so the real adapters are used; filesystem, clock and randomness are faked.
+ * In-memory ports for application tests. The Markdown parser, YAML codec and SQLite index
+ * (on an in-memory database) are pure and fast, so the real adapters are used; filesystem,
+ * clock and randomness are faked.
  */
 
 const version = (source: string) => createHash('sha256').update(source).digest('hex');
+/** A content-derived "mtime": any edit to the fake file changes it, like a real clock would. */
+const fingerprint = (path: string, source: string) => ({
+  path,
+  mtime: parseInt(version(source).slice(0, 10), 16),
+  size: source.length,
+});
 
 export interface FakeFs {
   files: Map<string, string>;
@@ -28,14 +37,17 @@ export interface FakeFs {
 export const createFakeNoteStore = (fs: FakeFs): NoteStore => ({
   list: (_root, include) =>
     Promise.resolve(
-      [...fs.files.keys()].filter((p) => p.endsWith('.md') && include.length > 0).sort(),
+      [...fs.files.entries()]
+        .filter(([p]) => p.endsWith('.md') && include.length > 0)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([path, source]) => fingerprint(path, source)),
     ),
   read: (_root, path) => {
     const source = fs.files.get(path);
     return Promise.resolve(
       source === undefined
         ? err(notFound(`No file at ${path}`, { path }))
-        : ok({ path, source, version: version(source) }),
+        : ok({ ...fingerprint(path, source), source, version: version(source) }),
     );
   },
   write: (_root, path, source, options = {}) => {
@@ -102,6 +114,9 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
   const vaults = new Map([['/vault', config]]);
   const ids = ['ID1', 'ID2', 'ID3', 'ID4'];
   let n = 0;
+  // One in-memory database per fixture, shared by every open(): the index persists across
+  // use cases exactly as the on-disk one does, so incremental refresh is exercised for real.
+  const database = openSqlite(':memory:');
   const deps: AppDeps = {
     clock: { now: () => new Date(2026, 9, 27, 12, 0, 0) },
     unique: { ulid: () => ids[n++] ?? `ID${String(n)}`, uuidv7: () => `uuid-${String(++n)}` },
@@ -110,6 +125,9 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
     markdown: createMarkdownParser(),
     frontmatter: createFrontmatterCodec(),
     templates: createFakeTemplateRepository(templates),
+    indexes: {
+      open: () => Promise.resolve(ok(createSqliteNoteIndex(database, { closeDriver: false }))),
+    },
   };
   return { deps, fs, vault: { root: '/vault', config }, templates, vaults, ids };
 };

@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { link, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { glob } from 'tinyglobby';
 import { conflict, notFound, unavailable, validation, type AppError } from '../../domain/errors.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { VAULT_DIR } from '../../domain/vault/vault.js';
-import type { NoteDocument, NoteStore } from '../../application/ports.js';
+import type { NoteDocument, NoteFile, NoteStore } from '../../application/ports.js';
 
 export const contentVersion = (source: string): string =>
   createHash('sha256').update(source).digest('hex');
@@ -40,15 +40,26 @@ export const createNoteStore = (): NoteStore => ({
       onlyFiles: true,
       dot: false,
     });
-    return paths.sort();
+    const files: NoteFile[] = [];
+    for (const path of paths.sort()) {
+      try {
+        const s = await stat(resolve(root, path));
+        files.push({ path, mtime: s.mtimeMs, size: s.size });
+      } catch {
+        // Deleted between glob and stat: it simply is not there.
+      }
+    }
+    return files;
   },
 
   async read(root, path): Promise<Result<NoteDocument, AppError>> {
     const absolute = resolveInside(root, path);
     if (!absolute.ok) return absolute;
     try {
+      // Fingerprint first: if the file changes between the two calls, the next refresh re-reads.
+      const s = await stat(absolute.value);
       const source = await readFile(absolute.value, 'utf8');
-      return ok({ path, source, version: contentVersion(source) });
+      return ok({ path, source, version: contentVersion(source), mtime: s.mtimeMs, size: s.size });
     } catch (cause) {
       return errno(cause) === 'ENOENT'
         ? err(notFound(`No file at ${path}`, { path }))

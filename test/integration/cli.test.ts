@@ -84,6 +84,71 @@ describe('notes CLI (M1)', () => {
     expect(raw.stdout).toBe(after + '\n');
   });
 
+  it('indexes references: search, backlinks, reference list, doctor, rebuild', async () => {
+    const make = async (title: string, body: string) => {
+      const res = await notes(root, 'create', '--title', title, '--json');
+      expect(res.code).toBe(0);
+      const { id, path } = JSON.parse(res.stdout) as { id: string; path: string };
+      await writeFile(join(root, path), (await readFile(join(root, path), 'utf8')) + body);
+      return id;
+    };
+    const alpha = await make('Alpha', 'Alpha mentions kumquats.\n');
+    const beta = await make('Beta', `Beta points at [[${alpha}]] and [[${alpha}|label]].\n`);
+    const gamma = await make('Gamma', `Gamma points at [[${beta}]] and [[MISSING]].\n`);
+
+    const search = await notes(root, 'search', 'kumquats', '--json');
+    expect(search.code).toBe(0);
+    const { hits } = JSON.parse(search.stdout) as { hits: { id: string; rankInVault: number }[] };
+    expect(hits).toEqual([expect.objectContaining({ id: alpha, rankInVault: 1 })]);
+
+    const back = await notes(root, 'backlinks', 'alpha', '--json');
+    const { backlinks } = JSON.parse(back.stdout) as { backlinks: { source: { id: string } }[] };
+    expect(backlinks.map((b) => b.source.id)).toEqual([beta, beta]);
+
+    const refs = await notes(root, 'reference', 'list', gamma);
+    expect(refs.stdout).toContain(`[[${beta}]] -> Beta (beta.md)`);
+    expect(refs.stdout).toContain('[[MISSING]] -> unresolved');
+
+    const doctor = await notes(root, 'doctor', '--json');
+    expect(doctor.code).toBe(0); // a dangling reference is a warning, not an error
+    const { findings } = JSON.parse(doctor.stdout) as {
+      findings: { kind: string; details: { target: string } }[];
+    };
+    // legacy.md (previous test) references [[X]]; gamma references [[MISSING]].
+    expect(findings.map((f) => [f.kind, f.details.target])).toEqual([
+      ['dangling-reference', 'MISSING'],
+      ['dangling-reference', 'X'],
+    ]);
+
+    // The cache is disposable: deleting it changes nothing observable.
+    const before = await notes(root, 'list', '--json');
+    await rm(join(root, '.notes', 'cache'), { recursive: true, force: true });
+    expect((await notes(root, 'list', '--json')).stdout).toBe(before.stdout);
+    expect((await notes(root, 'index', 'rebuild')).stdout).toMatch(/^Indexed 5 files/);
+
+    // A duplicate id is an error: doctor exits 6 and show refuses to guess.
+    await writeFile(join(root, 'dup.md'), `---\nid: ${alpha}\n---\n`);
+    const status = await notes(root, 'index', 'status');
+    expect(status.stdout).toContain('stale: 1\n+ dup.md');
+    const sick = await notes(root, 'doctor', '--json');
+    expect(sick.code).toBe(6);
+    const report = JSON.parse(sick.stdout) as { ok: boolean; findings: { kind: string }[] };
+    expect(report.ok).toBe(false);
+    // `index status` above did not refresh, so doctor also reports the stale index.
+    expect(report.findings.map((f) => f.kind)).toEqual([
+      'stale-index',
+      'duplicate-id',
+      'dangling-reference',
+      'dangling-reference',
+    ]);
+    expect(report.findings[1]).toMatchObject({
+      details: { id: alpha, paths: ['alpha.md', 'dup.md'] },
+    });
+    expect((await notes(root, 'show', alpha)).code).toBe(4);
+    await rm(join(root, 'dup.md'));
+    expect((await notes(root, 'index', 'status')).stdout).toContain('- dup.md');
+  });
+
   it('runs from a nested directory and fails clearly outside a vault', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'notes-outside-'));
     try {

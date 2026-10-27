@@ -1,6 +1,7 @@
 import type { AppError } from '../domain/errors.js';
 import type { UniqueSource } from '../domain/identity/identity.js';
-import type { Heading } from '../domain/note/note.js';
+import type { Heading, NoteEntry } from '../domain/note/note.js';
+import type { EntrySummary, NoteSummary } from '../domain/note/summary.js';
 import type { Reference } from '../domain/reference/reference.js';
 import type { Result } from '../domain/result.js';
 import type { SourceRange } from '../domain/text/text-edit.js';
@@ -25,8 +26,14 @@ export interface VaultRepository {
   create(root: string, config: VaultConfig): Promise<Result<void, AppError>>;
 }
 
-export interface NoteDocument {
+/** A file's cheap fingerprint; a change in either means the content must be re-read. */
+export interface NoteFile {
   readonly path: string;
+  readonly mtime: number;
+  readonly size: number;
+}
+
+export interface NoteDocument extends NoteFile {
   readonly source: string;
   /** Content hash; compare with `WriteOptions.expectedVersion` to detect concurrent edits. */
   readonly version: string;
@@ -40,7 +47,7 @@ export interface WriteOptions {
 }
 
 export interface NoteStore {
-  list(root: string, include: readonly string[], exclude: readonly string[]): Promise<string[]>;
+  list(root: string, include: readonly string[], exclude: readonly string[]): Promise<NoteFile[]>;
   read(root: string, path: string): Promise<Result<NoteDocument, AppError>>;
   write(
     root: string,
@@ -87,6 +94,74 @@ export interface TemplateRepository {
   listTemplates(root: string): Promise<string[]>;
 }
 
+/*
+ * The note index is a disposable projection of the vault's files. It is keyed by path, not id,
+ * because duplicate ids must be representable so `doctor` can report them.
+ */
+
+export interface IndexedFile extends NoteFile {
+  readonly version: string;
+}
+
+export interface IndexedReference {
+  readonly sourcePath: string;
+  readonly target: string;
+  readonly label?: string;
+  readonly range: SourceRange;
+}
+
+export interface SearchHit {
+  readonly entry: EntrySummary;
+  /** Lower is better (bm25); comparable only within one index. */
+  readonly score: number;
+  readonly snippet: string;
+}
+
+export interface DateHit {
+  readonly date: string;
+  readonly entry: NoteSummary;
+}
+
+export interface IndexStats {
+  readonly notes: number;
+  readonly unidentified: number;
+  readonly references: number;
+  readonly schemaVersion: number;
+}
+
+export interface NoteIndex {
+  files(): IndexedFile[];
+  upsert(entry: NoteEntry, file: NoteFile): void;
+  /** Records a new fingerprint for an unchanged file (e.g. after `touch`). */
+  touch(file: NoteFile): void;
+  remove(path: string): void;
+  clear(): void;
+  /** Runs `work` in one transaction. */
+  batch<T>(work: () => T): T;
+
+  all(): EntrySummary[];
+  byPath(path: string): EntrySummary | null;
+  byId(id: string): NoteSummary[];
+  /** Case-insensitive match on title or alias; identified notes only. */
+  byName(name: string): NoteSummary[];
+  byField(key: string, value?: string): EntrySummary[];
+  onDate(date: string): NoteSummary[];
+  /** Inclusive range, ordered by date then path. */
+  datesBetween(from: string, to: string): DateHit[];
+  search(query: string, limit: number): SearchHit[];
+  outgoing(sourcePath: string): IndexedReference[];
+  backlinks(targetId: string): IndexedReference[];
+  /** References whose target matches no indexed id. */
+  dangling(): IndexedReference[];
+  stats(): IndexStats;
+  close(): void;
+}
+
+export interface NoteIndexProvider {
+  /** Opens (creating or resetting on schema mismatch) the index under `root/.notes/cache/`. */
+  open(root: string): Promise<Result<NoteIndex, AppError>>;
+}
+
 export interface AppDeps {
   readonly clock: Clock;
   readonly unique: UniqueSource;
@@ -95,4 +170,5 @@ export interface AppDeps {
   readonly markdown: MarkdownParser;
   readonly frontmatter: FrontmatterCodec;
   readonly templates: TemplateRepository;
+  readonly indexes: NoteIndexProvider;
 }

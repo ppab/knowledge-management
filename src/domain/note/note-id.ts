@@ -26,3 +26,6 @@ export const parseNoteId = (raw: unknown): Result<NoteId, AppError> => {
 };
 
 export const isNoteId = (raw: string): raw is NoteId => parseNoteId(raw).ok;
+
+/** For values that were validated before being stored (e.g. read back from the index). */
+export const asNoteId = (validated: string): NoteId => validated as NoteId;

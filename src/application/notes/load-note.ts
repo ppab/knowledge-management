@@ -10,7 +10,7 @@ import type { AppDeps, NoteDocument } from '../ports.js';
  */
 export const loadNoteEntry = (
   deps: Pick<AppDeps, 'markdown' | 'frontmatter'>,
-  doc: NoteDocument,
+  doc: Pick<NoteDocument, 'path' | 'source' | 'version'>,
 ): NoteEntry => {
   const issues: string[] = [];
   const block = splitFrontmatter(doc.source);

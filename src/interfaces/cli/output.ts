@@ -1,5 +1,6 @@
 import type { AppError, ErrorCode } from '../../domain/errors.js';
 import type { NoteEntry } from '../../domain/note/note.js';
+import type { EntrySummary } from '../../domain/note/summary.js';
 import type { Result } from '../../domain/result.js';
 import type { CliContext } from './context.js';
 
@@ -45,6 +46,12 @@ export const noteToJson = (entry: NoteEntry): Record<string, unknown> => {
   const { source, body, ...rest } = entry;
   return { ...rest, content: source.slice(body.start) };
 };
+
+export const summaryRow = (entry: EntrySummary): string[] => [
+  entry.kind === 'note' ? entry.id : '-',
+  entry.title,
+  entry.path,
+];
 
 export const table = (rows: readonly (readonly string[])[]): string => {
   const widths: number[] = [];

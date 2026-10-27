@@ -3,6 +3,7 @@ import { createVaultRepository } from './filesystem/vault-repository.js';
 import { createNoteStore } from './filesystem/note-store.js';
 import { createUniqueSource } from './identity/unique-source.js';
 import { createMarkdownParser } from './markdown/parser.js';
+import { createSqliteIndexProvider } from './sqlite/note-index.js';
 import { createTemplateRepository } from './templates/template-repository.js';
 import { createFrontmatterCodec } from './yaml/frontmatter-codec.js';
 
@@ -15,4 +16,5 @@ export const createDeps = (): AppDeps => ({
   markdown: createMarkdownParser(),
   frontmatter: createFrontmatterCodec(),
   templates: createTemplateRepository(),
+  indexes: createSqliteIndexProvider(),
 });

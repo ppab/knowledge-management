@@ -43,3 +43,12 @@ export const currentVault = (ctx: CliContext): Promise<Result<VaultHandle, AppEr
     cwd: ctx.cwd,
     ...(ctx.vaultRoot !== undefined && { root: ctx.vaultRoot }),
   });
+
+/** Wraps a use case that needs the current vault; vault discovery errors pass straight through. */
+export const inVault =
+  <T>(ctx: CliContext, work: (vault: VaultHandle) => Promise<Result<T, AppError>>) =>
+  async (): Promise<Result<T, AppError>> => {
+    const vault = await currentVault(ctx);
+    if (!vault.ok) return vault;
+    return work(vault.value);
+  };

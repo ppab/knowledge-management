@@ -63,12 +63,18 @@ describe('note store', () => {
     ]) {
       await writeFile(join(root, p), p);
     }
-    expect(await store.list(root, ['**/*.md'], ['node_modules/**'])).toEqual([
+    const listed = await store.list(root, ['**/*.md'], ['node_modules/**']);
+    expect(listed.map((f) => f.path)).toEqual(['docs/a.md', 'docs/sub/b.md', 'top.md']);
+    expect(listed[0]).toMatchObject({
+      size: 'docs/a.md'.length,
+      mtime: expect.any(Number) as number,
+    });
+    expect((await store.list(root, ['docs/**/*.md'], [])).map((f) => f.path)).toEqual([
       'docs/a.md',
       'docs/sub/b.md',
-      'top.md',
     ]);
-    expect(await store.list(root, ['docs/**/*.md'], [])).toEqual(['docs/a.md', 'docs/sub/b.md']);
+    const doc = unwrap(await store.read(root, 'top.md'));
+    expect(doc).toMatchObject({ size: 6, mtime: listed[2]!.mtime });
   });
 
   it('writes atomically, creates directories and leaves no temp files', async () => {

@@ -192,10 +192,20 @@ publications: # optional, see §7
 **Frontmatter** — recognized keys: `id`, `title`, `aliases`, `dates`, `tags`, `visibility`, `type`,
 `slug`. Everything else is preserved opaquely. Title fallback: `title` → first H1 → filename stem.
 
-**Index schema** (`.notes/cache/index.sqlite`): `notes(id, path, title, visibility, version,
-mtime, unidentified)`, `aliases(note_id, alias)`, `dates(note_id, date)`, `tags(note_id, tag)`,
-`refs(source_id, target_id, label, offset)`, `notes_fts` (FTS5 over title, aliases, body),
-`meta(schema_version)`. A schema version mismatch triggers a rebuild.
+**Index schema** (`.notes/cache/index.sqlite`, keyed by `path` so duplicate ids stay
+representable): `notes(path, id, title, visibility, type, slug, version, mtime, size,
+unidentified, aliases, dates, tags, fields, issues)`, lookup tables `aliases(path, alias)`,
+`dates(path, date)`, `tags(path, tag)`, `fields(path, key, value, kind)` (every frontmatter key
+the core does not interpret, one row per scalar; this is what plugins query by),
+`refs(path, target, label, start, end)`, `notes_fts` (FTS5 over title, aliases, body; bm25
+weights 10/5/1) and `meta(schema_version)`. A schema version mismatch resets the index.
+
+**Freshness.** Every read use case opens the index, runs an incremental refresh and then
+queries. A file whose `mtime` and `size` match the index is skipped; any other file is re-read
+and compared by content hash, so a `touch` never re-indexes and an edit that keeps the size is
+still caught. Files no longer matched by the vault's globs are dropped. `index status` reports
+what a refresh would change without changing anything; `doctor` reports whether the index was
+stale, then refreshes it before running its checks.
 
 ### Reference parsing and resolution
 
@@ -231,9 +241,9 @@ message. This guarantees we never split emphasis, links or code spans.
 
 ```
 notes init [--name <n>] [--identity ulid|uuidv7|formatted --format "..."]
-notes list [--tag <t>] [--date <d>] [--vault <name>] [--unidentified]
+notes list [--tag <t>] [--date <d>|<from>..<to>] [--vault <name>] [--unidentified]
 notes show <id|alias> [--raw] [--at <rev>]
-notes search <query>
+notes search <words...> [--limit <n>]        # trailing * on a word matches prefixes
 notes create --template <name> --title <t> [--var k=v]... [--vault <name>]
 notes edit <id>
 notes adopt <path>... [--type <type>]
