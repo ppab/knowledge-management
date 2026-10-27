@@ -253,6 +253,49 @@ error (exit 6). `index status|rebuild --json` now return `{ vaults: [...] }`.
 
 ---
 
+## M4.5 — Plugin core
+
+**Objective.** The plugin contract from [plugins.md](./plugins.md) exists, is enforced by lint,
+and carries one real plugin end to end through the CLI and `doctor`, so M5 can build the TUI on
+the panel registry.
+
+**Deliverables**
+
+- application: `NotePlugin`, `FieldSpec`, `PluginCommand`, `PluginCheck`, `PanelSpec` and
+  `PluginRegistry` types; `buildRegistry(plugins, scope)` (owner uniqueness, field-type
+  conflicts, key collisions); `createPluginApi`; `setFields` mutation; declared-field
+  validation shared by `doctor` and `show`.
+- infrastructure: `plugins:` key in `.notes/config.yaml` (zod), settings handed to the plugin's
+  own validator.
+- plugins: `src/plugins/index.ts` and `src/plugins/todos/` (type `todo`; `status`, `due`,
+  `priority`; `todos list`, `todos done`; one check; two panels, data only).
+- CLI: plugin command groups generated from `PluginCommand`; `capabilities --json` lists
+  plugins; `show` prints declared fields.
+- tooling: ESLint rules for `src/plugins/**` and the layer-boundary test cases.
+
+**Dependencies.** M3, M4.
+
+**Acceptance criteria**
+
+- A vault without `plugins:` behaves exactly as before; `notes todos` is then an unknown command
+  (exit 2).
+- With `plugins: { todos: {} }`: `create --template todos/task --title X` writes a `todo` note;
+  `todos list --due today --json` returns it; `todos done <id>` sets `status: done` through the
+  mutation path (`--dry-run` shows the diff; concurrent edit exits 5).
+- A todo with `status: later` makes `doctor` emit a `field` warning naming the allowed values;
+  `doctor` still exits 0.
+- Two plugins declaring `status` with different types fail vault open with exit 6.
+- `src/plugins/todos/` importing `commander`, `ink` or `node:fs` fails lint and the boundary test.
+
+**Tests**
+
+- application: registry conflicts; `setFields` (set, remove, dry-run, conflict);
+  declared-field validation matrix.
+- plugins: `todos` queries and commands against `test/fakes`.
+- integration: the acceptance flow above through the CLI.
+
+---
+
 ## M5 — TUI core
 
 **Objective.** Browse, search, read, navigate and edit notes in the terminal using the same
@@ -263,17 +306,21 @@ services as the CLI.
 - Spike (first task): Ink ↔ nvim handoff; recorded in `docs/decisions/0002-editor-handoff.md`.
 - infrastructure: `render(parsed) → RenderedLine[]` with source spans; `ExternalEditor`;
   `FileWatcher`.
-- TUI: app shell with screen stack; `NoteList` (browse, `/` search, tag filter), `NoteView`
-  (scroll, reference cursor, follow, back, metadata and backlinks panels, `e` edit), `Calendar`
-  (month grid, bound days, open day); watcher-driven refresh; `●` modified marker placeholder
+- TUI: app shell with screen stack built on the panel registry (plugins.md §4): core panels
+  (`core.metadata`, `core.backlinks`, `core.calendar`) registered like plugin panels; `NoteList`
+  (browse, `/` search, tag filter), `NoteView` (scroll, reference cursor, follow, back, side
+  panels, `e` edit), `Calendar` (month grid, bound days, open day); `todos` panels rendered
+  from their `PanelData` as proof; watcher-driven refresh; `●` modified marker placeholder
   until M7.
 - CLI: `notes` with no subcommand launches the TUI; `notes edit` uses the same `ExternalEditor`.
 
-**Dependencies.** M3, M4.
+**Dependencies.** M3, M4, M4.5.
 
 **Acceptance criteria**
 
 - Opening a note, following a reference, and pressing back returns to the same scroll position.
+- A plugin panel with a key clashing with a core key fails at startup naming both; a `todos`
+  home panel opens with its key and `Enter` on a row opens that note.
 - A reference whose target is `NotFound` / `Ambiguous` / `Unavailable` is rendered with a
   distinct marker and `Enter` shows the reason instead of navigating.
 - Pressing `e`, editing in nvim, and quitting returns to the TUI with the note re-rendered and

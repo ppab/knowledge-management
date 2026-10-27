@@ -310,7 +310,14 @@ notes are never opened for writing.
 | integration    | spawn the real CLI binary in a tmp vault: init → create → reference → search → export → assert links |
 | TUI            | `ink-testing-library` for key maps, screen stack, and rendered↔source mapping; no pixel assertions   |
 
-## 9. Non-goals (v0.1)
+## 9. Plugins (addendum)
+
+Kinds of notes (todos, goals, expenses, …) are plugins: application-layer code under
+`src/plugins/<name>/` that declares owned `type`s, typed fields, commands, doctor checks and TUI
+panels as data, and acts only through a narrowed plugin API. The TUI is built on a panel
+registry that core screens and plugins share. Full design: [plugins.md](./plugins.md).
+
+## 10. Non-goals (v0.1)
 
 As listed in the specification: no Neovim plugin, GUI, sync, accounts, real-time collaboration,
 daemon, graph DB, vector search, AI integration, full SSG, deployment, graph editor, typed
