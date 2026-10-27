@@ -2,6 +2,8 @@ import type { NoteLocator } from '../../application/notes/view-note.js';
 import type { PanelNoteRef } from '../../application/plugin/plugin.js';
 import type { IsoDate } from '../../domain/calendar/date-binding.js';
 import type { EntrySummary } from '../../domain/note/summary.js';
+import type { Position } from '../../domain/text/rendered.js';
+import type { Selection } from './selection.js';
 
 /*
  * The screen stack (docs/architecture.md §6). Every screen's transient state (cursor, scroll,
@@ -20,15 +22,32 @@ export type Screen =
       readonly kind: 'note';
       readonly locator: NoteLocator;
       readonly scroll: number;
-      /** Index into the note's references, or `null` when no reference is under the cursor. */
-      readonly reference: number | null;
+      /** Text cursor in rendered coordinates; unset until first placed (then: first text). */
+      readonly cursor?: Position;
       /** `undefined`: the automatic panel (if any); `null`: closed; else a panel id. */
       readonly panel?: string | null;
       readonly panelCursor: number;
+      /** Visual selection (`v`); present only while selecting. */
+      readonly selection?: Selection;
     }
   | { readonly kind: 'calendar'; readonly cursor: IsoDate }
   | { readonly kind: 'day'; readonly date: IsoDate; readonly cursor: number }
-  | { readonly kind: 'panel'; readonly id: string; readonly cursor: number };
+  | { readonly kind: 'panel'; readonly id: string; readonly cursor: number }
+  | { readonly kind: 'history'; readonly locator: NoteLocator; readonly cursor: number }
+  /** A note as it was at one revision (read-only). */
+  | {
+      readonly kind: 'revision';
+      readonly locator: NoteLocator;
+      readonly revision: string;
+      readonly scroll: number;
+    }
+  /** A revision against the working file. */
+  | {
+      readonly kind: 'diff';
+      readonly locator: NoteLocator;
+      readonly from: string;
+      readonly scroll: number;
+    };
 
 export type Navigation =
   | { readonly type: 'push'; readonly screen: Screen }
@@ -54,7 +73,6 @@ export const noteScreen = (locator: NoteLocator): Screen => ({
   kind: 'note',
   locator,
   scroll: 0,
-  reference: null,
   panelCursor: 0,
 });
 

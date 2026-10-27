@@ -1,4 +1,4 @@
-import { appError, type AppError } from '../../domain/errors.js';
+import { appError, conflict, type AppError } from '../../domain/errors.js';
 import { splitFrontmatter } from '../../domain/note/frontmatter.js';
 import type { Heading, Note } from '../../domain/note/note.js';
 import { err, ok, type Result } from '../../domain/result.js';
@@ -36,6 +36,23 @@ export interface MutationOutcome {
   /** New content version after a write. */
   readonly version?: string;
 }
+
+/**
+ * Refuses to act on a note that is no longer the one the caller looked at. Interactive flows
+ * (the TUI's picker and selection) hold a note for a while before they write; the read-time
+ * version lets the write path (`expectedVersion`) reject the race, but a clear message beats
+ * a partial flow.
+ */
+export const checkVersion = (note: Note, expected: string | undefined): Result<void, AppError> =>
+  expected === undefined || expected === note.version
+    ? ok(undefined)
+    : err(
+        conflict(`${note.path} changed on disk since it was read`, {
+          path: note.path,
+          expected,
+          actual: note.version,
+        }),
+      );
 
 const shapes = (headings: readonly HeadingShape[]): string[] =>
   headings.map((h) => `${String(h.depth)}:${h.text}`).sort();

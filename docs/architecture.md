@@ -15,7 +15,7 @@ application/     use cases + ports (what the app needs from the outside world)
                                   │
 domain/          pure entities, value objects, invariants — no runtime dependencies
                                   ▲
-infrastructure/  filesystem · markdown (remark) · yaml · sqlite (node:sqlite) · git (simple-git)
+infrastructure/  filesystem · markdown (remark) · yaml · sqlite (node:sqlite) · git (the git binary)
                  · identity · editor · config · watcher
 ```
 
@@ -61,7 +61,7 @@ Libraries:
 | Markdown AST | `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-stringify` | positional info on every node; standard           |
 | Frontmatter  | `yaml` (`parseDocument`)                                                     | round-trips comments and key order                |
 | SQLite       | `node:sqlite` (Node ≥ 24); fallback `better-sqlite3`                         | no native build; FTS5 availability verified in M0 |
-| Git          | `simple-git`                                                                 | uses the user's git and config; follows renames   |
+| Git          | the user's `git` binary via `execFile` (M7: no `simple-git`)                 | uses the user's git and config; follows renames   |
 | CLI          | `commander`                                                                  | composable, explicit exit codes                   |
 | TUI          | `ink`, `react`                                                               | as specified                                      |
 | IDs          | `ulid`, `uuid` (v7)                                                          |                                                   |
@@ -89,7 +89,8 @@ Libraries:
 - `ResolutionResult` — `Resolved {note, vaultId}` | `NotFound` | `Unavailable {vaultIds}` | `Ambiguous {candidates}`.
 - `DateBinding` — ISO date from frontmatter `dates:`; independent of file timestamps. Set semantics.
 - `Scope` — `VaultScope(vaultId)` | `CompositeScope(vaultIds[])`, with per-vault availability.
-- `Revision { id, timestamp, summary, author? }` — provider-neutral.
+- `Revision { id, timestamp, summary, author?, path }` — provider-neutral; `RevisionStatus` is
+  `unversioned` | `unrecorded` | `clean {last}` | `modified {last}`.
 - `TextEdit { start, end, replacement }`, `applyEdits(source, edits)` — the single mutation primitive.
 - `InsertionLocation` — `AtEnd` | `UnderHeading(text)` | `InReferencesSection`.
 - `DocumentVersion` — content hash for conflict detection.
@@ -158,7 +159,7 @@ exceptions.
 | `FrontmatterCodec`   | yaml       | `read(source)`, `set(source, key, value) → TextEdit` preserving everything else                                                                                                  |
 | `NoteIndex`          | sqlite     | `upsert`, `remove`, `clear`, `findById`, `findByAlias`, `findByTitle`, `search`, `byDate`, `outgoing`, `backlinks`, `stats`                                                      |
 | `IdentityStrategy`   | identity   | `generate(ctx) → NoteId` for `ulid` / `uuidv7` / `formatted`                                                                                                                     |
-| `RevisionProvider`   | git        | `isTracked`, `status`, `list`, `read`, `diff`, `record(path, message)`; returns `NotUnderVersionControl` gracefully                                                              |
+| `RevisionProvider`   | git        | `status`, `list` (follows renames), `read(revision)`, `record(path, message)`; an unversioned vault is a status, not an error; diffs are computed in the domain (`unifiedDiff`)  |
 | `TemplateRepository` | filesystem | `getTemplate`, `getSnippet`, `list`                                                                                                                                              |
 | `ExternalEditor`     | editor     | `open(file, {command?})` — vault `editor:` → `$VISUAL` → `$EDITOR` → `nvim`; CLI spawns directly, TUI suspends Ink first                                                         |
 | `FileWatcher`        | chokidar   | TUI-only; `watch(roots, onChange)` batches `.md` changes per tick, ignores dot directories; the next read refreshes the index                                                    |
@@ -280,18 +281,20 @@ Exit codes: `0` ok · `1` unexpected · `2` usage · `3` not found · `4` ambigu
 
 Screen stack (`push`/`pop`); each screen owns its key map.
 
-| Screen     | Keys                                                                                                                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NoteList` | `j/k` move · `/` search · `t` tag filter · `c` calendar · `Enter` open · `n` new note · `q` quit                                                                                         |
-| `NoteView` | `j/k` scroll · `Tab` next reference · `Enter` follow · `Backspace`/`u` back · `m` metadata · `b` backlinks · `e` edit (nvim) · `s` save revision · `i` picker · `v` select · `h` history |
-| selection  | motions/arrows extend · `r` reference (opens picker) · `l` external link (prompts URL) · `Esc` cancel                                                                                    |
-| `Calendar` | `h/j/k/l` move · `[`/`]` month · `Enter` notes on day · `Esc` back                                                                                                                       |
-| `Picker`   | type to search (scope-wide, interleaved by vault) · `Enter` select → location prompt (end / heading / references) · `Esc`                                                                |
-| `History`  | `j/k` · `Enter` view at revision · `d` diff against working                                                                                                                              |
+| Screen     | Keys                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NoteList` | `j/k` move · `/` search · `t` tag filter · `c` calendar · `Enter` open · `n` new note · `q` quit                                                                                                                                                                                                                                        |
+| `NoteView` | `h/j/k/l`, arrows, `w/b`, `0/$`, `g/G` move the cursor · `Tab` next reference · `Enter` follow the one under the cursor · `Backspace`/`u` back · `m` metadata · `b` backlinks · `e` edit (nvim) · `s` save revision · `i`/`a` reference before/after the word under the cursor · `I` reference at a location · `v` select · `H` history |
+| selection  | `h/j/k`/arrows, `w/b`, `0/$` extend · `v` restart here · `r` reference (opens picker) · `l` external link (prompts URL) · `Esc` cancel                                                                                                                                                                                                  |
+| `Calendar` | `h/j/k/l` move · `[`/`]` month · `Enter` notes on day · `Esc` back                                                                                                                                                                                                                                                                      |
+| `Picker`   | type to search (scope-wide, interleaved by vault) · `Enter` select → location prompt (end / heading / references) · `Esc`                                                                                                                                                                                                               |
+| `History`  | `j/k` · `Enter` view at revision · `d` diff against working                                                                                                                                                                                                                                                                             |
 
-Header shows title, vault, id, and `●` when the file differs from its last revision. The watcher
-refreshes the index on change; the open note reloads and a pending selection is invalidated if
-its version went stale.
+Header shows title, vault, id, and `●` when the file differs from its last revision (or has
+none yet). The watcher refreshes the index on change; the open note reloads and a pending
+selection is invalidated if its version went stale. `s` prompts for a message and records the
+note (empty message: `Save <title>`); `H` opens the history, whose `Enter` shows the note at a
+revision read-only and `d` shows a unified diff of that revision against the working file.
 
 As built in M5: `Esc` also goes back on every pushed screen; `g`/`G` jump to the top and bottom;
 home panels from the registry (`c` calendar, `T` todos, …) are listed in the `NoteList` hints and
@@ -306,6 +309,21 @@ runs the same editor adapter from the CLI.
 External editor from the TUI: Ink's `suspendTerminal` hands the terminal over, the editor runs
 with `stdio: inherit`, and Ink repaints on return
 ([decision 0002](./decisions/0002-editor-handoff.md)).
+
+As built in M6: the note screen keeps a text cursor (in its stack entry) that rests on the
+first text of the note and moves with vim motions; the view scrolls to keep it on screen.
+`i` and `a` open the picker (every identified note of the scope, narrowed by typing with each
+word as a prefix) and insert `[[id]]` before the character or after the word under the cursor,
+spaced so the reference reads as a word, through `addReference` with the `at` location, which
+obeys the single-text-node rule like a selection. `I` asks for a location instead (end, each
+heading, references section). `v` starts a selection at the cursor; anchor and head are
+inclusive rendered positions, a second `v` restarts at the head, and only `r`, `l` and `Esc`
+leave the mode, leaving the cursor at the head. History (M7) moves to `H` since `h` is a
+motion. Both `r` and `l` first run `checkSelection`
+(the wrap rules, no write) and then `wrapSelectionAsReference` / `wrapSelectionAsExternalLink`
+with the version the selection was made on; a changed file answers `CONFLICT` and the
+selection is dropped, as it is on any reload that brings another version. Unidentified files
+cannot be referenced from or selected in.
 
 ## 7. Publishing pipeline
 

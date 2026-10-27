@@ -71,6 +71,8 @@ export const KEYS = {
   backspace: '\u007F',
   up: '\u001B[A',
   down: '\u001B[B',
+  right: '\u001B[C',
+  left: '\u001B[D',
   pageDown: '\u001B[6~',
   pageUp: '\u001B[5~',
 };
@@ -84,6 +86,8 @@ export interface Terminal {
   frame(): string;
   /** Sends keys one at a time, yielding to the event loop in between. */
   press(...keys: string[]): Promise<void>;
+  /** Types `text` character by character. */
+  type(text: string): Promise<void>;
   /** Waits until the frame satisfies `predicate` (or contains the text). */
   waitFor(what: string | ((frame: string) => boolean), timeoutMs?: number): Promise<string>;
   waitUntilExit(): Promise<void>;
@@ -114,16 +118,18 @@ export const renderTerminal = (element: ReactElement, options: TerminalOptions =
   // Interactive mode writes incremental updates, so only the whole output is meaningful there.
   const frame = () =>
     options.interactive ? stripAnsi(stdout.frames.join('')) : stripAnsi(stdout.lastFrame());
+  const press = async (...keys: string[]) => {
+    for (const key of keys) {
+      stdin.write(key);
+      await sleep(40); // above Ink's 20 ms escape-sequence flush delay
+    }
+  };
   return {
     stdin,
     stdout,
     frame,
-    press: async (...keys) => {
-      for (const key of keys) {
-        stdin.write(key);
-        await sleep(40); // above Ink's 20 ms escape-sequence flush delay
-      }
-    },
+    press,
+    type: (text) => press(...Array.from(text)),
     waitFor: async (what, timeoutMs = 4000) => {
       const test = typeof what === 'string' ? (f: string) => f.includes(what) : what;
       const deadline = Date.now() + timeoutMs;

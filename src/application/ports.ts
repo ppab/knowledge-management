@@ -4,6 +4,7 @@ import type { Heading, NoteEntry } from '../domain/note/note.js';
 import type { EntrySummary, NoteSummary } from '../domain/note/summary.js';
 import type { Reference } from '../domain/reference/reference.js';
 import type { Result } from '../domain/result.js';
+import type { Revision, RevisionStatus } from '../domain/revision/revision.js';
 import type { RenderedLine } from '../domain/text/rendered.js';
 import type { SourceRange } from '../domain/text/text-edit.js';
 import type { VaultConfig } from '../domain/vault/vault.js';
@@ -129,6 +130,24 @@ export interface FrontmatterCodec {
   update(yaml: string, update: FrontmatterUpdate): Result<string, AppError>;
 }
 
+/*
+ * Revisions of one file at a time. A vault that no provider holds is not an error: `status`
+ * answers `unversioned`, `list` is empty, and only `read`/`record` refuse (`UNAVAILABLE`).
+ */
+export interface RevisionProvider {
+  status(root: string, path: string): Promise<Result<RevisionStatus, AppError>>;
+  /** Newest first, following renames; `[]` when nothing was recorded. */
+  list(root: string, path: string): Promise<Result<Revision[], AppError>>;
+  /** The file's content at `revision` (taken from `list`, so its path is the right one). */
+  read(root: string, revision: Revision): Promise<Result<string, AppError>>;
+  /**
+   * Records the working file as a new revision and returns it. Only `path` is recorded; other
+   * pending changes in the repository stay as they are. A provider hook that refuses the
+   * revision surfaces as `INTERNAL` with the hook's output in `details`.
+   */
+  record(root: string, path: string, message: string): Promise<Result<Revision, AppError>>;
+}
+
 export interface TemplateSource {
   readonly name: string;
   readonly source: string;
@@ -233,6 +252,7 @@ export interface AppDeps {
   readonly markdown: MarkdownParser;
   readonly frontmatter: FrontmatterCodec;
   readonly templates: TemplateRepository;
+  readonly revisions: RevisionProvider;
   readonly indexes: NoteIndexProvider;
   readonly userConfig: UserConfigRepository;
 }

@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import { usage } from '../../domain/errors.js';
 import { err } from '../../domain/result.js';
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
+import { registerHistoryCommands } from './commands/history.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerMaintenanceCommands } from './commands/maintenance.js';
 import { registerMutationCommands } from './commands/mutations.js';
@@ -37,6 +38,7 @@ export const registerCommands = (program: Command, io: CliIo, exit: Exit): void 
   registerNoteCommands(program, io, exit);
   const reference = registerQueryCommands(program, io, exit);
   registerMutationCommands(program, reference, io, exit);
+  registerHistoryCommands(program, io, exit);
   registerMaintenanceCommands(program, io, exit);
   registerPluginCommands(program, io, exit);
   registerCapabilitiesCommand(program, io, exit);

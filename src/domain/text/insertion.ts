@@ -1,7 +1,7 @@
-import { ambiguous, notFound, usage, type AppError } from '../errors.js';
+import { ambiguous, notFound, usage, validation, type AppError } from '../errors.js';
 import type { Heading } from '../note/note.js';
 import { err, ok, type Result } from '../result.js';
-import { insertAt, type TextEdit } from './text-edit.js';
+import { insertAt, type SourceRange, type TextEdit } from './text-edit.js';
 
 /*
  * Where a block of Markdown goes when it is added to a note. Locations are resolved against
@@ -11,7 +11,12 @@ import { insertAt, type TextEdit } from './text-edit.js';
 export type InsertionLocation =
   | { readonly kind: 'end' }
   | { readonly kind: 'heading'; readonly text: string }
-  | { readonly kind: 'references' };
+  | { readonly kind: 'references' }
+  /**
+   * Inline, next to the character at `offset` (the TUI cursor): `before` it, or `after` the
+   * word it is on. Allowed only inside one prose run, like a selection.
+   */
+  | { readonly kind: 'at'; readonly offset: number; readonly side: 'before' | 'after' };
 
 export const REFERENCES_HEADING = 'References';
 
@@ -30,6 +35,8 @@ export interface DocumentLayout {
   readonly source: string;
   readonly bodyStart: number;
   readonly headings: readonly Heading[];
+  /** Prose runs (mdast `text` nodes); where an inline insertion may go. */
+  readonly textSpans: readonly SourceRange[];
 }
 
 /** Offset just past the last non-whitespace character in `[start, end)`, or `start`. */
@@ -55,6 +62,33 @@ const appendToSection = (
   const separator = emptyBody ? (layout.bodyStart === 0 ? '' : '\n') : '\n\n';
   const tail = layout.source.slice(at).includes('\n') ? '' : '\n';
   return insertAt(at, separator + block + tail);
+};
+
+const isSpace = (char: string): boolean => /\s/.test(char);
+
+/**
+ * `block` as inline text next to a word: a space is added on each side that touches a word,
+ * none where it meets whitespace or the end of the run, so `[[id]]` reads as a word itself.
+ */
+const insertInline = (
+  layout: DocumentLayout,
+  offset: number,
+  side: 'before' | 'after',
+  block: string,
+): Result<TextEdit, AppError> => {
+  const { source, textSpans, headings } = layout;
+  const span = textSpans.find((s) => offset >= s.start && offset < s.end);
+  if (!span) return err(validation('The cursor must be on note text', { offset }));
+  if (headings.some((h) => offset >= h.range.start && offset < h.range.end)) {
+    return err(validation('Heading text cannot hold a reference', { offset }));
+  }
+  let at = offset;
+  if (side === 'after') {
+    while (at < span.end && !isSpace(source.charAt(at))) at += 1;
+  }
+  const padLeft = at > span.start && !isSpace(source.charAt(at - 1)) ? ' ' : '';
+  const padRight = at < span.end && !isSpace(source.charAt(at)) ? ' ' : '';
+  return ok(insertAt(at, padLeft + block + padRight));
 };
 
 const sectionEndOf = (headings: readonly Heading[], heading: Heading, length: number): number => {
@@ -122,6 +156,10 @@ export const locateInsertion = (
         );
       }
       return under(heading.value);
+    }
+    case 'at': {
+      const edit = insertInline(layout, location.offset, location.side, block);
+      return edit.ok ? ok({ edit: edit.value, addsHeadings: [] }) : edit;
     }
     case 'references': {
       const heading = findHeading(headings, REFERENCES_HEADING);

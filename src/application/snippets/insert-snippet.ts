@@ -75,6 +75,7 @@ export const insertSnippet = (
         source: note.value.source,
         bodyStart: note.value.body.start,
         headings: note.value.headings,
+        textSpans: deps.markdown.parse(note.value.source, note.value.body.start).textSpans,
       },
       input.at ?? snippet.value.at ?? { kind: 'end' },
       rendered.value,

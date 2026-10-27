@@ -1,4 +1,5 @@
 import type { Command } from 'commander';
+import { readRevision } from '../../../application/history/history.js';
 import { adoptNote, type AdoptedNote } from '../../../application/notes/adopt-note.js';
 import { createNote } from '../../../application/notes/create-note.js';
 import { listNotes } from '../../../application/notes/list-notes.js';
@@ -10,7 +11,10 @@ import {
 } from '../../../application/plugin/validate-fields.js';
 import { extractFields } from '../../../domain/note/fields.js';
 import { isNote, type NoteEntry } from '../../../domain/note/note.js';
-import { ok } from '../../../domain/result.js';
+import type { AppError } from '../../../domain/errors.js';
+import { ok, type Result } from '../../../domain/result.js';
+import { abbreviate, type Revision } from '../../../domain/revision/revision.js';
+import type { VaultHandle } from '../../../application/vault/vault.js';
 import { isComposite, resolveWriteTarget, type Scope } from '../../../domain/scope/scope.js';
 import { absoluteNotePath } from '../../../domain/vault/paths.js';
 import type { Exit } from '../commands.js';
@@ -22,6 +26,7 @@ import {
   type CliIo,
 } from '../context.js';
 import { emit, noteToJson, summaryRow, table } from '../output.js';
+import { revisionDate } from './history.js';
 import { parseVar } from './mutations.js';
 
 /** Declared fields of a note whose type an enabled plugin owns; `null` for every other note. */
@@ -48,10 +53,16 @@ const showText = (
   fields: FieldDescription | null,
   raw: boolean,
   composite: boolean,
+  revision?: Revision,
 ): string => {
   if (raw) return entry.source;
   const lines = [`title: ${entry.title}`, `path: ${entry.path}`];
   if (composite) lines.push(`vault: ${vault}`);
+  if (revision) {
+    lines.push(
+      `revision: ${abbreviate(revision.id)} (${revisionDate(revision)}) ${revision.summary}`,
+    );
+  }
   if (isNote(entry)) {
     lines.unshift(`id: ${entry.id}`);
     if (entry.type !== undefined) lines.push(`type: ${entry.type}`);
@@ -66,6 +77,15 @@ const showText = (
   }
   return `${lines.join('\n')}\n\n${entry.source.slice(entry.body.start)}`;
 };
+
+/** What `show` prints: the working file, or the note as it was at `revision`. */
+interface Shown {
+  readonly composite: boolean;
+  readonly fields: FieldDescription | null;
+  readonly vault: VaultHandle;
+  readonly note: NoteEntry;
+  readonly revision?: Revision;
+}
 
 /** Writes need one vault: the scope's only one, `--in`, or the one containing the cwd. */
 const writeTarget = (ctx: CliContext, scope: Scope, inVault: string | undefined) =>
@@ -160,24 +180,36 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
     .description('show a note by id, title or alias')
     .argument('<query>', 'note id, title or alias')
     .option('--raw', 'print the file exactly as stored')
-    .action(async (query: string, opts: { raw?: boolean }, cmd: Command) => {
+    .option('--at <rev>', 'show the note as it was at this revision (id or prefix)')
+    .action(async (query: string, opts: { raw?: boolean; at?: string }, cmd: Command) => {
       const ctx = contextFor(io, cmd);
       exit(
         await emit(
           ctx,
-          inScopeWithPlugins(ctx, async (scope, registry) => {
+          inScopeWithPlugins(ctx, async (scope, registry): Promise<Result<Shown, AppError>> => {
+            const composite = isComposite(scope);
+            if (opts.at !== undefined) {
+              const historical = await readRevision(ctx.deps, scope, { query }, opts.at);
+              if (!historical.ok) return historical;
+              const { vault, entry, revision } = historical.value;
+              return ok({
+                composite,
+                fields: fieldsOf(registry, entry),
+                vault,
+                note: entry,
+                revision,
+              });
+            }
             const located = await showNote(ctx.deps, scope, query);
             if (!located.ok) return located;
-            return ok({
-              composite: isComposite(scope),
-              fields: fieldsOf(registry, located.value.note),
-              ...located.value,
-            });
+            const { vault, note } = located.value;
+            return ok({ composite, fields: fieldsOf(registry, note), vault, note });
           }),
-          ({ composite, fields, vault, note }) =>
-            showText(vault.config.name, note, fields, opts.raw ?? false, composite),
-          ({ fields, vault, note }) => ({
+          ({ composite, fields, vault, note, revision }) =>
+            showText(vault.config.name, note, fields, opts.raw ?? false, composite, revision),
+          ({ fields, vault, note, revision }) => ({
             vault: vault.config.name,
+            ...(revision && { revision }),
             ...noteToJson(note),
             ...(fields && { declaredFields: fields }),
           }),

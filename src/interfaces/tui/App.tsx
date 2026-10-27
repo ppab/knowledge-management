@@ -5,9 +5,12 @@ import { TuiContext, type ChangeFeed, type StatusMessage, type TuiServices } fro
 import { initialStack, navigate as reduce, type Navigation, type Screen } from './model.js';
 import { Calendar } from './screens/Calendar.js';
 import { Day } from './screens/DayScreen.js';
+import { DiffView } from './screens/DiffView.js';
+import { History } from './screens/History.js';
 import { NoteList } from './screens/NoteList.js';
 import { NoteView } from './screens/NoteView.js';
 import { PanelScreen } from './screens/PanelScreen.js';
+import { RevisionView } from './screens/RevisionView.js';
 
 export interface AppProps {
   readonly services: TuiServices;
@@ -27,6 +30,12 @@ const Top = ({ screen }: { readonly screen: Screen }) => {
       return <Day screen={screen} />;
     case 'panel':
       return <PanelScreen screen={screen} />;
+    case 'history':
+      return <History screen={screen} />;
+    case 'revision':
+      return <RevisionView screen={screen} />;
+    case 'diff':
+      return <DiffView screen={screen} />;
   }
 };
 

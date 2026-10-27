@@ -2,6 +2,7 @@ import type { AppDeps, ExternalEditor, FileWatcher } from '../application/ports.
 import { createUserConfigRepository } from './config/user-config.js';
 import { createExternalEditor } from './editor/external-editor.js';
 import { createFileWatcher } from './watch/file-watcher.js';
+import { createGitRevisionProvider } from './git/revision-provider.js';
 import { createVaultRepository } from './filesystem/vault-repository.js';
 import { createNoteStore } from './filesystem/note-store.js';
 import { createUniqueSource } from './identity/unique-source.js';
@@ -19,6 +20,7 @@ export const createDeps = (): AppDeps => ({
   markdown: createMarkdownParser(),
   frontmatter: createFrontmatterCodec(),
   templates: createTemplateRepository(),
+  revisions: createGitRevisionProvider(),
   indexes: createSqliteIndexProvider(),
   userConfig: createUserConfigRepository(),
 });

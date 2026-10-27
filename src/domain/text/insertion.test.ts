@@ -14,7 +14,7 @@ const layout = (source: string, bodyStart = 0): DocumentLayout => {
       range: { start: bodyStart + match.index, end: bodyStart + match.index + match[0].length },
     });
   }
-  return { source, bodyStart, headings };
+  return { source, bodyStart, headings, textSpans: [] };
 };
 
 const insert = (source: string, at: string, block = 'NEW', bodyStart = 0) =>
@@ -83,5 +83,47 @@ describe('locateInsertion', () => {
     expect(created.addsHeadings).toEqual([{ depth: 2, text: 'References' }]);
     const reused = unwrap(locateInsertion(layout('## References\n'), { kind: 'references' }, 'x'));
     expect(reused.addsHeadings).toEqual([]);
+  });
+});
+
+describe('locateInsertion at a cursor', () => {
+  // "intro text" is one prose run; "*em* word" holds an emphasis node then " word".
+  const source = '# Title\n\nintro text\n\n*em* word\n';
+  const at = (offset: number, side: 'before' | 'after') => {
+    const plan = locateInsertion(
+      {
+        ...layout(source),
+        textSpans: [
+          { start: 2, end: 7 },
+          { start: 9, end: 19 },
+          { start: 22, end: 24 },
+          { start: 25, end: 30 },
+        ],
+      },
+      { kind: 'at', offset, side },
+      '[[X]]',
+    );
+    return plan.ok ? unwrap(applyEdits(source, [plan.value.edit])) : plan;
+  };
+  it('pads only the side that touches a word', () => {
+    expect(at(15, 'before')).toBe(source.replace('intro text', 'intro [[X]] text'));
+    expect(at(9, 'after')).toBe(source.replace('intro text', 'intro [[X]] text'));
+    expect(at(16, 'after')).toBe(source.replace('intro text', 'intro text [[X]]'));
+    expect(at(9, 'before')).toBe(source.replace('intro text', '[[X]] intro text'));
+    expect(at(14, 'before')).toBe(source.replace('intro text', 'intro [[X]] text')); // on the space
+    expect(at(11, 'before')).toBe(source.replace('intro text', 'in [[X]] tro text'));
+    expect(at(27, 'after')).toBe(source.replace('*em* word', '*em* word [[X]]'));
+  });
+  it('refuses positions outside prose runs or inside a heading', () => {
+    for (const [offset, message] of [
+      [20, 'note text'], // the blank line
+      [21, 'note text'], // the "*"
+      [4, 'Heading text'],
+    ] as const) {
+      expect(at(offset, 'before')).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', message: expect.stringContaining(message) as string },
+      });
+    }
   });
 });

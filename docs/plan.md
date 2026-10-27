@@ -382,6 +382,24 @@ which cannot set the terminal size or observe raw mode. The `n` new-note prompt 
 
 **Dependencies.** M5.
 
+**Status.** Done 2026-10-27. Deviations: the viewer has no resting cursor, so `v` starts the
+selection on the first text of the top visible line and a second `v` restarts it at the head
+(anchor and head are both inclusive); `l` is the link action, so moving right is the arrow
+only (motions: `h`, `j`, `k`, arrows, `w`/`b`, `0`/`$`). `r` and `l` run `checkSelection`
+(the wrap rules without a write) before asking for a target or URL, so "crosses formatting" is
+shown at once; the mutations take an `expectedVersion` (the version the selection or picker
+started on) and answer `CONFLICT` when the file moved, and the viewer also drops a selection
+whenever a reload brings another version. The picker lists every identified note of the scope
+when nothing is typed and otherwise searches with each typed word as a prefix (`pip*`); the
+location prompt offers end, every heading, and the references section. Unidentified files
+refuse `i`/`v` with a message. The integration parity check runs the TUI in-process against
+the real adapters (`test/integration/tui-cli.test.tsx`), as the picker needs a terminal.
+Follow-up (same day): the viewer gained a persistent vim-style cursor, so `v` starts at the
+cursor, `Enter` follows the reference under it, `Tab` moves it between references, and `i`/`a`
+insert a reference before the character / after the word under it through a new inline
+`InsertionLocation` (`{ kind: 'at', offset, side }`, single-text-node rule, spaced like a
+word); the location prompt moved to `I`.
+
 **Acceptance criteria**
 
 - `i` → pick a note from another vault → choose "under heading" → the file gains exactly one
@@ -422,6 +440,23 @@ leaking past the adapter.
 - TUI: `History` screen, `●` modified marker, `s` save with message prompt.
 
 **Dependencies.** M2 (TUI parts: M5).
+
+**Status.** Done 2026-10-27. Deviations: the adapter runs the user's `git` binary through
+`execFile` instead of `simple-git`, since every call needed raw output anyway (`log --follow
+--name-status` for the path at each revision, pathspec-limited commits, hook output) and it keeps
+the dependency list and the Bun compile target simple; pathspecs are passed as `:(literal)` so
+glob characters in file names are taken literally. `diff` is not a provider operation: both
+sides are read through `read` and compared with the domain's `unifiedDiff`, so the CLI's
+`--dry-run` previews and `diff` look the same. `RevisionStatus` is `unversioned` (no repository)
+| `unrecorded` (none yet) | `clean` | `modified`; `save` turns the first two non-recordable
+cases into outcomes (`not-under-version-control`, `nothing-to-save`, exit 0, `status` in
+`--json`) and a failing hook into `INTERNAL` (exit 1) carrying the hook's output. History use
+cases take the viewer's `NoteLocator`, so unidentified files have a history too; `show --at`
+parses the historical content with the normal loader and never indexes it. Revisions may be
+given by full id or a unique prefix of at least four characters. The `●` marker also shows for
+a versioned file with no revision yet. Known limit: a save after a plain `mv` records the new
+path as a new file and leaves the old path's deletion to the user, so git's rename detection
+cannot pair them; renames done with `git mv` and committed are followed.
 
 **Acceptance criteria**
 

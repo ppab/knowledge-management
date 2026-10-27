@@ -21,9 +21,10 @@ describe('NoteView', () => {
     expect(term.frame()).toContain('line 1');
     expect(term.frame()).not.toContain('line 9');
 
-    await term.press('j', 'j', 'j', 'j', 'j');
+    // j moves the cursor; the view scrolls once it would leave the screen.
+    await term.press(...Array.from({ length: 12 }, () => 'j'));
     await term.waitFor((f) => f.includes('line 4') && !f.includes('line 1\n'));
-    // Tab jumps to the reference, scrolling it into view; Enter follows it.
+    // Tab jumps the cursor to the reference, scrolling it into view; Enter follows it.
     await term.press(KEYS.tab);
     const atRef = await term.waitFor('the target');
     expect(atRef).not.toContain('line 4\n');

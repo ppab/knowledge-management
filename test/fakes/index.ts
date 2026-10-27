@@ -2,13 +2,15 @@ import { createHash } from 'node:crypto';
 import type {
   AppDeps,
   NoteStore,
+  RevisionProvider,
   TemplateRepository,
   UserConfig,
   VaultRepository,
 } from '../../src/application/ports.js';
 import type { VaultHandle } from '../../src/application/vault/vault.js';
-import { conflict, notFound, unavailable } from '../../src/domain/errors.js';
+import { appError, conflict, notFound, unavailable } from '../../src/domain/errors.js';
 import { err, ok } from '../../src/domain/result.js';
+import type { Revision } from '../../src/domain/revision/revision.js';
 import type { Scope, ScopeMember } from '../../src/domain/scope/scope.js';
 import { asVaultId, defaultVaultConfig, type VaultConfig } from '../../src/domain/vault/vault.js';
 import { createMarkdownParser } from '../../src/infrastructure/markdown/parser.js';
@@ -116,8 +118,100 @@ export const createFakeTemplateRepository = (
   },
 });
 
+export interface FakeRevisions extends RevisionProvider {
+  /** Marks `root` as versioned; until then its status is `unversioned`. */
+  enable(root: string): void;
+  /** Records a revision holding `source` without touching the file. */
+  seed(root: string, path: string, source: string, summary?: string): Revision;
+  /** Makes the next `record` fail the way a rejecting pre-commit hook does. */
+  rejectNext(output: string): void;
+  readonly recorded: { root: string; path: string; message: string }[];
+}
+
+/** Revisions per vault root and path; `status` compares against the fake filesystem. */
+export const createFakeRevisions = (roots: Map<string, FakeFs>): FakeRevisions => {
+  const repos = new Map<string, Map<string, (Revision & { source: string })[]>>();
+  const recorded: { root: string; path: string; message: string }[] = [];
+  let n = 0;
+  let rejection: string | null = null;
+  const historyOf = (root: string, path: string) => repos.get(root)?.get(path) ?? [];
+  const add = (root: string, path: string, source: string, summary: string, author: string) => {
+    const repo = repos.get(root);
+    if (!repo) throw new Error(`fake revisions: ${root} is not versioned`);
+    n += 1;
+    const revision = {
+      id: `rev${String(n).padStart(4, '0')}${'0'.repeat(33)}`,
+      timestamp: new Date(Date.UTC(2026, 9, 27, 12, n)).toISOString(),
+      summary,
+      author,
+      path,
+      source,
+    };
+    repo.set(path, [revision, ...historyOf(root, path)]);
+    return revision;
+  };
+  const strip = ({ source: _source, ...revision }: Revision & { source: string }): Revision =>
+    revision;
+  return {
+    recorded,
+    enable: (root) => {
+      if (!repos.has(root)) repos.set(root, new Map());
+    },
+    seed: (root, path, source, summary = `Edit ${path}`) =>
+      strip(add(root, path, source, summary, 'Seed')),
+    rejectNext: (output) => {
+      rejection = output;
+    },
+    status: (root, path) => {
+      if (!repos.has(root)) return Promise.resolve(ok({ kind: 'unversioned' }));
+      const [last] = historyOf(root, path);
+      if (!last) return Promise.resolve(ok({ kind: 'unrecorded' }));
+      const current = roots.get(root)?.files.get(path);
+      return Promise.resolve(
+        ok({ kind: current === last.source ? 'clean' : 'modified', last: strip(last) }),
+      );
+    },
+    list: (root, path) => Promise.resolve(ok(historyOf(root, path).map(strip))),
+    read: (root, revision) => {
+      const repo = repos.get(root);
+      if (!repo) return Promise.resolve(err(unavailable(`${root} is not under version control`)));
+      const found = [...repo.values()].flat().find((r) => r.id === revision.id);
+      return Promise.resolve(
+        found ? ok(found.source) : err(notFound(`No revision ${revision.id}`)),
+      );
+    },
+    record: (root, path, message) => {
+      if (!repos.has(root)) {
+        return Promise.resolve(err(unavailable(`${root} is not under version control`)));
+      }
+      if (rejection !== null) {
+        const output = rejection;
+        rejection = null;
+        return Promise.resolve(
+          err(
+            appError(
+              'INTERNAL',
+              `Revision of ${path} was not recorded (git commit exited 1):\n${output}`,
+              {
+                path,
+                code: 1,
+                output,
+              },
+            ),
+          ),
+        );
+      }
+      const source = roots.get(root)?.files.get(path);
+      if (source === undefined) return Promise.resolve(err(notFound(`No file at ${path}`)));
+      recorded.push({ root, path, message });
+      return Promise.resolve(ok(strip(add(root, path, source, message, 'Tester'))));
+    },
+  };
+};
+
 export interface Fixture {
   deps: AppDeps;
+  revisions: FakeRevisions;
   /** The default vault at `/vault`, named `monitor`. */
   fs: FakeFs;
   vault: VaultHandle;
@@ -145,6 +239,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
   const templates = new Map<string, string>();
   const snippets = new Map<string, string>();
   const userConfig: UserConfig & { scopes: Record<string, { vaults: string[] }> } = { scopes: {} };
+  const revisions = createFakeRevisions(roots);
   const ids = ['ID1', 'ID2', 'ID3', 'ID4'];
   let n = 0;
 
@@ -179,6 +274,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
     markdown: createMarkdownParser(),
     frontmatter: createFrontmatterCodec(),
     templates: createFakeTemplateRepository(templates, snippets),
+    revisions,
     indexes: {
       open: (root) => {
         const database = databases.get(root);
@@ -201,6 +297,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
   const vault = { root: '/vault', config: vaults.get('/vault') ?? main.vault.config };
   return {
     deps,
+    revisions,
     fs: main.fs,
     vault,
     scope: scopeOf('/vault'),

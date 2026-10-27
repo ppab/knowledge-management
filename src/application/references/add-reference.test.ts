@@ -1,11 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { addReference } from './add-reference.js';
+import { addReference, checkInsertionPoint } from './add-reference.js';
 import { backlinks } from './references.js';
 
 const A =
   '---\nid: A\ntitle: Alpha\n---\n\n# Alpha\n\nIntro.\n\n## Design\n\nText.\n\n## Notes\n\nEnd.\n';
+
+describe('addReference at a cursor', () => {
+  it('writes the canonical id inline next to the word, or refuses outside prose', async () => {
+    const f = fixture();
+    const A = '---\nid: A\n---\n\n# Head\n\nintro *em* text\n';
+    f.fs.files.set('a.md', A);
+    f.fs.files.set('d.md', '---\nid: D\ntitle: Design doc\naliases: [dd]\n---\n');
+    const at = (needle: string, side: 'before' | 'after') =>
+      addReference(f.deps, f.scope, {
+        source: 'A',
+        target: 'dd',
+        at: { kind: 'at', offset: A.indexOf(needle), side },
+      });
+    unwrap(await at('text', 'before'));
+    expect(f.fs.files.get('a.md')).toBe(A.replace('*em* text', '*em* [[D]] text'));
+    f.fs.files.set('a.md', A);
+    unwrap(await at('intro', 'after'));
+    expect(f.fs.files.get('a.md')).toBe(A.replace('intro *em*', 'intro [[D]] *em*'));
+    f.fs.files.set('a.md', A);
+    // Emphasis text is a prose run of its own; the markers and headings are not prose.
+    unwrap(await at('em*', 'before'));
+    expect(f.fs.files.get('a.md')).toBe(A.replace('*em*', '*[[D]] em*'));
+    f.fs.files.set('a.md', A);
+    const check = (needle: string, side: 'before' | 'after', expectedVersion?: string) =>
+      checkInsertionPoint(f.deps, f.scope, {
+        source: 'A',
+        at: { kind: 'at', offset: A.indexOf(needle), side },
+        ...(expectedVersion !== undefined && { expectedVersion }),
+      });
+    expect(await at('*em', 'before')).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    expect(await check('*em', 'before')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION', message: 'The cursor must be on note text' },
+    });
+    expect(await check('Head', 'after')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION', message: 'Heading text cannot hold a reference' },
+    });
+    expect(await check('text', 'after', 'stale')).toMatchObject({
+      ok: false,
+      error: { code: 'CONFLICT' },
+    });
+    expect(await check('text', 'after')).toEqual({ ok: true, value: undefined });
+    expect(f.fs.files.get('a.md')).toBe(A);
+  });
+});
 
 describe('addReference', () => {
   it('writes the canonical id when the target was given by alias, at the requested place', async () => {

@@ -27,7 +27,11 @@ export const wrapSelection = (
     return err(validation('Selection is empty', { selection }));
   }
   if (!layout.textSpans.some((span) => within(selection, span))) {
-    return err(validation('Selection must lie inside a single run of plain text', { selection }));
+    return err(
+      validation('Selection crosses formatting: it must lie inside a single run of plain text', {
+        selection,
+      }),
+    );
   }
   if (layout.headings.some((h) => within(selection, h.range))) {
     return err(validation('Heading text cannot be wrapped', { selection }));

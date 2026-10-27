@@ -108,7 +108,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
 /** Keys the screens bind themselves, which no panel may claim (docs/architecture.md §6). */
 export const RESERVED_KEYS: Readonly<Record<Placement, readonly string[]>> = {
   home: ['j', 'k', 'g', 'G', '/', 't', 'n', 'q'],
-  note: ['j', 'k', 'g', 'G', 'u', 'e', 's', 'i', 'v', 'h'],
+  note: ['h', 'j', 'k', 'l', 'w', 'b', '0', '$', 'g', 'G', 'u', 'e', 's', 'i', 'a', 'I', 'v', 'H'],
   list: [],
 };
 

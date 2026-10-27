@@ -2,7 +2,11 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { splitFrontmatter } from '../../domain/note/frontmatter.js';
-import { lineText, sourceOffsetAt } from '../../domain/text/rendered.js';
+import * as rendered from '../../domain/text/rendered.js';
+import { lineText, sourceOffsetAt, type Position } from '../../domain/text/rendered.js';
+import { unwrap } from '../../domain/result.js';
+import { wrapSelection } from '../../domain/text/selection.js';
+import { applyEdits } from '../../domain/text/text-edit.js';
 import { createMarkdownParser } from './parser.js';
 
 const parser = createMarkdownParser();
@@ -96,5 +100,54 @@ describe('markdown renderer', () => {
     expect(sourceOffsetAt(line!, 9)).toBeNull();
     const [bullet] = parser.render('- x', 0, { width: 0 });
     expect(sourceOffsetAt(bullet!, 0)).toBeNull(); // synthetic bullet
+  });
+});
+
+describe('selection mapping over rendered lines', () => {
+  const { selectedRange } = rendered;
+  /** Selects between two rendered positions and wraps the mapped source in `<…>`. */
+  const wrapped = (source: string, width: number, anchor: Position, head: Position) => {
+    const lines = parser.render(source, 0, { width });
+    const range = selectedRange(lines, anchor, head);
+    if (!range.ok) return range;
+    const parsed = parser.parse(source, 0);
+    const edit = wrapSelection(
+      { source, textSpans: parsed.textSpans, headings: parsed.headings },
+      range.value,
+      (text) => `<${text}>`,
+    );
+    return edit.ok ? applyEdits(source, [edit.value]) : edit;
+  };
+  const at = (line: number, column: number): Position => ({ line, column });
+
+  it('maps plain, wrapped, unicode and emoji selections to the right source bytes', () => {
+    expect(unwrap(wrapped('alpha beta gamma\n', 80, at(0, 6), at(0, 9)))).toBe(
+      'alpha <beta> gamma\n',
+    );
+    // Width 10 wraps into "one two" / "three four" / "five six"; the dropped space is still selected.
+    const lines = parser.render('one two three four five six\n', 0, { width: 10 });
+    expect(lines.map(lineText)).toEqual(['one two', 'three four', 'five six']);
+    expect(unwrap(wrapped('one two three four five six\n', 10, at(0, 4), at(1, 4)))).toBe(
+      'one <two three> four five six\n',
+    );
+    expect(unwrap(wrapped('naïve café here\n', 80, at(0, 9), at(0, 6)))).toBe(
+      'naïve <café> here\n',
+    );
+    expect(unwrap(wrapped('go 😀 now\n', 80, at(0, 3), at(0, 3)))).toBe('go <😀> now\n');
+    expect(unwrap(wrapped('go 😀 now\n', 80, at(0, 0), at(0, 3)))).toBe('<go 😀> now\n');
+  });
+
+  it('rejects ends on synthetic text and ranges that cross formatting', () => {
+    const invalid = (source: string, anchor: Position, head: Position, message: string) => {
+      expect(wrapped(source, 80, anchor, head)).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', message: expect.stringContaining(message) as string },
+      });
+    };
+    invalid('- item here\n', at(0, 0), at(0, 4), 'note text'); // the bullet
+    invalid('see [[X|label]] here\n', at(0, 5), at(0, 7), 'note text'); // a reference label
+    invalid('item *em* x\n', at(0, 2), at(0, 6), 'crosses formatting');
+    invalid('a `code` b\n', at(0, 0), at(0, 3), 'crosses formatting');
+    invalid('# Heading\n', at(0, 2), at(0, 4), 'Heading text');
   });
 });

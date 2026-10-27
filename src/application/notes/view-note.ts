@@ -23,10 +23,13 @@ import { loadNoteEntry } from './load-note.js';
 export type NoteLocator =
   { readonly query: string } | { readonly vault: string; readonly path: string };
 
-export interface ViewedNote {
+export interface ViewedNote extends LocatedEntry {
+  readonly references: readonly OutgoingReference[];
+}
+
+export interface LocatedEntry {
   readonly vault: VaultHandle;
   readonly entry: NoteEntry;
-  readonly references: readonly OutgoingReference[];
   /** Set when the entry is an identified note; what panels and mutations take. */
   readonly located?: LocatedNote;
 }
@@ -36,7 +39,7 @@ const readByPath = async (
   session: ScopeSession,
   vaultName: string,
   path: string,
-): Promise<Result<{ vault: VaultHandle; entry: NoteEntry; located?: LocatedNote }, AppError>> => {
+): Promise<Result<LocatedEntry, AppError>> => {
   const opened = session.opened.find((o) => o.vault.config.name === vaultName);
   if (!opened) {
     return session.unavailable.length > 0
@@ -53,12 +56,14 @@ const readByPath = async (
   });
 };
 
-const readByQuery = async (
+/** The file behind a locator: resolved through the index by query, or read directly by path. */
+export const locateEntry = async (
   deps: AppDeps,
   session: ScopeSession,
-  query: string,
-): Promise<Result<{ vault: VaultHandle; entry: NoteEntry; located?: LocatedNote }, AppError>> => {
-  const located = await readNoteInScope(deps, session, query);
+  locator: NoteLocator,
+): Promise<Result<LocatedEntry, AppError>> => {
+  if ('vault' in locator) return readByPath(deps, session, locator.vault, locator.path);
+  const located = await readNoteInScope(deps, session, locator.query);
   if (!located.ok) return located;
   return ok({ vault: located.value.vault, entry: located.value.note, located: located.value });
 };
@@ -69,10 +74,7 @@ export const viewNote = (
   locator: NoteLocator,
 ): Promise<Result<ViewedNote, AppError>> =>
   withScope(deps, scope, async (session) => {
-    const read =
-      'query' in locator
-        ? await readByQuery(deps, session, locator.query)
-        : await readByPath(deps, session, locator.vault, locator.path);
+    const read = await locateEntry(deps, session, locator);
     if (!read.ok) return read;
     const { vault, entry, located } = read.value;
     const references = entry.references.map((ref): OutgoingReference => ({
