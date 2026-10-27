@@ -385,7 +385,7 @@ which cannot set the terminal size or observe raw mode. The `n` new-note prompt 
 **Status.** Done 2026-10-27. Deviations: the viewer has no resting cursor, so `v` starts the
 selection on the first text of the top visible line and a second `v` restarts it at the head
 (anchor and head are both inclusive); `l` is the link action, so moving right is the arrow
-only (motions: `h`, `j`, `k`, arrows, `w`/`b`, `0`/`$`). `r` and `l` run `checkSelection`
+only (motions: `h`, `j`, `k`, arrows, `w`, `0`/`$`). `r` and `l` run `checkSelection`
 (the wrap rules without a write) before asking for a target or URL, so "crosses formatting" is
 shown at once; the mutations take an `expectedVersion` (the version the selection or picker
 started on) and answer `CONFLICT` when the file moved, and the viewer also drops a selection
@@ -457,6 +457,18 @@ given by full id or a unique prefix of at least four characters. The `●` marke
 a versioned file with no revision yet. Known limit: a save after a plain `mv` records the new
 path as a new file and leaves the old path's deletion to the user, so git's rename detection
 cannot pair them; renames done with `git mv` and committed are followed.
+Follow-ups from use (same day): `b` is "back" on every screen (with `Esc` and `Backspace`),
+replacing `u`; the backlinks panel moved to `B` and the cursor lost its word-back motion (`w`
+remains). `create` writes `created: <ISO instant>` into the frontmatter unless the template
+sets it; `created` is a recognized key (shown by `show` and the metadata panel, excluded from
+plugin fields) and is not a date binding. So that new notes still appear in the calendar, the
+built-in `default` template binds them to their creation day (`dates: ["{{date}}"]`); a vault's
+own `default.md` and other templates decide for themselves. The TUI's `n` asks for a template
+after the title whenever the target vault offers more than one (its own plus the enabled
+plugins' built-ins, `default` first); with only `default` it creates at once as before.
+`notes init` takes `--dir <notes-dir>` (the single `include` glob `<dir>/**/*.md`, created with
+the vault, where `create` writes by default) and asks for it when run at a terminal without the
+flag; `--json`, pipes and scripts are never asked and keep the whole vault as before.
 
 **Acceptance criteria**
 

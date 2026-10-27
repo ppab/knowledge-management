@@ -2,6 +2,7 @@ import { notFound, usage, validation, type AppError } from '../../domain/errors.
 import { validateIdentityConfig, type IdentityConfig } from '../../domain/identity/identity.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope, ScopeMember } from '../../domain/scope/scope.js';
+import { normalizeVaultPath } from '../../domain/vault/paths.js';
 import {
   asVaultId,
   defaultVaultConfig,
@@ -18,7 +19,21 @@ export interface InitVaultInput {
   readonly dir: string;
   readonly name?: string;
   readonly identity?: IdentityConfig;
+  /**
+   * Directory for notes, relative to the vault root: becomes the single `include` glob
+   * (`<dir>/**\/*.md`) and the default location of `create`. `.` or absent: the whole vault.
+   */
+  readonly notesDir?: string;
 }
+
+/** `include` for a notes directory; `null` keeps the default (every `.md` under the root). */
+export const includeFor = (notesDir: string | undefined): Result<string[] | null, AppError> => {
+  const trimmed = notesDir?.trim().replace(/[\\/]+$/, '');
+  if (trimmed === undefined || trimmed === '' || trimmed === '.') return ok(null);
+  const normalized = normalizeVaultPath(trimmed);
+  if (!normalized.ok) return normalized;
+  return ok([`${normalized.value}/**/*.md`]);
+};
 
 const lastSegment = (dir: string): string =>
   dir
@@ -36,10 +51,13 @@ export const initVault = async (
   const identity = input.identity ?? { strategy: 'ulid' };
   const valid = validateIdentityConfig(identity);
   if (!valid.ok) return valid;
+  const include = includeFor(input.notesDir);
+  if (!include.ok) return include;
 
   const config: VaultConfig = {
     ...defaultVaultConfig(asVaultId(deps.unique.ulid()), input.name ?? lastSegment(input.dir)),
     identity,
+    ...(include.value !== null && { include: include.value }),
   };
   const created = await deps.vaults.create(input.dir, config);
   if (!created.ok) return created;

@@ -11,8 +11,11 @@ describe('createNote', () => {
     expect(note.id).toBe('ID1');
     expect(note.path).toBe('docs/event-ingestion.md');
     expect(note.title).toBe('Event Ingestion');
+    const created = f.deps.clock.now().toISOString();
+    expect(note.created).toBe(created);
+    expect(note.dates).toEqual(['2026-10-27']); // bound to its creation day
     expect(f.fs.files.get(note.path)).toBe(
-      '---\nid: "ID1"\ntitle: "Event Ingestion"\n---\n\n# Event Ingestion\n\n',
+      `---\nid: "ID1"\ntitle: "Event Ingestion"\ndates: ["2026-10-27"]\ncreated: ${created}\n---\n\n# Event Ingestion\n\n`,
     );
   });
 
@@ -66,7 +69,7 @@ describe('createNote', () => {
     const note = unwrap(await createNote(f.deps, f.vault, { title: 'X', template: 'adr' }));
     expect(note.id).toBe('monitor-adr-20261027-ID1');
     expect(f.fs.files.get(note.path)).toBe(
-      '---\nid: monitor-adr-20261027-ID1\ntitle: X\n---\n# X\n',
+      `---\nid: monitor-adr-20261027-ID1\ntitle: X\ncreated: ${f.deps.clock.now().toISOString()}\n---\n# X\n`,
     );
   });
 

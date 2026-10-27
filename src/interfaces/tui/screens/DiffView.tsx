@@ -49,7 +49,7 @@ export const DiffView = ({ screen }: { readonly screen: DiffScreen }) => {
     ? `diff · ${diff.entry.title} · ${abbreviate(diff.from.id)} → working file`
     : 'diff · loading…';
   return (
-    <Frame title={title} hints="j/k scroll  g/G top/bottom  Esc back">
+    <Frame title={title} hints="j/k scroll  g/G top/bottom  b back">
       <ScrollText
         lines={lines}
         scroll={scroll}

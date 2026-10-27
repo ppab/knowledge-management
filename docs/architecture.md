@@ -114,20 +114,20 @@ Libraries:
 
 ## 3. Decisions (resolved 2026-10-27)
 
-| #   | Question                        | Decision                                                                                                                                                            |
-| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1  | `{type}` in formatted identity  | Taken from the template name (`templates/adr.md` ⇒ `ADR`); overridable by frontmatter `type`. A format referencing an unavailable variable fails config validation. |
-| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `notes adopt <path>` assigns an id. Mutations and references require an id.         |
-| A3  | Missing `visibility`            | Treated as `private` for publishing (default-deny).                                                                                                                 |
-| A4  | Commits                         | Never implicit. `save` (TUI `s`, CLI `notes save <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                     |
-| A5  | Working copy as revision        | `history` lists commits only; `diff` defaults to last revision → working file.                                                                                      |
-| A6  | `NotFound` vs `Unavailable`     | `Unavailable` when any vault in the scope could not be opened; otherwise `NotFound`.                                                                                |
-| A7  | HTML export shape               | Body fragments + `manifest.json`. Layout belongs to the static site generator.                                                                                      |
-| A8  | `create` without template       | Built-in `default` template writing `{{slug}}.md` into the first `include` directory; `.notes/templates/default.md` overrides it.                                   |
-| A9  | Notes per file                  | Exactly one.                                                                                                                                                        |
-| A10 | Federated FTS ranking           | BM25 scores are not comparable across indexes. Human views interleave by rank position across vaults; `--json` carries `vault` and `rankInVault`.                   |
-| A11 | Named scope with a moved vault  | Scopes reference paths; `doctor` and `scope show` flag missing vaults as unavailable. No registry.                                                                  |
-| A12 | Visual selection                | Restricted to a single mdast `text` node in v0.1.                                                                                                                   |
+| #   | Question                        | Decision                                                                                                                                                                             |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A1  | `{type}` in formatted identity  | Taken from the template name (`templates/adr.md` ⇒ `ADR`); overridable by frontmatter `type`. A format referencing an unavailable variable fails config validation.                  |
+| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `notes adopt <path>` assigns an id. Mutations and references require an id.                          |
+| A3  | Missing `visibility`            | Treated as `private` for publishing (default-deny).                                                                                                                                  |
+| A4  | Commits                         | Never implicit. `save` (TUI `s`, CLI `notes save <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                                      |
+| A5  | Working copy as revision        | `history` lists commits only; `diff` defaults to last revision → working file.                                                                                                       |
+| A6  | `NotFound` vs `Unavailable`     | `Unavailable` when any vault in the scope could not be opened; otherwise `NotFound`.                                                                                                 |
+| A7  | HTML export shape               | Body fragments + `manifest.json`. Layout belongs to the static site generator.                                                                                                       |
+| A8  | `create` without template       | Built-in `default` template writing `{{slug}}.md` into the first `include` directory, bound to its creation day (`dates: ["{{date}}"]`); `.notes/templates/default.md` overrides it. |
+| A9  | Notes per file                  | Exactly one.                                                                                                                                                                         |
+| A10 | Federated FTS ranking           | BM25 scores are not comparable across indexes. Human views interleave by rank position across vaults; `--json` carries `vault` and `rankInVault`.                                    |
+| A11 | Named scope with a moved vault  | Scopes reference paths; `doctor` and `scope show` flag missing vaults as unavailable. No registry.                                                                                   |
+| A12 | Visual selection                | Restricted to a single mdast `text` node in v0.1.                                                                                                                                    |
 
 ## 4. Application layer
 
@@ -192,7 +192,7 @@ publications: # optional, see §7
     unresolved: fail
 ```
 
-**Frontmatter** — recognized keys: `id`, `title`, `aliases`, `dates`, `tags`, `visibility`, `type`,
+**Frontmatter** — recognized keys: `id`, `title`, `created`, `aliases`, `dates`, `tags`, `visibility`, `type`,
 `slug`. Everything else is preserved opaquely. Title fallback: `title` → first H1 → filename stem.
 
 **Index schema** (`.notes/cache/index.sqlite`, keyed by `path` so duplicate ids stay
@@ -248,7 +248,7 @@ message. This guarantees we never split emphasis, links or code spans.
 ## 5. CLI
 
 ```
-notes init [--name <n>] [--identity ulid|uuidv7|formatted --format "..."]
+notes init [--name <n>] [--dir <notes-dir>] [--identity ulid|uuidv7|formatted --format "..."]   # --dir asked for when interactive
 notes list [--tag <t>] [--date <d>|<from>..<to>] [--vault <name>] [--unidentified]
 notes show <id|alias> [--raw] [--at <rev>]
 notes search <words...> [--limit <n>]        # trailing * on a word matches prefixes
@@ -281,14 +281,14 @@ Exit codes: `0` ok · `1` unexpected · `2` usage · `3` not found · `4` ambigu
 
 Screen stack (`push`/`pop`); each screen owns its key map.
 
-| Screen     | Keys                                                                                                                                                                                                                                                                                                                                    |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NoteList` | `j/k` move · `/` search · `t` tag filter · `c` calendar · `Enter` open · `n` new note · `q` quit                                                                                                                                                                                                                                        |
-| `NoteView` | `h/j/k/l`, arrows, `w/b`, `0/$`, `g/G` move the cursor · `Tab` next reference · `Enter` follow the one under the cursor · `Backspace`/`u` back · `m` metadata · `b` backlinks · `e` edit (nvim) · `s` save revision · `i`/`a` reference before/after the word under the cursor · `I` reference at a location · `v` select · `H` history |
-| selection  | `h/j/k`/arrows, `w/b`, `0/$` extend · `v` restart here · `r` reference (opens picker) · `l` external link (prompts URL) · `Esc` cancel                                                                                                                                                                                                  |
-| `Calendar` | `h/j/k/l` move · `[`/`]` month · `Enter` notes on day · `Esc` back                                                                                                                                                                                                                                                                      |
-| `Picker`   | type to search (scope-wide, interleaved by vault) · `Enter` select → location prompt (end / heading / references) · `Esc`                                                                                                                                                                                                               |
-| `History`  | `j/k` · `Enter` view at revision · `d` diff against working                                                                                                                                                                                                                                                                             |
+| Screen     | Keys                                                                                                                                                                                                                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NoteList` | `j/k` move · `/` search · `t` tag filter · `c` calendar · `Enter` open · `n` new note (title, then a template when the vault offers more than one) · `q` quit                                                                                                                                                                               |
+| `NoteView` | `h/j/k/l`, arrows, `w`, `0/$`, `g/G` move the cursor · `Tab` next reference · `Enter` follow the one under the cursor · `b`/`Backspace`/`Esc` back · `m` metadata · `B` backlinks · `e` edit (nvim) · `s` save revision · `i`/`a` reference before/after the word under the cursor · `I` reference at a location · `v` select · `H` history |
+| selection  | `h/j/k`/arrows, `w`, `0/$` extend · `v` restart here · `r` reference (opens picker) · `l` external link (prompts URL) · `Esc` cancel                                                                                                                                                                                                        |
+| `Calendar` | `h/j/k/l` move · `[`/`]` month · `Enter` notes on day · `Esc` back                                                                                                                                                                                                                                                                          |
+| `Picker`   | type to search (scope-wide, interleaved by vault) · `Enter` select → location prompt (end / heading / references) · `Esc`                                                                                                                                                                                                                   |
+| `History`  | `j/k` · `Enter` view at revision · `d` diff against working                                                                                                                                                                                                                                                                                 |
 
 Header shows title, vault, id, and `●` when the file differs from its last revision (or has
 none yet). The watcher refreshes the index on change; the open note reloads and a pending

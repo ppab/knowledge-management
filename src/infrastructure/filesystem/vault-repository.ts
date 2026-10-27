@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { unavailable, validation, type AppError } from '../../domain/errors.js';
 import { err, ok, type Result } from '../../domain/result.js';
-import { VAULT_DIR, type VaultConfig } from '../../domain/vault/vault.js';
+import { globStaticPrefix, VAULT_DIR, type VaultConfig } from '../../domain/vault/vault.js';
 import type { VaultRepository } from '../../application/ports.js';
 import { parseVaultConfig, toVaultConfigFile } from '../config/vault-config.js';
 
@@ -59,6 +59,9 @@ export const createVaultRepository = (): VaultRepository => ({
       await writeFile(join(dir, CONFIG_FILE), stringifyYaml(toVaultConfigFile(config)), {
         flag: 'wx',
       });
+      // The directory new notes go to exists from the start, so `create` and editors find it.
+      const notesDir = globStaticPrefix(config.include[0] ?? '');
+      if (notesDir !== '') await mkdir(join(root, notesDir), { recursive: true });
     } catch (cause) {
       return err(unavailable(`Cannot initialize vault at ${root}`, { cause: String(cause) }));
     }

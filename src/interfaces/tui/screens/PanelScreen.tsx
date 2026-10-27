@@ -64,7 +64,7 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
 
   if (!spec) return <Text color="red">No panel {screen.id}</Text>;
   return (
-    <Frame title={spec.title} hints={`j/k move  Enter open  ${actionHints(spec)}  Esc back`}>
+    <Frame title={spec.title} hints={`j/k move  Enter open  ${actionHints(spec)}  b back`}>
       <PanelView spec={spec} loaded={loaded} cursor={cursor} height={height} />
     </Frame>
   );

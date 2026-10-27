@@ -66,6 +66,7 @@ const showText = (
   if (isNote(entry)) {
     lines.unshift(`id: ${entry.id}`);
     if (entry.type !== undefined) lines.push(`type: ${entry.type}`);
+    if (entry.created !== undefined) lines.push(`created: ${entry.created}`);
     if (entry.aliases.length) lines.push(`aliases: ${entry.aliases.join(', ')}`);
     if (entry.dates.length) lines.push(`dates: ${entry.dates.join(', ')}`);
     if (entry.tags.length) lines.push(`tags: ${entry.tags.join(', ')}`);

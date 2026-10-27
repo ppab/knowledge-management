@@ -31,6 +31,12 @@ describe('vault repository', () => {
     await mkdir(join(root, 'a', 'b'), { recursive: true });
     expect(await vaults.findNearest(join(root, 'a', 'b'))).toBe(root);
     expect(await vaults.findNearest(tmpdir())).toBeNull();
+
+    // A notes directory named by `include` is created with the vault.
+    const nested = join(root, 'nested');
+    await mkdir(nested);
+    unwrap(await vaults.create(nested, { ...config, include: ['journal/**/*.md'] }));
+    expect((await readdir(nested)).sort()).toEqual(['.notes', 'journal']);
   });
 
   it('rejects invalid configuration with details', async () => {

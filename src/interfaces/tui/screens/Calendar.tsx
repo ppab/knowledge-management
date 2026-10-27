@@ -48,7 +48,7 @@ export const Calendar = ({ screen }: { readonly screen: CalendarScreen }) => {
   return (
     <Frame
       title={`calendar · ${monthTitle(month)}`}
-      hints="h/j/k/l move  [ ] month  Enter notes on day  Esc back"
+      hints="h/j/k/l move  [ ] month  Enter notes on day  b back"
     >
       <Box flexDirection="column" paddingLeft={1}>
         <Text dimColor>{WEEKDAYS.map((d) => ` ${d}`).join('')}</Text>

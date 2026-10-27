@@ -112,13 +112,15 @@ const whyNotFollowed = (resolution: Resolution, target: string): string => {
   }
 };
 
-/** Cursor motions; in selection mode `l` is taken by "external link", so right is the arrow. */
+/**
+ * Cursor motions. `b` is "back" everywhere in the TUI, so there is no word-back motion; in
+ * selection mode `l` is taken by "external link", so right is the arrow there.
+ */
 const MOTION_KEYS: Readonly<Record<string, Motion>> = {
   h: 'left',
   j: 'down',
   k: 'up',
   w: 'wordForward',
-  b: 'wordBack',
   '0': 'lineStart',
   $: 'lineEnd',
 };
@@ -601,10 +603,10 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
           : flow?.kind === 'save'
             ? 'Enter save (empty message: "Save <title>")  Esc cancel'
             : selection
-              ? 'select: h/j/k/arrows move  w/b word  0/$ line  v restart  r reference  l link  Esc cancel'
+              ? 'select: h/j/k/arrows move  w word  0/$ line  v restart  r reference  l link  Esc cancel'
               : focusedPanel
-                ? `panel: j/k move  Enter open  ${actionHints(focusedPanel)}  Esc close  u back`
-                : `hjkl move  i/a/I ref  v select  e edit  s save  H history  ${panelKeys}  u back`;
+                ? `panel: j/k move  Enter open  ${actionHints(focusedPanel)}  Esc close  b back`
+                : `hjkl move  i/a/I ref  v select  e edit  s save  H history  ${panelKeys}  b back`;
 
   const visible = lines.slice(scroll, scroll + height);
   const body =

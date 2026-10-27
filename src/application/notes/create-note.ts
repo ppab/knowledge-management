@@ -36,6 +36,22 @@ const findTemplate = async (
   return builtin === undefined ? own : ok({ name, source: builtin });
 };
 
+/**
+ * The template names `create` accepts in `vault`: its own under `.notes/templates/` plus the
+ * enabled plugins' built-ins (`<plugin>/<name>`); `default` first, then alphabetical.
+ */
+export const availableTemplates = async (
+  deps: AppDeps,
+  vault: VaultHandle,
+  builtinTemplates: Readonly<Record<string, string>> = {},
+): Promise<string[]> => {
+  const own = await deps.templates.listTemplates(vault.root);
+  const names = new Set(['default', ...own, ...Object.keys(builtinTemplates)]);
+  return [...names].sort((a, b) =>
+    a === 'default' ? -1 : b === 'default' ? 1 : a.localeCompare(b),
+  );
+};
+
 export const createNote = async (
   deps: AppDeps,
   vault: VaultHandle,
@@ -95,7 +111,8 @@ export const createNote = async (
   const yaml = deps.frontmatter.update(template.value.protectedYaml ?? '', {
     mapStrings: substitute,
     remove: ['template'],
-    setIfMissing: { id: id.value, title: input.title },
+    // Every note records when it was created; a template may set `created` itself.
+    setIfMissing: { id: id.value, title: input.title, created: now.toISOString() },
   });
   if (!yaml.ok) return yaml;
   const body = substitute(template.value.body);

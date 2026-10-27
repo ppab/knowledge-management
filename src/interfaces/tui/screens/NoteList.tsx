@@ -1,6 +1,6 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
-import { createNote } from '../../../application/notes/create-note.js';
+import { availableTemplates, createNote } from '../../../application/notes/create-note.js';
 import { listNotes, type ScopedEntry } from '../../../application/notes/list-notes.js';
 import { searchNotes } from '../../../application/search/search-notes.js';
 import { isoDate } from '../../../application/notes/create-note.js';
@@ -16,11 +16,19 @@ import { clamp, locatorOfEntry, noteScreen, type Screen } from '../model.js';
 type ListScreen = Extract<Screen, { kind: 'list' }>;
 type PromptKind = 'search' | 'tag' | 'title';
 
+/** After the title: the templates the target vault offers, when there is a choice to make. */
+interface TemplateChoice {
+  readonly title: string;
+  readonly templates: readonly string[];
+  readonly cursor: number;
+}
+
 /** The start screen: browse, search, filter by tag, open; home panels by their keys. */
 export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
   const tui = useTui();
   const { deps, scope, registry, revision, navigate, notify, report, quit, cwd } = tui;
   const [prompt, setPrompt] = useState<PromptKind | null>(null);
+  const [choice, setChoice] = useState<TemplateChoice | null>(null);
   const height = useBodyHeight();
   const composite = isComposite(scope);
 
@@ -59,13 +67,19 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
     });
   };
 
-  const create = async (title: string) => {
+  const create = async (title: string, template?: string) => {
+    setChoice(null);
     const target = resolveWriteTarget(scope, { cwd });
     if (!target.ok) {
       report(target.error);
       return;
     }
-    const created = await createNote(deps, target.value, { title }, registry.templates());
+    const created = await createNote(
+      deps,
+      target.value,
+      { title, ...(template !== undefined && { template }) },
+      registry.templates(),
+    );
     if (!created.ok) {
       report(created.error);
       return;
@@ -73,6 +87,30 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
     notify(`Created ${created.value.id} at ${created.value.path}`);
     navigate({ type: 'push', screen: noteScreen({ query: created.value.id }) });
   };
+
+  /** A title was given: offer the vault's templates, or create straight away if there is one. */
+  const startCreate = async (title: string) => {
+    const target = resolveWriteTarget(scope, { cwd });
+    if (!target.ok) {
+      report(target.error);
+      return;
+    }
+    const templates = await availableTemplates(deps, target.value, registry.templates());
+    if (templates.length <= 1) await create(title, templates[0]);
+    else setChoice({ title, templates, cursor: 0 });
+  };
+
+  useInput(
+    (input, key) => {
+      if (!choice) return;
+      const last = choice.templates.length - 1;
+      if (key.escape) setChoice(null);
+      else if (isDown(input, key)) setChoice({ ...choice, cursor: clamp(choice.cursor + 1, last) });
+      else if (isUp(input, key)) setChoice({ ...choice, cursor: clamp(choice.cursor - 1, last) });
+      else if (key.return) void create(choice.title, choice.templates[choice.cursor]);
+    },
+    { isActive: choice !== null },
+  );
 
   useInput(
     (input, key) => {
@@ -102,16 +140,20 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
         }
       }
     },
-    { isActive: prompt === null },
+    { isActive: prompt === null && choice === null },
   );
 
   const filters = [
     screen.search === undefined ? '' : ` · search: ${screen.search}`,
     screen.tag === undefined ? '' : ` · tag: ${screen.tag}`,
   ].join('');
-  const title = `notes · ${scopeLabel(scope)}${filters} · ${String(entries.length)} notes`;
+  const title = choice
+    ? `new note "${choice.title}" · choose a template`
+    : `notes · ${scopeLabel(scope)}${filters} · ${String(entries.length)} notes`;
   const panelHints = homePanels.map((p) => `${p.key ?? '?'} ${p.title.toLowerCase()}`).join('  ');
-  const hints = `j/k move  Enter open  / search  t tag  ${panelHints}  n new  Esc clear  q quit`;
+  const hints = choice
+    ? 'j/k move  Enter create  Esc cancel'
+    : `j/k move  Enter open  / search  t tag  ${panelHints}  n new  Esc clear  q quit`;
 
   const rows = entries.map((e) => [
     e.kind === 'note' ? e.id : '-',
@@ -123,7 +165,15 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
 
   return (
     <Frame title={title} hints={hints}>
-      {loaded.state === 'error' && loaded.value === undefined ? (
+      {choice ? (
+        <Rows
+          header={['template']}
+          rows={choice.templates.map((t) => [t])}
+          cursor={choice.cursor}
+          height={height}
+          empty="No templates"
+        />
+      ) : loaded.state === 'error' && loaded.value === undefined ? (
         <Text color="red">error: {loaded.error.message}</Text>
       ) : (
         <Rows
@@ -145,7 +195,7 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
               setPrompt(null);
               const text = value.trim();
               if (prompt === 'search' || prompt === 'tag') filter(prompt, text);
-              else if (text !== '') void create(text);
+              else if (text !== '') void startCreate(text);
             }}
           />
         </Box>

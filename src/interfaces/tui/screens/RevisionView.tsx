@@ -51,7 +51,7 @@ export const RevisionView = ({ screen }: { readonly screen: RevisionScreen }) =>
     ? `${historical.entry.title} · ${historical.vault.config.name} · ${idText} @ ${abbreviate(historical.revision.id)} (${revisionDate(historical.revision)}) ${historical.revision.summary}`
     : 'revision · loading…';
   return (
-    <Frame title={title} hints="j/k scroll  g/G top/bottom  Esc back">
+    <Frame title={title} hints="j/k scroll  g/G top/bottom  b back">
       <ScrollText
         lines={lines}
         scroll={scroll}

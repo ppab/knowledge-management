@@ -8,9 +8,11 @@ import type { TemplateRepository, TemplateSource } from '../../application/ports
 export const DEFAULT_TEMPLATE_NAME = 'default';
 
 /** Used when the vault has no `.notes/templates/default.md`. Writes to the first include dir. */
+/** Binds every new note to its creation day, so it shows in the calendar (docs/plan.md M7). */
 export const BUILTIN_DEFAULT_TEMPLATE = `---
 id: "{{id}}"
 title: "{{title}}"
+dates: ["{{date}}"]
 ---
 
 # {{title}}

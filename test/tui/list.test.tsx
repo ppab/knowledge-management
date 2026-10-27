@@ -24,7 +24,7 @@ describe('NoteList', () => {
     await term.press('j', KEYS.enter);
     await term.waitFor('Beta · monitor · B1');
     expect(term.frame()).toContain('beta body');
-    await term.press('u');
+    await term.press('b');
     await term.waitFor('3 notes');
 
     // Unidentified entries open by path.
@@ -57,5 +57,34 @@ describe('NoteList', () => {
     await term.press('n', 'N', 'e', 'w', KEYS.enter);
     await term.waitFor('New · monitor · ID1');
     expect(h.f.fs.writes.map((w) => w.path)).toEqual(['new.md']);
+  });
+
+  it('offers the vault templates after the title when there is more than one', async () => {
+    const h = harness((f) => {
+      f.templates.set(
+        'adr',
+        '---\nid: "{{id}}"\ntitle: "{{title}}"\ntemplate:\n  path: "decisions/{{slug}}.md"\n---\n# {{title}}\n',
+      );
+    });
+    term = h.start();
+    await term.waitFor('0 notes');
+    await term.press('n');
+    await term.type('Use git');
+    await term.press(KEYS.enter);
+    const choice = await term.waitFor('new note "Use git" · choose a template');
+    expect(choice.indexOf('default')).toBeLessThan(choice.indexOf('adr'));
+    expect(choice).toContain('Enter create  Esc cancel');
+
+    await term.press(KEYS.escape);
+    await term.waitFor('0 notes');
+    expect(h.f.fs.writes).toEqual([]);
+
+    await term.press('n');
+    await term.type('Use git');
+    await term.press(KEYS.enter);
+    await term.waitFor('choose a template');
+    await term.press('j', KEYS.enter);
+    await term.waitFor('Use git · monitor · ID1');
+    expect(h.f.fs.writes.map((w) => w.path)).toEqual(['decisions/use-git.md']);
   });
 });

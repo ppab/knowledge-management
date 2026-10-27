@@ -33,7 +33,7 @@ describe('Calendar', () => {
     expect(day).not.toContain('Plain');
     await term.press(KEYS.enter);
     await term.waitFor('Bound · monitor · B');
-    await term.press('u', 'u', KEYS.escape);
+    await term.press('b', 'b', KEYS.escape);
     await term.waitFor('2 notes');
   });
 });

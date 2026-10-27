@@ -1,31 +1,11 @@
-import { Command, CommanderError } from 'commander';
-import { createRequire } from 'node:module';
+import { CommanderError } from 'commander';
+import { createInterface } from 'node:readline/promises';
 import { createDeps, createInterfaceDeps } from '../../infrastructure/deps.js';
 import { firstPartyPlugins } from '../../plugins/index.js';
 import { runTui } from '../tui/tui.js';
-import { registerCommands } from './commands.js';
 import type { CliIo, TuiLauncher } from './context.js';
 import { EXIT_CODES } from './output.js';
-
-const { version } = createRequire(import.meta.url)('../../../package.json') as { version: string };
-
-export const buildProgram = (io: CliIo, exit: (code: number) => void): Command => {
-  const program = new Command('notes')
-    .description('Local-first, Git-native knowledge management')
-    .version(version)
-    .option('--json', 'machine-readable output')
-    .option('--cwd <dir>', 'run as if started in <dir>')
-    .option('--scope <name>', 'operate on a named scope from the user config')
-    .option(
-      '--vault <path>',
-      'operate on the vault at <path> (repeatable: several paths form a composite scope)',
-      (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
-    )
-    .showHelpAfterError()
-    .exitOverride();
-  registerCommands(program, io, exit);
-  return program;
-};
+import { buildProgram } from './program.js';
 
 /*
  * Composition root. This is the one place that knows every adapter and both interfaces; the
@@ -46,6 +26,17 @@ const tui: TuiLauncher = (scope, cwd) =>
     stdout: process.stdout,
   });
 
+const interactive = process.stdout.isTTY && process.stdin.isTTY;
+
+const ask = async (question: string): Promise<string> => {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return await rl.question(question);
+  } finally {
+    rl.close();
+  }
+};
+
 const io: CliIo = {
   deps,
   editor,
@@ -56,7 +47,7 @@ const io: CliIo = {
   errOut: (text) => {
     process.stderr.write(text + '\n');
   },
-  ...(process.stdout.isTTY && process.stdin.isTTY && { tui }),
+  ...(interactive && { tui, ask }),
 };
 
 try {

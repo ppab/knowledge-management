@@ -36,6 +36,8 @@ export interface CliIo {
   readonly errOut: (text: string) => void;
   /** Absent where there is no terminal to draw on (tests, pipes). */
   readonly tui?: TuiLauncher;
+  /** Asks the person at the terminal one question; absent when not interactive or `--json`. */
+  readonly ask?: (question: string) => Promise<string>;
 }
 
 export const contextFor = (io: CliIo, command: Command): CliContext => {

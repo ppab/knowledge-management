@@ -32,7 +32,7 @@ describe('NoteView', () => {
     await term.waitFor('Destination · monitor · DST');
     expect(term.frame()).toContain('destination body');
 
-    await term.press('u');
+    await term.press('b');
     const back = await term.waitFor('Source · monitor · SRC');
     expect(back).toBe(atRef); // same scroll, same reference cursor
     await term.press(KEYS.backspace);
@@ -81,7 +81,7 @@ describe('NoteView', () => {
     });
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'T' })], { columns: 100 });
     await term.waitFor('Target · monitor · T');
-    expect(term.frame()).toContain('m metadata  b backlinks');
+    expect(term.frame()).toContain('m metadata  B backlinks');
 
     await term.press('m');
     const meta = await term.waitFor('Metadata');
@@ -89,7 +89,7 @@ describe('NoteView', () => {
     expect(meta).toContain('dates: 2026-10-27');
     expect(meta).toContain('panel: j/k move');
 
-    await term.press('b');
+    await term.press('B');
     const links = await term.waitFor('Backlinks');
     expect(links).not.toContain('Metadata');
     expect(links).toContain('Linker');
@@ -98,7 +98,7 @@ describe('NoteView', () => {
     // Enter on the backlink opens the linking note; back restores the panel.
     await term.press(KEYS.enter);
     await term.waitFor('Linker · monitor · L');
-    await term.press('u');
+    await term.press('b');
     await term.waitFor('Backlinks');
     await term.press(KEYS.escape);
     await term.waitFor((f) => !f.includes('Backlinks'));

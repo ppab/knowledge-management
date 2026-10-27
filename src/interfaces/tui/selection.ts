@@ -21,8 +21,7 @@ export interface Selection {
   readonly version: string;
 }
 
-export type Motion =
-  'left' | 'right' | 'up' | 'down' | 'wordForward' | 'wordBack' | 'lineStart' | 'lineEnd';
+export type Motion = 'left' | 'right' | 'up' | 'down' | 'wordForward' | 'lineStart' | 'lineEnd';
 
 const isLowSurrogate = (text: string, column: number): boolean => {
   const code = text.charCodeAt(column);
@@ -102,15 +101,6 @@ export const move = (lines: readonly RenderedLine[], head: Position, motion: Mot
       for (let line = head.line + 1; line < lines.length; line += 1) {
         const [first] = wordStarts(textOf(lines, line));
         if (first !== undefined) return { line, column: first };
-      }
-      return head;
-    }
-    case 'wordBack': {
-      const here = wordStarts(text).findLast((start) => start < head.column);
-      if (here !== undefined) return { ...head, column: here };
-      for (let line = head.line - 1; line >= 0; line -= 1) {
-        const last = wordStarts(textOf(lines, line)).at(-1);
-        if (last !== undefined) return { line, column: last };
       }
       return head;
     }

@@ -35,7 +35,7 @@ describe('plugin panels', () => {
     expect(view).toContain('Todo'); // the automatic note panel for owned types
     expect(view).toContain('status: open');
     expect(view).toContain('due: 2026-10-20');
-    await term.press('u');
+    await term.press('b');
     await term.waitFor('d Mark done');
 
     await term.press('d');

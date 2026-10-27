@@ -36,6 +36,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
       const note = located.note;
       const lines = [`id: ${note.id}`, `path: ${note.path}`, `vault: ${located.vault.config.name}`];
       if (note.type !== undefined) lines.push(`type: ${note.type}`);
+      if (note.created !== undefined) lines.push(`created: ${note.created}`);
       if (note.aliases.length) lines.push(`aliases: ${note.aliases.join(', ')}`);
       if (note.dates.length) lines.push(`dates: ${note.dates.join(', ')}`);
       if (note.tags.length) lines.push(`tags: ${note.tags.join(', ')}`);
@@ -62,7 +63,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
     id: 'core.backlinks',
     title: 'Backlinks',
     placement: 'note',
-    key: 'b',
+    key: 'B',
     appliesTo: 'all',
     load: async (_api, context) => {
       const located = context.note;
@@ -108,7 +109,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
 /** Keys the screens bind themselves, which no panel may claim (docs/architecture.md §6). */
 export const RESERVED_KEYS: Readonly<Record<Placement, readonly string[]>> = {
   home: ['j', 'k', 'g', 'G', '/', 't', 'n', 'q'],
-  note: ['h', 'j', 'k', 'l', 'w', 'b', '0', '$', 'g', 'G', 'u', 'e', 's', 'i', 'a', 'I', 'v', 'H'],
+  note: ['h', 'j', 'k', 'l', 'w', 'b', '0', '$', 'g', 'G', 'e', 's', 'i', 'a', 'I', 'v', 'H'],
   list: [],
 };
 

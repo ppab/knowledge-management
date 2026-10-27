@@ -52,6 +52,7 @@ export const loadNoteEntry = (
     visibility: fields.visibility,
     ...(fields.type !== undefined && { type: fields.type }),
     ...(fields.slug !== undefined && { slug: fields.slug }),
+    ...(fields.created !== undefined && { created: fields.created }),
     issues,
   };
 };

@@ -70,7 +70,7 @@ export const History = ({ screen }: { readonly screen: HistoryScreen }) => {
           ? `No revisions recorded for ${history.entry.path}; press s in the note to save one`
           : 'loading…';
   return (
-    <Frame title={title} hints="j/k move  Enter view  d diff vs working  Esc back">
+    <Frame title={title} hints="j/k move  Enter view  d diff vs working  b back">
       <Rows
         header={['rev', 'date', 'author', 'summary']}
         rows={revisions.map(revisionRow)}

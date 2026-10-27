@@ -39,6 +39,7 @@ export const wrapFrontmatter = (yaml: string): string =>
 export const KNOWN_KEYS = [
   'id',
   'title',
+  'created',
   'aliases',
   'dates',
   'tags',
@@ -50,6 +51,8 @@ export const KNOWN_KEYS = [
 export interface FrontmatterFields {
   readonly id?: string;
   readonly title?: string;
+  /** Creation timestamp (ISO 8601) written by `create`; independent of `dates` bindings. */
+  readonly created?: string;
   readonly aliases: readonly string[];
   readonly dates: readonly string[];
   readonly tags: readonly string[];
@@ -100,9 +103,12 @@ export const readFrontmatterFields = (
   const title = scalar('title');
   const type = scalar('type');
   const slug = scalar('slug');
+  // A YAML parser with a timestamp schema hands over a Date; keep the full instant.
+  const created = data.created instanceof Date ? data.created.toISOString() : scalar('created');
   return {
     ...(id !== undefined && { id }),
     ...(title !== undefined && { title }),
+    ...(created !== undefined && { created }),
     aliases: asStringList(data.aliases, 'aliases', issues),
     dates: [...new Set(asStringList(data.dates, 'dates', issues))],
     tags: asStringList(data.tags, 'tags', issues),

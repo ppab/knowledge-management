@@ -45,8 +45,6 @@ describe('selection motions', () => {
   it('moves by word across lines and to line ends', () => {
     expect(move(lines, { line: 0, column: 2 }, 'wordForward')).toEqual({ line: 2, column: 0 });
     expect(move(lines, { line: 2, column: 2 }, 'wordForward')).toEqual({ line: 2, column: 6 });
-    expect(move(lines, { line: 2, column: 0 }, 'wordBack')).toEqual({ line: 0, column: 2 });
-    expect(move(lines, { line: 0, column: 0 }, 'wordBack')).toEqual({ line: 0, column: 0 });
     expect(move(lines, { line: 2, column: 7 }, 'lineStart')).toEqual({ line: 2, column: 2 });
     expect(move(lines, { line: 2, column: 2 }, 'lineEnd')).toEqual({ line: 2, column: 11 });
   });
