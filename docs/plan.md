@@ -351,6 +351,21 @@ services as the CLI.
 - Manual checklist for the editor handoff (documented in the decision record) plus an
   automated test that raw mode is restored after a fake editor exits.
 
+**Status.** Done 2026-10-27. The spike found that Ink 8 ships the handoff as
+`useApp().suspendTerminal` (decision 0002), so no hand-rolled raw-mode dance was needed; the
+TUI runs on the alternate screen. Deviations: `render` is a method of the existing
+`MarkdownParser` port rather than a new one, wrapped by `renderNote` in the application layer so
+the TUI never calls a port directly; `ExternalEditor` and `FileWatcher` are ports outside
+`AppDeps` (no use case needs them) and are created by `createInterfaceDeps()`; the watcher
+only bumps a revision, the next read's incremental refresh does the indexing; `core.calendar`
+is registered as a home panel (so its `c` key is collision-checked) but rendered by the
+dedicated Calendar screen; screen-bound keys are checked against plugin panels at startup in
+addition to the registry's panel-key check; the `list` placement is not rendered; `Esc` doubles
+as back; unidentified files open by vault and path (`NoteLocator`). TUI tests drive the real
+Ink runtime through injected streams (`test/tui/harness.tsx`) instead of `ink-testing-library`,
+which cannot set the terminal size or observe raw mode. The `n` new-note prompt creates from the
+`default` template in the scope's single or cwd-containing vault.
+
 ---
 
 ## M6 — TUI references

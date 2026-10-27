@@ -243,6 +243,11 @@ Rules the TUI enforces for every panel, core or plugin:
   or another plugin's key is a startup error naming both, never a silent override.
 - Panels are loaded lazily when shown and reloaded on the watcher tick that touches a note they
   displayed.
+- Keys the screens bind themselves (`j`, `k`, `/`, `t`, `n`, `q`, `e`, …) are reserved; a
+  plugin panel claiming one is a startup error too.
+- A note panel without a key shows automatically for notes of the plugin's own types; a keyed
+  one toggles. While a side panel is open it has the keyboard (`j/k`, `Enter`, its actions,
+  `Esc` closes). The `list` placement is reserved and not rendered yet (M5).
 
 The registry itself:
 

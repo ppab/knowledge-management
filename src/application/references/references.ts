@@ -33,7 +33,8 @@ export interface ReferenceListing {
   readonly references: readonly OutgoingReference[];
 }
 
-const resolveTarget = (session: ScopeSession, target: string): Resolution => {
+/** Where a reference target (an id) leads within the session's scope. */
+export const resolveTarget = (session: ScopeSession, target: string): Resolution => {
   const result = resolveIdInScope(session, target);
   switch (result.state) {
     case 'resolved': {

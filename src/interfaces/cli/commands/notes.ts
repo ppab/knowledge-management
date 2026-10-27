@@ -12,6 +12,7 @@ import { extractFields } from '../../../domain/note/fields.js';
 import { isNote, type NoteEntry } from '../../../domain/note/note.js';
 import { ok } from '../../../domain/result.js';
 import { isComposite, resolveWriteTarget, type Scope } from '../../../domain/scope/scope.js';
+import { absoluteNotePath } from '../../../domain/vault/paths.js';
 import type { Exit } from '../commands.js';
 import {
   contextFor,
@@ -180,6 +181,32 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
             ...noteToJson(note),
             ...(fields && { declaredFields: fields }),
           }),
+        ),
+      );
+    });
+
+  program
+    .command('edit')
+    .description('open a note in the external editor (vault `editor:`, else $VISUAL/$EDITOR)')
+    .argument('<query>', 'note id, title or alias')
+    .action(async (query: string, _opts: unknown, cmd: Command) => {
+      const ctx = contextFor(io, cmd);
+      exit(
+        await emit(
+          ctx,
+          inScope(ctx, async (scope) => {
+            const located = await showNote(ctx.deps, scope, query);
+            if (!located.ok) return located;
+            const { vault, note } = located.value;
+            const command = vault.config.editor;
+            const edited = await io.editor.open(
+              absoluteNotePath(vault.root, note.path),
+              command === undefined ? {} : { command },
+            );
+            if (!edited.ok) return edited;
+            return ok({ vault: vault.config.name, path: note.path });
+          }),
+          ({ path }) => `Edited ${path}`,
         ),
       );
     });

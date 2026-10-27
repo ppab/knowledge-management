@@ -5,6 +5,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "types": ["node"],
+    "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,

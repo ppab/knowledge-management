@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { PluginRegistry } from '../../application/plugin/plugin.js';
 import { buildRegistry } from '../../application/plugin/registry.js';
-import type { AppDeps } from '../../application/ports.js';
+import type { AppDeps, ExternalEditor } from '../../application/ports.js';
 import { loadScope } from '../../application/vault/vault.js';
 import type { AppError } from '../../domain/errors.js';
 import type { Result } from '../../domain/result.js';
@@ -25,11 +25,17 @@ export interface CliContext {
   readonly errOut: (text: string) => void;
 }
 
+/** Launches the TUI on a loaded scope; wired by the composition root (`main.ts`). */
+export type TuiLauncher = (scope: Scope, cwd: string) => Promise<Result<void, AppError>>;
+
 export interface CliIo {
   readonly deps: AppDeps;
+  readonly editor: ExternalEditor;
   readonly cwd: string;
   readonly out: (text: string) => void;
   readonly errOut: (text: string) => void;
+  /** Absent where there is no terminal to draw on (tests, pipes). */
+  readonly tui?: TuiLauncher;
 }
 
 export const contextFor = (io: CliIo, command: Command): CliContext => {

@@ -14,10 +14,19 @@ import tseslint from 'typescript-eslint';
  * `domain`, `application` and `plugins` may only import relative modules: no packages, no
  * `node:` builtins. Anything they need from the outside world arrives through a port (or, for
  * plugins, through the plugin API). Nothing below `interfaces` may import `plugins`.
+ *
+ * The TUI is thin: it may import `ink`, `react`, application services, domain and plugins, but
+ * never infrastructure or `node:` builtins, so every byte it shows came through a use case. The
+ * CLI's `main.ts` is the composition root and the one file allowed to wire the TUI in.
  */
 const onlyRelativeImports = {
   regex: String.raw`^(?!\.)`,
   message: 'This layer may only import its own relative modules; use a port instead.',
+};
+
+const noNodeBuiltins = {
+  regex: String.raw`^node:`,
+  message: 'The TUI must not touch the system directly; go through an application service.',
 };
 
 const forbidLayers = (...layers) =>
@@ -91,6 +100,7 @@ export default defineConfig([
   },
   {
     files: ['src/interfaces/cli/**'],
+    ignores: ['src/interfaces/cli/main.ts'],
     rules: {
       'no-restricted-imports': ['error', { patterns: forbidLayers('tui') }],
     },
@@ -98,7 +108,10 @@ export default defineConfig([
   {
     files: ['src/interfaces/tui/**'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: forbidLayers('cli') }],
+      'no-restricted-imports': [
+        'error',
+        { patterns: [noNodeBuiltins, ...forbidLayers('cli', 'infrastructure')] },
+      ],
     },
   },
   {

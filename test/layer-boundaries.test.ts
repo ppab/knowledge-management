@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
  */
 const eslint = new ESLint({
   cwd: import.meta.dirname + '/..',
-  overrideConfig: [{ files: ['**/*.ts'], ...tseslint.configs.disableTypeChecked }],
+  overrideConfig: [{ files: ['**/*.ts', '**/*.tsx'], ...tseslint.configs.disableTypeChecked }],
 });
 
 const violations = async (filePath: string, source: string) => {
@@ -39,6 +39,10 @@ describe('layer boundaries', () => {
     ['src/plugins/todos/x.ts', "import 'node:fs';", 'relative modules'],
     ['src/plugins/todos/x.ts', "import '../../infrastructure/deps.js';", '"infrastructure"'],
     ['src/plugins/todos/x.ts', "import '../../interfaces/cli/main.js';", '"interfaces"'],
+    ['src/interfaces/tui/x.tsx', "import 'node:fs';", 'application service'],
+    ['src/interfaces/tui/x.tsx', "import 'node:sqlite';", 'application service'],
+    ['src/interfaces/tui/x.tsx', "import '../../infrastructure/deps.js';", '"infrastructure"'],
+    ['src/interfaces/cli/commands/x.ts', "import '../../tui/tui.js';", '"tui"'],
   ])('%s rejects %s', async (file, source, expected) => {
     const messages = await violations(file, source);
     expect(messages.join('\n')).toContain(expected);
@@ -53,6 +57,10 @@ describe('layer boundaries', () => {
     ['src/interfaces/cli/x.ts', "import '../../plugins/index.js';"],
     ['src/plugins/todos/x.ts', "import '../../application/plugin/plugin.js';"],
     ['src/plugins/todos/x.ts', "import '../../domain/result.js'; import './queries.js';"],
+    ['src/interfaces/tui/x.tsx', "import 'ink'; import 'react';"],
+    ['src/interfaces/tui/x.tsx', "import '../../application/notes/view-note.js';"],
+    ['src/interfaces/tui/x.tsx', "import '../../plugins/index.js';"],
+    ['src/interfaces/cli/main.ts', "import '../tui/tui.js';"],
   ])('%s allows %s', async (file, source) => {
     expect(await violations(file, source)).toEqual([]);
   });

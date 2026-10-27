@@ -2,6 +2,10 @@ import { err, ok, type Result } from '../result.js';
 import { validation, type AppError } from '../errors.js';
 import { VAULT_DIR } from './vault.js';
 
+/** The file behind a vault-relative path, for tools that need a real path (the editor). */
+export const absoluteNotePath = (root: string, path: string): string =>
+  `${root.replace(/[\\/]+$/, '')}/${path}`;
+
 /**
  * Normalizes a user- or template-supplied path to a vault-relative POSIX path, refusing
  * anything that would escape the vault root or write into `.notes`. Pure string logic so the

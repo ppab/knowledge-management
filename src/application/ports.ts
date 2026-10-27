@@ -4,6 +4,7 @@ import type { Heading, NoteEntry } from '../domain/note/note.js';
 import type { EntrySummary, NoteSummary } from '../domain/note/summary.js';
 import type { Reference } from '../domain/reference/reference.js';
 import type { Result } from '../domain/result.js';
+import type { RenderedLine } from '../domain/text/rendered.js';
 import type { SourceRange } from '../domain/text/text-edit.js';
 import type { VaultConfig } from '../domain/vault/vault.js';
 
@@ -64,9 +65,53 @@ export interface ParsedMarkdown {
   readonly textSpans: readonly SourceRange[];
 }
 
+export interface RenderOptions {
+  /** Columns available for text; `0` or less disables wrapping. */
+  readonly width: number;
+  /** Display text for the `index`-th reference (default: its label, else its target). */
+  readonly referenceText?: (reference: Reference, index: number) => string;
+}
+
 export interface MarkdownParser {
   /** Parses `source` from `bodyStart` on; all ranges are absolute offsets into `source`. */
   parse(source: string, bodyStart: number): ParsedMarkdown;
+  /**
+   * The body as terminal lines. Every span that carries `source` shows exactly that slice of
+   * `source`; references are numbered in the order `parse` reports them.
+   */
+  render(source: string, bodyStart: number, options: RenderOptions): RenderedLine[];
+}
+
+/*
+ * Interface-level ports: what the CLI's `edit` and the TUI need from the system beyond the
+ * application's use cases. They are not part of `AppDeps` because no use case depends on them.
+ */
+
+export interface EditorOptions {
+  /** The vault's configured editor command; the adapter falls back to the environment. */
+  readonly command?: string;
+}
+
+export interface ExternalEditor {
+  /** Runs the editor on `file` (absolute path) and resolves when it exits. */
+  open(file: string, options?: EditorOptions): Promise<Result<void, AppError>>;
+}
+
+export interface FileChange {
+  readonly root: string;
+  /** Vault-relative POSIX path of a Markdown file that was added, changed or removed. */
+  readonly path: string;
+}
+
+export interface FileWatcher {
+  /**
+   * Reports note file changes under `roots`, batched per tick; resolves to the function that
+   * stops watching. Nothing under `.notes/` or any other dot directory is ever reported.
+   */
+  watch(
+    roots: readonly string[],
+    onChange: (changes: readonly FileChange[]) => void,
+  ): Promise<() => Promise<void>>;
 }
 
 export interface FrontmatterUpdate {

@@ -1,8 +1,10 @@
 import { Command, CommanderError } from 'commander';
 import { createRequire } from 'node:module';
-import { createDeps } from '../../infrastructure/deps.js';
+import { createDeps, createInterfaceDeps } from '../../infrastructure/deps.js';
+import { firstPartyPlugins } from '../../plugins/index.js';
+import { runTui } from '../tui/tui.js';
 import { registerCommands } from './commands.js';
-import type { CliIo } from './context.js';
+import type { CliIo, TuiLauncher } from './context.js';
 import { EXIT_CODES } from './output.js';
 
 const { version } = createRequire(import.meta.url)('../../../package.json') as { version: string };
@@ -25,15 +27,36 @@ export const buildProgram = (io: CliIo, exit: (code: number) => void): Command =
   return program;
 };
 
+/*
+ * Composition root. This is the one place that knows every adapter and both interfaces; the
+ * TUI is only offered when there is a terminal to draw on.
+ */
+const deps = createDeps();
+const { editor, watcher } = createInterfaceDeps();
+
+const tui: TuiLauncher = (scope, cwd) =>
+  runTui({
+    deps,
+    editor,
+    watcher,
+    plugins: firstPartyPlugins,
+    scope,
+    cwd,
+    stdin: process.stdin,
+    stdout: process.stdout,
+  });
+
 const io: CliIo = {
-  deps: createDeps(),
+  deps,
+  editor,
   cwd: process.cwd(),
   out: (text) => {
-    process.stdout.write(text + '\n');
+    if (text !== '') process.stdout.write(text + '\n');
   },
   errOut: (text) => {
     process.stderr.write(text + '\n');
   },
+  ...(process.stdout.isTTY && process.stdin.isTTY && { tui }),
 };
 
 try {

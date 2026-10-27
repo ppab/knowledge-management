@@ -8,6 +8,7 @@ import type { Heading } from '../../domain/note/note.js';
 import { findReferences, type Reference } from '../../domain/reference/reference.js';
 import type { SourceRange } from '../../domain/text/text-edit.js';
 import type { MarkdownParser, ParsedMarkdown } from '../../application/ports.js';
+import { renderMarkdown } from './render.js';
 
 const processor = unified().use(remarkParse).use(remarkGfm);
 
@@ -48,5 +49,9 @@ export const createMarkdownParser = (): MarkdownParser => ({
     });
 
     return { headings, references, textSpans };
+  },
+
+  render(source, bodyStart, options) {
+    return renderMarkdown(processor.parse(source.slice(bodyStart)), source, bodyStart, options);
   },
 });

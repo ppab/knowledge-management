@@ -160,8 +160,8 @@ exceptions.
 | `IdentityStrategy`   | identity   | `generate(ctx) → NoteId` for `ulid` / `uuidv7` / `formatted`                                                                                                                     |
 | `RevisionProvider`   | git        | `isTracked`, `status`, `list`, `read`, `diff`, `record(path, message)`; returns `NotUnderVersionControl` gracefully                                                              |
 | `TemplateRepository` | filesystem | `getTemplate`, `getSnippet`, `list`                                                                                                                                              |
-| `ExternalEditor`     | editor     | `open(path)` — CLI spawns directly; TUI suspends raw mode first                                                                                                                  |
-| `FileWatcher`        | chokidar   | TUI-only; feeds `refreshIndex`                                                                                                                                                   |
+| `ExternalEditor`     | editor     | `open(file, {command?})` — vault `editor:` → `$VISUAL` → `$EDITOR` → `nvim`; CLI spawns directly, TUI suspends Ink first                                                         |
+| `FileWatcher`        | chokidar   | TUI-only; `watch(roots, onChange)` batches `.md` changes per tick, ignores dot directories; the next read refreshes the index                                                    |
 | `UserConfig`         | config     | named scopes in `$XDG_CONFIG_HOME/notes/config.yaml`                                                                                                                             |
 | `Clock`              |            |                                                                                                                                                                                  |
 
@@ -234,7 +234,12 @@ whose text is `References` (case-insensitive) or creates one at the end.
 
 ### TUI rendered↔source map
 
-`render(parsed) → RenderedLine[]`, each line a list of `Span {text, source?: SourceRange}`.
+`render(source, bodyStart, {width, referenceText}) → RenderedLine[]`, each line a list of
+`Span {text, source?, reference?, style?}`. A span with `source` shows exactly that slice of the
+source (escapes and entities as written), so the map is trivially exact; bullets, heading
+markers, quote bars and reference labels are synthetic. Code, tables and raw HTML are shown
+verbatim line by line, still mapped. Wrapping is greedy by words (a reference label is one
+token) and continuation lines indent under their bullet.
 Selection lives in rendered coordinates and is valid only when anchor and head both map to
 source inside the same mdast `text` node. Invalid selections are drawn but `r`/`l` refuse with a
 message. This guarantees we never split emphasis, links or code spans.
@@ -288,8 +293,19 @@ Header shows title, vault, id, and `●` when the file differs from its last rev
 refreshes the index on change; the open note reloads and a pending selection is invalidated if
 its version went stale.
 
-External editor from the TUI: drop raw mode, let Ink go quiet, spawn nvim with `stdio: inherit`,
-await exit, restore raw mode, force re-render. Spiked first thing in M5.
+As built in M5: `Esc` also goes back on every pushed screen; `g`/`G` jump to the top and bottom;
+home panels from the registry (`c` calendar, `T` todos, …) are listed in the `NoteList` hints and
+open as screens. In `NoteView` a side panel (`m`, `b`, plugin keys) takes the keyboard while it
+is open: `j/k` move its cursor, `Enter` opens the row's note, its action keys run, `Esc` closes
+it; a plugin's keyless note panel shows automatically for notes of the types it owns. References
+render as the label or the target's title, coloured by resolution and marked `[missing]`,
+`[ambiguous]` or `[unavailable]`; `Enter` on one of those explains instead of navigating. The
+TUI runs on the alternate screen and refuses to start without a TTY (exit 2). `notes edit <id>`
+runs the same editor adapter from the CLI.
+
+External editor from the TUI: Ink's `suspendTerminal` hands the terminal over, the editor runs
+with `stdio: inherit`, and Ink repaints on return
+([decision 0002](./decisions/0002-editor-handoff.md)).
 
 ## 7. Publishing pipeline
 
