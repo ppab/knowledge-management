@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -147,6 +147,111 @@ describe('notes CLI (M1)', () => {
     expect((await notes(root, 'show', alpha)).code).toBe(4);
     await rm(join(root, 'dup.md'));
     expect((await notes(root, 'index', 'status')).stdout).toContain('- dup.md');
+  });
+
+  it('mutates safely: reference add, snippet insert, bind, dry-run and conflicts', async () => {
+    const created = await notes(root, 'create', '--title', 'Mutable', '--json');
+    const { id, path } = JSON.parse(created.stdout) as { id: string; path: string };
+    const file = join(root, path);
+    const original = await readFile(file, 'utf8');
+
+    // Dry run: a diff on stdout, nothing written (mtime unchanged).
+    const before = (await stat(file)).mtimeMs;
+    const dry = await notes(
+      root,
+      'reference',
+      'add',
+      '--source',
+      id,
+      '--target',
+      'Alpha',
+      '--dry-run',
+    );
+    expect(dry.code).toBe(0);
+    expect(dry.stdout).toContain(`+++ b/${path}`);
+    expect(await readFile(file, 'utf8')).toBe(original);
+    expect((await stat(file)).mtimeMs).toBe(before);
+
+    // Real write resolves "Alpha" to its id and lands in a fresh References section.
+    const alphaId = (
+      JSON.parse((await notes(root, 'show', 'Alpha', '--json')).stdout) as { id: string }
+    ).id;
+    expect(
+      (
+        await notes(
+          root,
+          'reference',
+          'add',
+          '--source',
+          id,
+          '--target',
+          'Alpha',
+          '--at',
+          'references',
+        )
+      ).code,
+    ).toBe(0);
+    // The template ends with a blank line; the section is appended after the content, before it.
+    expect(await readFile(file, 'utf8')).toBe(
+      `${original.trimEnd()}\n\n## References\n\n[[${alphaId}]]\n\n`,
+    );
+    const back = await notes(root, 'backlinks', alphaId, '--json');
+    const { backlinks } = JSON.parse(back.stdout) as { backlinks: { source: { id: string } }[] };
+    expect(backlinks.map((b) => b.source.id)).toContain(id);
+
+    // Snippet: missing variable is a validation error (exit 6); then a successful insert.
+    await writeFile(join(root, '.notes', 'snippets', 'todo.md'), '- [ ] {{task}} ({{date}})\n');
+    expect((await notes(root, 'snippet', 'insert', id, '--snippet', 'todo')).code).toBe(6);
+    expect(
+      (
+        await notes(
+          root,
+          'snippet',
+          'insert',
+          id,
+          '--snippet',
+          'todo',
+          '--var',
+          'task=ship',
+          '--at',
+          'heading:References',
+        )
+      ).code,
+    ).toBe(0);
+    expect(await readFile(file, 'utf8')).toMatch(
+      /\[\[.*\]\]\n\n- \[ \] ship \(\d{4}-\d{2}-\d{2}\)\n\n$/,
+    );
+
+    // Bind twice yields one date; removing an absent one is a no-op with exit 0.
+    expect((await notes(root, 'bind', id, '--date', '2026-10-23')).code).toBe(0);
+    expect((await notes(root, 'bind', id, '--date', '2026-10-23')).stdout).toContain('No change');
+    expect((await notes(root, 'bind', id, '--date', '1999-01-01', '--remove')).code).toBe(0);
+    const listed = await notes(root, 'list', '--date', '2026-10-23', '--json');
+    expect(
+      (JSON.parse(listed.stdout) as { notes: { id: string }[] }).notes.map((n) => n.id),
+    ).toEqual([id]);
+
+    // Unknown heading → 3; bad date → 6; usage mistakes → 2.
+    expect(
+      (
+        await notes(
+          root,
+          'reference',
+          'add',
+          '--source',
+          id,
+          '--target',
+          alphaId,
+          '--at',
+          'heading:Nope',
+        )
+      ).code,
+    ).toBe(3);
+    expect((await notes(root, 'bind', id, '--date', 'tomorrow')).code).toBe(6);
+    expect(
+      (await notes(root, 'reference', 'add', '--source', id, '--target', alphaId, '--at', 'middle'))
+        .code,
+    ).toBe(2);
   });
 
   it('runs from a nested directory and fails clearly outside a vault', async () => {

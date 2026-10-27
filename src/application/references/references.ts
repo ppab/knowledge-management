@@ -1,15 +1,23 @@
 import type { AppError } from '../../domain/errors.js';
 import type { EntrySummary, NoteSummary } from '../../domain/note/summary.js';
 import { ok, type Result } from '../../domain/result.js';
+import type { Scope } from '../../domain/scope/scope.js';
 import type { SourceRange } from '../../domain/text/text-edit.js';
-import { withFreshIndex } from '../index/refresh-index.js';
-import { resolveEntry } from '../notes/resolve-entry.js';
-import type { AppDeps, NoteIndex } from '../ports.js';
-import type { VaultHandle } from '../vault/vault.js';
+import type { AppDeps } from '../ports.js';
+import {
+  resolveIdInScope,
+  resolveInScope,
+  withScope,
+  type ScopeSession,
+} from '../scope/session.js';
 
 export type Resolution =
-  | { readonly state: 'resolved'; readonly note: NoteSummary }
-  | { readonly state: 'ambiguous'; readonly paths: readonly string[] }
+  | { readonly state: 'resolved'; readonly vault: string; readonly note: NoteSummary }
+  | {
+      readonly state: 'ambiguous';
+      readonly candidates: readonly { readonly vault: string; readonly path: string }[];
+    }
+  | { readonly state: 'unavailable'; readonly vaults: readonly string[] }
   | { readonly state: 'unresolved' };
 
 export interface OutgoingReference {
@@ -20,65 +28,87 @@ export interface OutgoingReference {
 }
 
 export interface ReferenceListing {
+  readonly vault: string;
   readonly source: NoteSummary;
   readonly references: readonly OutgoingReference[];
 }
 
-const resolveTarget = (index: NoteIndex, target: string): Resolution => {
-  const matches = index.byId(target);
-  const [first, second] = matches;
-  if (second) return { state: 'ambiguous', paths: matches.map((m) => m.path) };
-  if (first) return { state: 'resolved', note: first };
-  return { state: 'unresolved' };
+const resolveTarget = (session: ScopeSession, target: string): Resolution => {
+  const result = resolveIdInScope(session, target);
+  switch (result.state) {
+    case 'resolved': {
+      const { opened: _opened, ...note } = result.match.note;
+      return { state: 'resolved', vault: result.match.vault, note };
+    }
+    case 'ambiguous':
+      return {
+        state: 'ambiguous',
+        candidates: result.candidates.map((c) => ({ vault: c.vault, path: c.note.path })),
+      };
+    case 'unavailable':
+      return { state: 'unavailable', vaults: result.vaults };
+    case 'not-found':
+      return { state: 'unresolved' };
+  }
 };
 
-/** Every `[[…]]` in a note, as stored in the index, with where each one leads. */
+/** Every `[[…]]` a note makes, as stored in its index, with where each one leads in the scope. */
 export const listReferences = (
   deps: AppDeps,
-  vault: VaultHandle,
+  scope: Scope,
   query: string,
 ): Promise<Result<ReferenceListing, AppError>> =>
-  withFreshIndex(deps, vault, (index) => {
-    const source = resolveEntry(index, query);
+  withScope(deps, scope, (session) => {
+    const source = resolveInScope(session, query);
     if (!source.ok) return source;
-    const references = index.outgoing(source.value.path).map((ref) => ({
+    const { opened, summary } = source.value;
+    const references = opened.index.outgoing(summary.path).map((ref) => ({
       target: ref.target,
       ...(ref.label !== undefined && { label: ref.label }),
       range: ref.range,
-      resolution: resolveTarget(index, ref.target),
+      resolution: resolveTarget(session, ref.target),
     }));
-    return ok({ source: source.value, references });
+    return ok({ vault: opened.vault.config.name, source: summary, references });
   });
 
 export interface Backlink {
+  readonly vault: string;
   readonly source: EntrySummary;
   readonly label?: string;
   readonly range: SourceRange;
 }
 
 export interface BacklinkListing {
+  readonly vault: string;
   readonly target: NoteSummary;
   readonly backlinks: readonly Backlink[];
 }
 
-/** Notes (identified or not) whose references target the resolved note's id. */
+/** Notes in any available vault whose references target the resolved note's id. */
 export const backlinks = (
   deps: AppDeps,
-  vault: VaultHandle,
+  scope: Scope,
   query: string,
 ): Promise<Result<BacklinkListing, AppError>> =>
-  withFreshIndex(deps, vault, (index) => {
-    const target = resolveEntry(index, query);
+  withScope(deps, scope, (session) => {
+    const target = resolveInScope(session, query);
     if (!target.ok) return target;
     const links: Backlink[] = [];
-    for (const ref of index.backlinks(target.value.id)) {
-      const source = index.byPath(ref.sourcePath);
-      if (!source) continue;
-      links.push({
-        source,
-        ...(ref.label !== undefined && { label: ref.label }),
-        range: ref.range,
-      });
+    for (const { vault, index } of session.opened) {
+      for (const ref of index.backlinks(target.value.summary.id)) {
+        const source = index.byPath(ref.sourcePath);
+        if (!source) continue;
+        links.push({
+          vault: vault.config.name,
+          source,
+          ...(ref.label !== undefined && { label: ref.label }),
+          range: ref.range,
+        });
+      }
     }
-    return ok({ target: target.value, backlinks: links });
+    return ok({
+      vault: target.value.opened.vault.config.name,
+      target: target.value.summary,
+      backlinks: links,
+    });
   });

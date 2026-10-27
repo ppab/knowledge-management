@@ -13,7 +13,12 @@ export const buildProgram = (io: CliIo, exit: (code: number) => void): Command =
     .version(version)
     .option('--json', 'machine-readable output')
     .option('--cwd <dir>', 'run as if started in <dir>')
-    .option('--vault <path>', 'use the vault at <path> instead of discovering one')
+    .option('--scope <name>', 'operate on a named scope from the user config')
+    .option(
+      '--vault <path>',
+      'operate on the vault at <path> (repeatable: several paths form a composite scope)',
+      (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
+    )
     .showHelpAfterError()
     .exitOverride();
   registerCommands(program, io, exit);

@@ -97,6 +97,16 @@ describe('note store', () => {
     expect(await readdir(root)).toEqual(['n.md']);
   });
 
+  it('lets the first of two readers win and the second see a conflict', async () => {
+    unwrap(await store.write(root, 'n.md', 'base'));
+    const reader1 = unwrap(await store.read(root, 'n.md'));
+    const reader2 = unwrap(await store.read(root, 'n.md'));
+    unwrap(await store.write(root, 'n.md', 'from 1', { expectedVersion: reader1.version }));
+    const second = await store.write(root, 'n.md', 'from 2', { expectedVersion: reader2.version });
+    expect(second).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+    expect(await readFile(join(root, 'n.md'), 'utf8')).toBe('from 1');
+  });
+
   it('refuses paths outside the note area even if a caller bypassed normalization', async () => {
     expect(await store.write(root, '../escape.md', 'x')).toMatchObject({
       ok: false,

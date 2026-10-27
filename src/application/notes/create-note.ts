@@ -20,7 +20,7 @@ export interface CreateNoteInput {
   readonly path?: string;
 }
 
-const isoDate = (d: Date): string =>
+export const isoDate = (d: Date): string =>
   `${String(d.getFullYear()).padStart(4, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export const createNote = async (

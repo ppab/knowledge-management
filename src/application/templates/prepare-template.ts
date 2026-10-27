@@ -37,7 +37,8 @@ export const protectPlaceholders = (text: string): string =>
 export const unprotectPlaceholders = (text: string): string =>
   text.replace(PROTECTED, (_, name: string) => `{{${name}}}`);
 
-const readDefaults = (value: unknown): Record<string, string> => {
+/** `variables: { name: { default: ... } }` → `{ name: "..." }`; anything else is ignored. */
+export const readDefaults = (value: unknown): Record<string, string> => {
   const out: Record<string, string> = {};
   if (typeof value !== 'object' || value === null) return out;
   for (const [name, spec] of Object.entries(value)) {

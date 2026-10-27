@@ -174,6 +174,13 @@ can be previewed.
 
 **Dependencies.** M2.
 
+**Status.** Done 2026-10-27. Deviations: `locate` is pure domain logic over the parsed heading
+list (`domain/text/insertion.ts`) rather than an adapter method, so the Markdown adapter only
+parses; the frontmatter codec keeps returning YAML text and the use case builds the
+`TextEdit` (no separate `set`); `DocumentVersion` is the existing content-hash `version`.
+Snippets live in `.notes/snippets/<name>.md` with an optional `snippet: { at, variables }`
+block. Every mutation now ends with a targeted `refreshIndex([path])`.
+
 **Acceptance criteria**
 
 - `reference add --at heading:"Design"` inserts before the next heading of equal or higher
@@ -217,6 +224,12 @@ single owning vault for every write.
   resolvable write target.
 
 **Dependencies.** M2 (M3 for write-target enforcement on mutations).
+
+**Status.** Done 2026-10-27. Deviations: `create`/`adopt` choose the vault with `--in
+<name|path>` rather than `--vault <name>`, because the global `--vault <path>` (repeatable)
+already builds the scope and commander cannot carry both meanings; mutations need no selector
+since the resolved source note names its vault. `doctor` treats an unavailable vault as an
+error (exit 6). `index status|rebuild --json` now return `{ vaults: [...] }`.
 
 **Acceptance criteria**
 

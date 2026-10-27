@@ -4,33 +4,41 @@ import {
   indexStatus,
   rebuildIndex,
   type IndexStatus,
+  type RefreshReport,
 } from '../../../application/index/refresh-index.js';
+import type { AppDeps, NoteIndex } from '../../../application/ports.js';
+import { describeScope, listScopes } from '../../../application/scope/scope-info.js';
+import { loadScope, type VaultHandle } from '../../../application/vault/vault.js';
 import type { AppError } from '../../../domain/errors.js';
-import type { Result } from '../../../domain/result.js';
-import type { AppDeps } from '../../../application/ports.js';
-import type { VaultHandle } from '../../../application/vault/vault.js';
-import type { NoteIndex } from '../../../application/ports.js';
+import { ok, type Result } from '../../../domain/result.js';
+import { availableVaults, isComposite, type Scope } from '../../../domain/scope/scope.js';
 import type { Exit } from '../commands.js';
-import { contextFor, inVault, type CliIo } from '../context.js';
-import { emit, EXIT_CODES } from '../output.js';
+import { contextFor, currentScope, inScope, type CliIo } from '../context.js';
+import { emit, EXIT_CODES, table } from '../output.js';
 
-const withIndex =
+/** Runs `work` against every available vault of the scope, one index at a time. */
+const perVault =
   <T>(
     deps: AppDeps,
     work: (index: NoteIndex, vault: VaultHandle) => Promise<Result<T, AppError>>,
   ) =>
-  async (vault: VaultHandle): Promise<Result<T, AppError>> => {
-    const opened = await deps.indexes.open(vault.root);
-    if (!opened.ok) return opened;
-    try {
-      return await work(opened.value, vault);
-    } finally {
-      opened.value.close();
+  async (scope: Scope): Promise<Result<{ vault: string; result: T }[], AppError>> => {
+    const results: { vault: string; result: T }[] = [];
+    for (const vault of availableVaults(scope)) {
+      const opened = await deps.indexes.open(vault.root);
+      if (!opened.ok) return opened;
+      try {
+        const result = await work(opened.value, vault);
+        if (!result.ok) return result;
+        results.push({ vault: vault.config.name, result: result.value });
+      } finally {
+        opened.value.close();
+      }
     }
+    return ok(results);
   };
 
-const statusText = (status: IndexStatus): string => {
-  const { stats, stale } = status;
+const statusText = ({ stats, stale }: IndexStatus): string => {
   const lines = [
     `notes: ${String(stats.notes)} (${String(stats.unidentified)} unidentified)`,
     `references: ${String(stats.references)}`,
@@ -45,10 +53,21 @@ const statusText = (status: IndexStatus): string => {
   return [...lines, ...changes].join('\n');
 };
 
-const diagnosisText = (diagnosis: Diagnosis): string =>
+const rebuildText = (report: RefreshReport): string =>
+  `Indexed ${String(report.added.length)} files (${String(report.removed.length)} dropped).`;
+
+/** One block per vault; the vault name heads the block only in a composite scope. */
+const blocks = <T>(results: readonly { vault: string; result: T }[], text: (r: T) => string) =>
+  results.length === 1
+    ? text(results[0]?.result as T)
+    : results.map(({ vault, result }) => `[${vault}]\n${text(result)}`).join('\n\n');
+
+const diagnosisText = (diagnosis: Diagnosis, composite: boolean): string =>
   diagnosis.findings.length === 0
     ? 'No problems found.'
-    : diagnosis.findings.map((f) => `${f.severity}: ${f.message}`).join('\n');
+    : diagnosis.findings
+        .map((f) => `${f.severity}: ${composite ? `[${f.vault}] ` : ''}${f.message}`)
+        .join('\n');
 
 export const registerMaintenanceCommands = (program: Command, io: CliIo, exit: Exit): void => {
   const index = program.command('index').description('manage the derived search index');
@@ -60,12 +79,12 @@ export const registerMaintenanceCommands = (program: Command, io: CliIo, exit: E
       exit(
         await emit(
           ctx,
-          inVault(
+          inScope(
             ctx,
-            withIndex(ctx.deps, (idx, vault) => rebuildIndex(ctx.deps, vault, idx)),
+            perVault(ctx.deps, (idx, vault) => rebuildIndex(ctx.deps, vault, idx)),
           ),
-          (report) =>
-            `Indexed ${String(report.added.length)} files (${String(report.removed.length)} dropped).`,
+          (results) => blocks(results, rebuildText),
+          (results) => ({ vaults: results.map(({ vault, result }) => ({ vault, ...result })) }),
         ),
       );
     });
@@ -77,30 +96,80 @@ export const registerMaintenanceCommands = (program: Command, io: CliIo, exit: E
       exit(
         await emit(
           ctx,
-          inVault(
+          inScope(
             ctx,
-            withIndex(ctx.deps, (idx, vault) => indexStatus(ctx.deps, vault, idx)),
+            perVault(ctx.deps, (idx, vault) => indexStatus(ctx.deps, vault, idx)),
           ),
-          statusText,
+          (results) => blocks(results, statusText),
+          (results) => ({ vaults: results.map(({ vault, result }) => ({ vault, ...result })) }),
         ),
       );
     });
 
   program
     .command('doctor')
-    .description('check the vault: duplicate ids, dangling references, unidentified files')
+    .description('check the scope: unavailable vaults, duplicate ids, dangling references')
     .action(async (_opts: unknown, cmd: Command) => {
       const ctx = contextFor(io, cmd);
       const state = { healthy: true };
       const code = await emit(
         ctx,
-        inVault(ctx, async (vault) => {
-          const result = await diagnose(ctx.deps, vault);
-          if (result.ok) state.healthy = result.value.ok;
-          return result;
+        inScope(ctx, async (scope) => {
+          const result = await diagnose(ctx.deps, scope);
+          if (!result.ok) return result;
+          state.healthy = result.value.ok;
+          return ok({ composite: isComposite(scope), ...result.value });
         }),
-        diagnosisText,
+        ({ composite, ...diagnosis }) => diagnosisText(diagnosis, composite),
+        ({ composite: _composite, ...diagnosis }) => diagnosis,
       );
       exit(code === 0 && !state.healthy ? EXIT_CODES.VALIDATION : code);
+    });
+
+  const scope = program.command('scope').description('inspect named scopes and the current one');
+  scope
+    .command('list')
+    .description('list the named scopes in the user config')
+    .action(async (_opts: unknown, cmd: Command) => {
+      const ctx = contextFor(io, cmd);
+      exit(
+        await emit(
+          ctx,
+          () => listScopes(ctx.deps),
+          (listing) =>
+            listing.scopes.length === 0
+              ? `No scopes defined in ${listing.configPath}.`
+              : table(listing.scopes.map((s) => [s.name, s.vaults.join(', ')])),
+        ),
+      );
+    });
+  scope
+    .command('show')
+    .description('show the vaults of a named scope, or of the current scope')
+    .argument('[name]', 'scope name (default: the current scope)')
+    .action(async (name: string | undefined, _opts: unknown, cmd: Command) => {
+      const ctx = contextFor(io, cmd);
+      exit(
+        await emit(
+          ctx,
+          async () => {
+            const loaded =
+              name === undefined
+                ? await currentScope(ctx)
+                : await loadScope(ctx.deps, { cwd: ctx.cwd, scope: name });
+            if (!loaded.ok) return loaded;
+            return ok(describeScope(loaded.value));
+          },
+          (description) =>
+            [
+              `scope: ${description.name ?? '(ad hoc)'}`,
+              ...description.members.map((m) =>
+                m.available
+                  ? `  ${m.name ?? ''}  ${m.root}  available`
+                  : `  -  ${m.root}  unavailable: ${m.reason ?? ''}`,
+              ),
+            ].join('\n'),
+        ),
+      );
     });
 };

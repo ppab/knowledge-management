@@ -1,4 +1,5 @@
 import type { AppDeps } from '../application/ports.js';
+import { createUserConfigRepository } from './config/user-config.js';
 import { createVaultRepository } from './filesystem/vault-repository.js';
 import { createNoteStore } from './filesystem/note-store.js';
 import { createUniqueSource } from './identity/unique-source.js';
@@ -17,4 +18,5 @@ export const createDeps = (): AppDeps => ({
   frontmatter: createFrontmatterCodec(),
   templates: createTemplateRepository(),
   indexes: createSqliteIndexProvider(),
+  userConfig: createUserConfigRepository(),
 });

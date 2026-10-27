@@ -8,7 +8,7 @@ describe('diagnose', () => {
   it('reports a clean vault as healthy with no findings', async () => {
     const f = fixture();
     f.fs.files.set('a.md', '---\nid: A\n---\nSelf [[A]].\n');
-    expect(unwrap(await diagnose(f.deps, f.vault))).toEqual({ ok: true, findings: [] });
+    expect(unwrap(await diagnose(f.deps, f.scope))).toEqual({ ok: true, findings: [] });
   });
 
   it('names duplicate ids (error), dangling references and unidentified files', async () => {
@@ -18,7 +18,7 @@ describe('diagnose', () => {
     f.fs.files.set('c.md', 'plain\n');
     f.fs.files.set('d.md', '---\nid: "bad id"\n---\n');
 
-    const diagnosis = unwrap(await diagnose(f.deps, f.vault));
+    const diagnosis = unwrap(await diagnose(f.deps, f.scope));
     expect(diagnosis.ok).toBe(false);
     expect(diagnosis.findings.map((x) => [x.kind, x.severity])).toEqual([
       ['duplicate-id', 'error'],
@@ -31,7 +31,7 @@ describe('diagnose', () => {
       details: { id: 'DUP', paths: ['a.md', 'b.md'] },
     });
     expect(diagnosis.findings[3]!.message).toContain('must not contain whitespace');
-    expect(await showNote(f.deps, f.vault, 'DUP')).toMatchObject({
+    expect(await showNote(f.deps, f.scope, 'DUP')).toMatchObject({
       ok: false,
       error: { code: 'AMBIGUOUS' },
     });
@@ -40,9 +40,9 @@ describe('diagnose', () => {
   it('reports and repairs a stale index', async () => {
     const f = fixture();
     f.fs.files.set('a.md', '---\nid: A\n---\n');
-    unwrap(await diagnose(f.deps, f.vault));
+    unwrap(await diagnose(f.deps, f.scope));
     f.fs.files.set('b.md', '---\nid: B\n---\n');
-    const stale = unwrap(await diagnose(f.deps, f.vault));
+    const stale = unwrap(await diagnose(f.deps, f.scope));
     expect(stale.findings).toEqual([
       expect.objectContaining({
         kind: 'stale-index',
@@ -50,6 +50,6 @@ describe('diagnose', () => {
         details: { added: ['b.md'], modified: [], removed: [] },
       }),
     ]);
-    expect(unwrap(await diagnose(f.deps, f.vault)).findings).toEqual([]);
+    expect(unwrap(await diagnose(f.deps, f.scope)).findings).toEqual([]);
   });
 });

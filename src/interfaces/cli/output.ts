@@ -1,3 +1,4 @@
+import type { MutationOutcome } from '../../application/mutations/mutate.js';
 import type { AppError, ErrorCode } from '../../domain/errors.js';
 import type { NoteEntry } from '../../domain/note/note.js';
 import type { EntrySummary } from '../../domain/note/summary.js';
@@ -45,6 +46,12 @@ export const emit = async <T>(
 export const noteToJson = (entry: NoteEntry): Record<string, unknown> => {
   const { source, body, ...rest } = entry;
   return { ...rest, content: source.slice(body.start) };
+};
+
+/** Text for a mutation: the diff for dry runs, otherwise what happened to the file. */
+export const mutationText = (outcome: MutationOutcome): string => {
+  if (outcome.dryRun) return outcome.diff ?? `No change to ${outcome.path}`;
+  return outcome.written ? `Updated ${outcome.path}` : `No change to ${outcome.path}`;
 };
 
 export const summaryRow = (entry: EntrySummary): string[] => [

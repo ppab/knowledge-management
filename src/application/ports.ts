@@ -92,6 +92,8 @@ export interface TemplateSource {
 export interface TemplateRepository {
   getTemplate(root: string, name: string): Promise<Result<TemplateSource, AppError>>;
   listTemplates(root: string): Promise<string[]>;
+  /** `.notes/snippets/<name>.md`; there is no built-in snippet. */
+  getSnippet(root: string, name: string): Promise<Result<TemplateSource, AppError>>;
 }
 
 /*
@@ -162,6 +164,22 @@ export interface NoteIndexProvider {
   open(root: string): Promise<Result<NoteIndex, AppError>>;
 }
 
+/** Named scopes from the user's own configuration (not any vault's). Roots are absolute. */
+export interface ScopeDefinition {
+  readonly vaults: readonly string[];
+}
+
+export interface UserConfig {
+  readonly scopes: Readonly<Record<string, ScopeDefinition>>;
+}
+
+export interface UserConfigRepository {
+  /** Where the configuration is read from, for messages. */
+  path(): string;
+  /** A missing file is an empty configuration, not an error. */
+  load(): Promise<Result<UserConfig, AppError>>;
+}
+
 export interface AppDeps {
   readonly clock: Clock;
   readonly unique: UniqueSource;
@@ -171,4 +189,5 @@ export interface AppDeps {
   readonly frontmatter: FrontmatterCodec;
   readonly templates: TemplateRepository;
   readonly indexes: NoteIndexProvider;
+  readonly userConfig: UserConfigRepository;
 }

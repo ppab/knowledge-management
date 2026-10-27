@@ -1,9 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { notFound, unavailable } from '../../domain/errors.js';
-import { err, ok } from '../../domain/result.js';
+import { notFound, unavailable, type AppError } from '../../domain/errors.js';
+import { err, ok, type Result } from '../../domain/result.js';
 import { VAULT_DIR } from '../../domain/vault/vault.js';
-import type { TemplateRepository } from '../../application/ports.js';
+import type { TemplateRepository, TemplateSource } from '../../application/ports.js';
 
 export const DEFAULT_TEMPLATE_NAME = 'default';
 
@@ -18,26 +18,36 @@ title: "{{title}}"
 `;
 
 const templatesDir = (root: string): string => join(root, VAULT_DIR, 'templates');
+const snippetsDir = (root: string): string => join(root, VAULT_DIR, 'snippets');
 
 const errno = (cause: unknown): string | undefined =>
   typeof cause === 'object' && cause !== null && 'code' in cause ? String(cause.code) : undefined;
 
+const readNamed = async (
+  kind: 'template' | 'snippet',
+  dir: string,
+  name: string,
+): Promise<Result<TemplateSource, AppError>> => {
+  if (!/^[\w.-]+$/.test(name)) return err(notFound(`Invalid ${kind} name "${name}"`, { name }));
+  try {
+    return ok({ name, source: await readFile(join(dir, `${name}.md`), 'utf8') });
+  } catch (cause) {
+    return errno(cause) === 'ENOENT'
+      ? err(notFound(`No ${kind} "${name}" in ${VAULT_DIR}/${kind}s/`, { name }))
+      : err(unavailable(`Cannot read ${kind} "${name}"`, { name, cause: String(cause) }));
+  }
+};
+
 export const createTemplateRepository = (): TemplateRepository => ({
   async getTemplate(root, name) {
-    if (!/^[\w.-]+$/.test(name)) {
-      return err(notFound(`Invalid template name "${name}"`, { name }));
+    const read = await readNamed('template', templatesDir(root), name);
+    if (!read.ok && read.error.code === 'NOT_FOUND' && name === DEFAULT_TEMPLATE_NAME) {
+      return ok({ name, source: BUILTIN_DEFAULT_TEMPLATE });
     }
-    try {
-      const source = await readFile(join(templatesDir(root), `${name}.md`), 'utf8');
-      return ok({ name, source });
-    } catch (cause) {
-      if (errno(cause) !== 'ENOENT') {
-        return err(unavailable(`Cannot read template "${name}"`, { name, cause: String(cause) }));
-      }
-      if (name === DEFAULT_TEMPLATE_NAME) return ok({ name, source: BUILTIN_DEFAULT_TEMPLATE });
-      return err(notFound(`No template "${name}" in ${VAULT_DIR}/templates/`, { name }));
-    }
+    return read;
   },
+
+  getSnippet: (root, name) => readNamed('snippet', snippetsDir(root), name),
 
   async listTemplates(root) {
     try {

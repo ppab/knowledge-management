@@ -39,6 +39,14 @@ describe('markdown parser', () => {
     ]);
   });
 
+  it('ignores heading-like lines inside fences and code, and tolerates odd whitespace', () => {
+    const source = '```\n# not a heading\n```\n\n    # indented code\n\n#  Real   \n\n## Last';
+    expect(parser.parse(source, 0).headings).toEqual([
+      { depth: 1, text: 'Real', range: { start: 46, end: 56 } },
+      { depth: 2, text: 'Last', range: { start: 58, end: 65 } },
+    ]);
+  });
+
   it('keeps references exact when the text node contains escapes and entities', () => {
     const source = 'a \\* b &amp; [[R1]] c';
     const parsed = parser.parse(source, 0);

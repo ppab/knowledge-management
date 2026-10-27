@@ -15,7 +15,7 @@ describe('listNotes / showNote', () => {
     f.fs.files.set('c.md', 'plain text');
     f.fs.files.set('d.md', '---\nid: [not, scalar]\n---\n');
 
-    const entries = unwrap(await listNotes(f.deps, f.vault));
+    const entries = unwrap(await listNotes(f.deps, f.scope));
     expect(entries.map((e) => [e.kind, e.title])).toEqual([
       ['note', 'Alpha'],
       ['unidentified', 'Beta heading'],
@@ -24,9 +24,10 @@ describe('listNotes / showNote', () => {
     ]);
     expect(entries[3]!.issues).toEqual(['"id" must be a string']);
 
-    const shown = unwrap(await showNote(f.deps, f.vault, 'A1'));
-    expect(shown.references.map((r) => r.target)).toEqual(['B1', 'A1']);
-    expect(shown.source).toBe(f.fs.files.get('a.md'));
+    const shown = unwrap(await showNote(f.deps, f.scope, 'A1'));
+    expect(shown.vault.config.name).toBe('monitor');
+    expect(shown.note.references.map((r) => r.target)).toEqual(['B1', 'A1']);
+    expect(shown.note.source).toBe(f.fs.files.get('a.md'));
   });
 
   it('filters by tag and by date or date range', async () => {
@@ -35,13 +36,13 @@ describe('listNotes / showNote', () => {
     f.fs.files.set('b.md', note('B1', 'B', [], '', 'tags: [x, y]\ndates: [2026-10-15]\n'));
     f.fs.files.set('c.md', note('C1', 'C', [], '', 'dates: [2026-11-01]\n'));
     const paths = async (filters: Parameters<typeof listNotes>[2]) =>
-      unwrap(await listNotes(f.deps, f.vault, filters)).map((e) => e.path);
+      unwrap(await listNotes(f.deps, f.scope, filters)).map((e) => e.path);
     expect(await paths({ tag: 'y' })).toEqual(['b.md']);
     expect(await paths({ tag: 'x' })).toEqual(['a.md', 'b.md']);
     expect(await paths({ date: '2026-10-15' })).toEqual(['b.md']);
     expect(await paths({ date: '2026-10-01..2026-10-31' })).toEqual(['a.md', 'b.md']);
     expect(await paths({ tag: 'x', date: '2026-10-02..2026-12-31' })).toEqual(['b.md']);
-    expect(await listNotes(f.deps, f.vault, { date: 'yesterday' })).toMatchObject({
+    expect(await listNotes(f.deps, f.scope, { date: 'yesterday' })).toMatchObject({
       ok: false,
       error: { code: 'VALIDATION' },
     });
@@ -51,10 +52,10 @@ describe('listNotes / showNote', () => {
     const f = fixture();
     f.fs.files.set('a.md', note('A1', 'Alpha', ['first']));
     f.fs.files.set('b.md', note('B1', 'Beta'));
-    expect(unwrap(await showNote(f.deps, f.vault, 'A1')).path).toBe('a.md');
-    expect(unwrap(await showNote(f.deps, f.vault, 'beta')).path).toBe('b.md');
-    expect(unwrap(await showNote(f.deps, f.vault, 'FIRST')).path).toBe('a.md');
-    expect(await showNote(f.deps, f.vault, 'nope')).toMatchObject({
+    expect(unwrap(await showNote(f.deps, f.scope, 'A1')).note.path).toBe('a.md');
+    expect(unwrap(await showNote(f.deps, f.scope, 'beta')).note.path).toBe('b.md');
+    expect(unwrap(await showNote(f.deps, f.scope, 'FIRST')).note.path).toBe('a.md');
+    expect(await showNote(f.deps, f.scope, 'nope')).toMatchObject({
       ok: false,
       error: { code: 'NOT_FOUND' },
     });
@@ -64,11 +65,19 @@ describe('listNotes / showNote', () => {
     const f = fixture();
     f.fs.files.set('a.md', note('DUP', 'One', ['same']));
     f.fs.files.set('b.md', note('DUP', 'Two', ['same']));
-    expect(await showNote(f.deps, f.vault, 'DUP')).toMatchObject({
+    expect(await showNote(f.deps, f.scope, 'DUP')).toMatchObject({
       ok: false,
-      error: { code: 'AMBIGUOUS', details: { paths: ['a.md', 'b.md'] } },
+      error: {
+        code: 'AMBIGUOUS',
+        details: {
+          candidates: [
+            expect.objectContaining({ path: 'a.md' }),
+            expect.objectContaining({ path: 'b.md' }),
+          ],
+        },
+      },
     });
-    expect(await showNote(f.deps, f.vault, 'same')).toMatchObject({
+    expect(await showNote(f.deps, f.scope, 'same')).toMatchObject({
       ok: false,
       error: { code: 'AMBIGUOUS' },
     });
@@ -77,10 +86,10 @@ describe('listNotes / showNote', () => {
   it('sees edits made after the index was built', async () => {
     const f = fixture();
     f.fs.files.set('a.md', note('A1', 'Before'));
-    expect(unwrap(await showNote(f.deps, f.vault, 'A1')).title).toBe('Before');
+    expect(unwrap(await showNote(f.deps, f.scope, 'A1')).note.title).toBe('Before');
     f.fs.files.set('a.md', note('A1', 'After'));
-    expect(unwrap(await showNote(f.deps, f.vault, 'After')).path).toBe('a.md');
+    expect(unwrap(await showNote(f.deps, f.scope, 'After')).note.path).toBe('a.md');
     f.fs.files.delete('a.md');
-    expect(await showNote(f.deps, f.vault, 'A1')).toMatchObject({ ok: false });
+    expect(await showNote(f.deps, f.scope, 'A1')).toMatchObject({ ok: false });
   });
 });

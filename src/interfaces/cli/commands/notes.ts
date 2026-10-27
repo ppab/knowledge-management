@@ -1,23 +1,20 @@
-import { InvalidArgumentError, type Command } from 'commander';
+import type { Command } from 'commander';
 import { adoptNote, type AdoptedNote } from '../../../application/notes/adopt-note.js';
 import { createNote } from '../../../application/notes/create-note.js';
 import { listNotes } from '../../../application/notes/list-notes.js';
 import { showNote } from '../../../application/notes/show-note.js';
 import { isNote, type NoteEntry } from '../../../domain/note/note.js';
 import { ok } from '../../../domain/result.js';
+import { isComposite, resolveWriteTarget, type Scope } from '../../../domain/scope/scope.js';
 import type { Exit } from '../commands.js';
-import { contextFor, inVault, type CliIo } from '../context.js';
+import { contextFor, inScope, type CliContext, type CliIo } from '../context.js';
 import { emit, noteToJson, summaryRow, table } from '../output.js';
+import { parseVar } from './mutations.js';
 
-const parseVar = (value: string, previous: Record<string, string> = {}) => {
-  const eq = value.indexOf('=');
-  if (eq <= 0) throw new InvalidArgumentError('expected name=value');
-  return { ...previous, [value.slice(0, eq)]: value.slice(eq + 1) };
-};
-
-const showText = (entry: NoteEntry, raw: boolean): string => {
+const showText = (vault: string, entry: NoteEntry, raw: boolean, composite: boolean): string => {
   if (raw) return entry.source;
   const lines = [`title: ${entry.title}`, `path: ${entry.path}`];
+  if (composite) lines.push(`vault: ${vault}`);
   if (isNote(entry)) {
     lines.unshift(`id: ${entry.id}`);
     if (entry.aliases.length) lines.push(`aliases: ${entry.aliases.join(', ')}`);
@@ -31,6 +28,12 @@ const showText = (entry: NoteEntry, raw: boolean): string => {
   return `${lines.join('\n')}\n\n${entry.source.slice(entry.body.start)}`;
 };
 
+/** Writes need one vault: the scope's only one, `--in`, or the one containing the cwd. */
+const writeTarget = (ctx: CliContext, scope: Scope, inVault: string | undefined) =>
+  resolveWriteTarget(scope, { ...(inVault !== undefined && { vault: inVault }), cwd: ctx.cwd });
+
+const IN_HELP = 'vault (name or path) to write in when the scope has several';
+
 export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): void => {
   program
     .command('create')
@@ -39,25 +42,36 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
     .option('--template <name>', 'template under .notes/templates/ (default: default)')
     .option('--var <name=value>', 'template variable (repeatable)', parseVar)
     .option('--path <path>', 'output path relative to the vault root')
+    .option('--in <vault>', IN_HELP)
     .action(
       async (
-        opts: { title: string; template?: string; var?: Record<string, string>; path?: string },
+        opts: {
+          title: string;
+          template?: string;
+          var?: Record<string, string>;
+          path?: string;
+          in?: string;
+        },
         cmd: Command,
       ) => {
         const ctx = contextFor(io, cmd);
         exit(
           await emit(
             ctx,
-            inVault(ctx, (vault) =>
-              createNote(ctx.deps, vault, {
+            inScope(ctx, async (scope) => {
+              const vault = writeTarget(ctx, scope, opts.in);
+              if (!vault.ok) return vault;
+              const created = await createNote(ctx.deps, vault.value, {
                 title: opts.title,
                 ...(opts.template !== undefined && { template: opts.template }),
                 ...(opts.var !== undefined && { variables: opts.var }),
                 ...(opts.path !== undefined && { path: opts.path }),
-              }),
-            ),
-            (note) => `Created ${note.id} at ${note.path}`,
-            noteToJson,
+              });
+              if (!created.ok) return created;
+              return ok({ vault: vault.value.config.name, note: created.value });
+            }),
+            ({ note }) => `Created ${note.id} at ${note.path}`,
+            ({ vault, note }) => ({ vault, ...noteToJson(note) }),
           ),
         );
       },
@@ -65,7 +79,7 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
 
   program
     .command('list')
-    .description('list notes in the vault')
+    .description('list notes in the scope')
     .option('--unidentified', 'only files without an id')
     .option('--tag <tag>', 'only notes carrying this tag')
     .option('--date <date>', 'only notes bound to a date: YYYY-MM-DD or FROM..TO')
@@ -74,15 +88,22 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
       exit(
         await emit(
           ctx,
-          inVault(ctx, (vault) =>
-            listNotes(ctx.deps, vault, {
+          inScope(ctx, async (scope) => {
+            const entries = await listNotes(ctx.deps, scope, {
               ...(opts.unidentified !== undefined && { unidentified: opts.unidentified }),
               ...(opts.tag !== undefined && { tag: opts.tag }),
               ...(opts.date !== undefined && { date: opts.date }),
-            }),
-          ),
-          (entries) => (entries.length === 0 ? 'No notes found.' : table(entries.map(summaryRow))),
-          (entries) => ({ notes: entries }),
+            });
+            if (!entries.ok) return entries;
+            return ok({ composite: isComposite(scope), entries: entries.value });
+          }),
+          ({ composite, entries }) =>
+            entries.length === 0
+              ? 'No notes found.'
+              : table(
+                  entries.map((e) => (composite ? [e.vault, ...summaryRow(e)] : summaryRow(e))),
+                ),
+          ({ entries }) => ({ notes: entries }),
         ),
       );
     });
@@ -97,9 +118,14 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
       exit(
         await emit(
           ctx,
-          inVault(ctx, (vault) => showNote(ctx.deps, vault, query)),
-          (note) => showText(note, opts.raw ?? false),
-          noteToJson,
+          inScope(ctx, async (scope) => {
+            const located = await showNote(ctx.deps, scope, query);
+            if (!located.ok) return located;
+            return ok({ composite: isComposite(scope), ...located.value });
+          }),
+          ({ composite, vault, note }) =>
+            showText(vault.config.name, note, opts.raw ?? false, composite),
+          ({ vault, note }) => ({ vault: vault.config.name, ...noteToJson(note) }),
         ),
       );
     });
@@ -109,25 +135,27 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
     .description('assign an id to Markdown files that have none')
     .argument('<paths...>', 'vault-relative file paths')
     .option('--type <type>', 'note type for {type} identity formats (frontmatter "type" wins)')
-    .action(async (paths: string[], opts: { type?: string }, cmd: Command) => {
+    .option('--in <vault>', IN_HELP)
+    .action(async (paths: string[], opts: { type?: string; in?: string }, cmd: Command) => {
       const ctx = contextFor(io, cmd);
       exit(
         await emit(
           ctx,
-          inVault(ctx, async (vault) => {
+          inScope(ctx, async (scope) => {
+            const vault = writeTarget(ctx, scope, opts.in);
+            if (!vault.ok) return vault;
             const adopted: AdoptedNote[] = [];
             for (const path of paths) {
-              const result = await adoptNote(ctx.deps, vault, {
+              const result = await adoptNote(ctx.deps, vault.value, {
                 path,
                 ...(opts.type !== undefined && { type: opts.type }),
               });
               if (!result.ok) return result;
               adopted.push(result.value);
             }
-            return ok(adopted);
+            return ok({ vault: vault.value.config.name, adopted });
           }),
-          (adopted) => adopted.map((a) => `Adopted ${a.path} -> ${a.id}`).join('\n'),
-          (adopted) => ({ adopted }),
+          ({ adopted }) => adopted.map((a) => `Adopted ${a.path} -> ${a.id}`).join('\n'),
         ),
       );
     });

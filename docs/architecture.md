@@ -244,9 +244,9 @@ notes init [--name <n>] [--identity ulid|uuidv7|formatted --format "..."]
 notes list [--tag <t>] [--date <d>|<from>..<to>] [--vault <name>] [--unidentified]
 notes show <id|alias> [--raw] [--at <rev>]
 notes search <words...> [--limit <n>]        # trailing * on a word matches prefixes
-notes create --template <name> --title <t> [--var k=v]... [--vault <name>]
+notes create --template <name> --title <t> [--var k=v]... [--in <vault>]   # --in: name or path within the scope
 notes edit <id>
-notes adopt <path>... [--type <type>]
+notes adopt <path>... [--type <type>] [--in <vault>]
 notes save <id> [-m <message>]
 notes bind <id> --date <d> [--remove]
 notes reference add --source <id> --target <id|alias> [--at end|heading:<text>|references] [--label <l>]
@@ -261,7 +261,7 @@ notes doctor [--fix]
 notes scope list | show [<name>]
 notes capabilities --json
 
-Global: --scope <name> | --vault <path>...  (default: nearest vault from cwd)
+Global: --scope <name> | --vault <path> (repeatable)  (default: nearest vault from cwd)
         --json  --dry-run  --no-interactive  --cwd <dir>
 ```
 

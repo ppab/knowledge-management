@@ -17,6 +17,12 @@ export interface VaultConfig {
   readonly editor?: string;
 }
 
+/** A vault that has been located and whose configuration validated. */
+export interface OpenVault {
+  readonly root: string;
+  readonly config: VaultConfig;
+}
+
 export const defaultVaultConfig = (id: VaultId, name: string): VaultConfig => ({
   id,
   name,
