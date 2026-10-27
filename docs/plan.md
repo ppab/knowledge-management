@@ -82,7 +82,10 @@ and show notes — scanning the filesystem directly, no index yet.
   them unchanged in `--raw`.
 - A file matched by `include` with no `id` appears in `list --unidentified` and is rejected by
   mutations with exit `6`.
-- Templates cannot write outside the vault root or overwrite an existing file (exit `6`).
+- Templates cannot write outside the vault root (exit `6`) or overwrite an existing file
+  (exit `5`, `CONFLICT`).
+- `adopt` takes the note type from frontmatter `type`, then `--type`; a `{type}` identity format
+  with neither fails with guidance (exit `6`).
 - Changing `identity.strategy` in config and creating a new note does not alter any existing id.
 
 **Tests**

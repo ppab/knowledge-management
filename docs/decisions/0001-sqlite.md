@@ -29,3 +29,7 @@ swap local to `src/infrastructure/sqlite/`.
 - Zero native dependencies; `npm install` never compiles anything.
 - The synchronous API fits a CLI; the TUI watcher keeps writes small (one note per refresh).
 - Node 22 users must pass `--experimental-sqlite`; not supported in v0.1.
+- The intended Node-free distribution is `bun build --compile` (post-v0.1). Bun provides
+  `bun:sqlite`, not a complete `node:sqlite`, so the adapter isolates the driver behind a small
+  `SqliteDriver` wrapper (`open / prepare / run / get / all / exec / close`) and the queries never
+  touch the driver module directly. Swapping drivers must be a one-file change.

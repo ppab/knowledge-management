@@ -236,7 +236,7 @@ notes show <id|alias> [--raw] [--at <rev>]
 notes search <query>
 notes create --template <name> --title <t> [--var k=v]... [--vault <name>]
 notes edit <id>
-notes adopt <path>...
+notes adopt <path>... [--type <type>]
 notes save <id> [-m <message>]
 notes bind <id> --date <d> [--remove]
 notes reference add --source <id> --target <id|alias> [--at end|heading:<text>|references] [--label <l>]
