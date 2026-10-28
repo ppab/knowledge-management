@@ -129,6 +129,57 @@ describe('note store', () => {
   });
 });
 
+describe('note store concurrency', () => {
+  const store = createNoteStore();
+
+  it('serializes two concurrent writers on the same version so one conflicts, not clobbers', async () => {
+    const base = unwrap(await store.write(root, 'n.md', 'base'));
+    // Both writers read the same version and race. The per-path lock serializes them: the first to
+    // the lock renames, the second re-reads inside the lock, sees the winner's version and
+    // conflicts. Deterministic regardless of scheduling — exactly one of each, never a lost update.
+    const [a, b] = await Promise.all([
+      store.write(root, 'n.md', 'from A', { expectedVersion: base.version }),
+      store.write(root, 'n.md', 'from B', { expectedVersion: base.version }),
+    ]);
+    const outcomes = [a, b];
+    expect(outcomes.filter((r) => r.ok)).toHaveLength(1);
+    expect(outcomes.filter((r) => !r.ok)).toHaveLength(1);
+    expect(outcomes.find((r) => !r.ok)).toMatchObject({ error: { code: 'CONFLICT' } });
+    // The surviving file is exactly one writer's content — never a torn or merged write.
+    expect(['from A', 'from B']).toContain(await readFile(join(root, 'n.md'), 'utf8'));
+  });
+
+  it('refuses a conditional write whose source was deleted after it was read', async () => {
+    const first = unwrap(await store.write(root, 'n.md', 'base'));
+    await rm(join(root, 'n.md'));
+    const gone = await store.write(root, 'n.md', 'next', { expectedVersion: first.version });
+    // Deletion is a conflict, not a silent re-create: the version the caller expected is gone.
+    expect(gone).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+    expect(await readdir(root)).toEqual([]); // nothing recreated
+  });
+
+  it('leaves no temp artifacts behind when a conditional write conflicts', async () => {
+    const first = unwrap(await store.write(root, 'n.md', 'v1'));
+    await writeFile(join(root, 'n.md'), 'changed out from under us');
+    const stale = await store.write(root, 'n.md', 'v2', { expectedVersion: first.version });
+    expect(stale).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+    // The staged temp was cleaned up: only the real file remains, no `*.tmp` residue.
+    expect(await readdir(root)).toEqual(['n.md']);
+    expect(await readFile(join(root, 'n.md'), 'utf8')).toBe('changed out from under us');
+  });
+
+  it('serializes a burst of unconditional writers to the last-wins content with no residue', async () => {
+    await Promise.all(
+      Array.from({ length: 8 }, (_, i) => store.write(root, 'n.md', `w${String(i)}`)),
+    );
+    // No expectedVersion, so every write is allowed; the lock still serializes them so the file is
+    // one writer's whole content and the directory is left clean.
+    const survivor = await readFile(join(root, 'n.md'), 'utf8');
+    expect(survivor).toMatch(/^w[0-7]$/);
+    expect(await readdir(root)).toEqual(['n.md']);
+  });
+});
+
 describe('note store symlink containment', () => {
   const store = createNoteStore();
   let external: string;

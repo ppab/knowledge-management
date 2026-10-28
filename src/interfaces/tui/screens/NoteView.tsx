@@ -269,7 +269,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
   };
   const leader = useLeader(
     screenChords(tui, { back: true, extra: [...panelChords, dateChord] }),
-    flow === null && !selection,
+    flow === null && !selection && !editing,
   );
   const half = Math.max(1, Math.floor(height / 2));
 
@@ -677,7 +677,11 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       else if (key.tab) moveReference(key.shift ? -1 : 1);
       else if (key.return) followReference();
     },
-    { isActive: flow === null && !leader.pending },
+    // While the external editor owns the terminal (`editing`), the TUI processes no key, so no
+    // second handoff and no mutation can race the editor session in-process. This is defence in
+    // depth over the OS terminal handoff, which already starves the parent of input: see
+    // docs/architecture.md §6.
+    { isActive: flow === null && !leader.pending && !editing },
   );
 
   const idText = entry && isNote(entry) ? entry.id : 'unidentified';
