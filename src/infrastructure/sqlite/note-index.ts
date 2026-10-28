@@ -273,9 +273,10 @@ export const createSqliteNoteIndex = (
         })),
     upsert,
     touch: (file) => {
-      sql('UPDATE notes SET mtime = ?, size = ? WHERE path = ?').run(
+      sql('UPDATE notes SET mtime = ?, size = ?, physical_key = ? WHERE path = ?').run(
         file.mtime,
         file.size,
+        file.physicalKey ?? null,
         file.path,
       );
     },

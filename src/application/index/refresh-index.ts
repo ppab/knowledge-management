@@ -73,6 +73,31 @@ export const planRefresh = async (
   const removals: string[] = [];
   let unchanged = 0;
 
+  // The single place that decides a path's fate from its freshly read document (or its absence)
+  // and current index row. Both the full and targeted passes feed it, so they plan identically.
+  const record = (
+    path: string,
+    doc: NoteDocument | undefined,
+    row: IndexedFile | undefined,
+  ): void => {
+    if (!doc) {
+      if (row) removals.push(path);
+      return;
+    }
+    const next: NoteFile = {
+      path,
+      mtime: doc.mtime,
+      size: doc.size,
+      ...(doc.physicalKey !== undefined && { physicalKey: doc.physicalKey }),
+    };
+    if (row?.version === doc.version) {
+      if (row.mtime !== next.mtime || row.size !== next.size) touches.push(next);
+      else unchanged += 1;
+      return;
+    }
+    upserts.push({ entry: loadNoteEntry(deps, doc), file: next });
+  };
+
   const consider = async (
     file: NoteFile,
     row: IndexedFile | undefined,
@@ -80,21 +105,10 @@ export const planRefresh = async (
     const doc = await deps.notes.read(vault.root, file.path);
     if (!doc.ok) {
       if (doc.error.code !== 'NOT_FOUND') return doc.error;
-      if (row) removals.push(file.path);
+      record(file.path, undefined, row);
       return null;
     }
-    const next: NoteFile = {
-      path: file.path,
-      mtime: doc.value.mtime,
-      size: doc.value.size,
-      ...(doc.value.physicalKey !== undefined && { physicalKey: doc.value.physicalKey }),
-    };
-    if (row?.version === doc.value.version) {
-      if (row.mtime !== next.mtime || row.size !== next.size) touches.push(next);
-      else unchanged += 1;
-      return null;
-    }
-    upserts.push({ entry: loadNoteEntry(deps, doc.value), file: next });
+    record(file.path, doc.value, row);
     return null;
   };
 
@@ -118,30 +132,16 @@ export const planRefresh = async (
       if (doc && keyOf(doc) !== path) return true; // the target is itself an alias
       if (doc && sharedWithOther(keyOf(doc), path)) return true; // another path maps here
       const row = indexed.get(path);
-      return row !== undefined && sharedWithOther(keyOf(row), path); // altering a shared note
+      if (row === undefined) return false;
+      // The row stands in for a physical note under another key (it is the canonical alias), or
+      // another indexed path shares its key. Removing or altering it may need a surviving on-disk
+      // sibling promoted, which a targeted plan cannot see, so reconcile the whole vault.
+      return keyOf(row) !== path || sharedWithOther(keyOf(row), path);
     });
     if (involvesAlias) return planRefresh(deps, vault, index, {});
 
-    for (const [path, doc] of reads) {
-      const row = indexed.get(path);
-      if (!doc) {
-        if (row) removals.push(path);
-        continue;
-      }
-      const next: NoteFile = {
-        path,
-        mtime: doc.mtime,
-        size: doc.size,
-        ...(doc.physicalKey !== undefined && { physicalKey: doc.physicalKey }),
-      };
-      if (row?.version === doc.version) {
-        if (row.mtime !== next.mtime || row.size !== next.size) touches.push(next);
-        else unchanged += 1;
-      } else {
-        upserts.push({ entry: loadNoteEntry(deps, doc), file: next });
-      }
-    }
-    return ok({ upserts, touches, removals, unchanged });
+    for (const [path, doc] of reads) record(path, doc, indexed.get(path));
+    return ok({ upserts, touches, removals: removals.sort(), unchanged });
   }
 
   const present = await deps.notes.list(vault.root, vault.config.include, vault.config.exclude);

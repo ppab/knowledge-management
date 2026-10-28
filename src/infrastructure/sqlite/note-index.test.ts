@@ -112,6 +112,24 @@ describe('sqlite note index', () => {
     expect(index.stats().notes).toBe(0);
     index.close();
   });
+
+  it('touch carries the physical key so a retargeted file keeps no stale key', () => {
+    const index = createSqliteNoteIndex(openSqlite(':memory:'));
+    index.upsert(entry('a.md', '---\nid: A\n---\n'), { path: 'a.md', mtime: 1, size: 1 });
+    expect(index.files()).toEqual([{ path: 'a.md', version: 'a.md', mtime: 1, size: 1 }]);
+
+    // Same content and version, but a new mtime and a new physical target (the file became an
+    // internal symlink to another in-vault note). touch must record the new key, not the old one.
+    index.touch({ path: 'a.md', mtime: 2, size: 1, physicalKey: 'real.md' });
+    expect(index.files()).toEqual([
+      { path: 'a.md', version: 'a.md', mtime: 2, size: 1, physicalKey: 'real.md' },
+    ]);
+
+    // Becoming a plain file again clears the key rather than leaving it set.
+    index.touch({ path: 'a.md', mtime: 3, size: 1 });
+    expect(index.files()).toEqual([{ path: 'a.md', version: 'a.md', mtime: 3, size: 1 }]);
+    index.close();
+  });
 });
 
 describe('sqlite index provider', () => {

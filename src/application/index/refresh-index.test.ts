@@ -122,6 +122,20 @@ describe('index refresh', () => {
     expect(index.byId('A1')).toHaveLength(1);
   });
 
+  it('a targeted refresh that removes the canonical alias promotes the surviving sibling', async () => {
+    const f = fixture();
+    f.fs.files.set('real.md', note('A1', 'A'));
+    f.fs.links = new Map([['bbb.md', 'real.md']]); // 'bbb.md' < 'real.md' → bbb.md is canonical
+    const index = await open(f);
+    unwrap(await refreshIndex(f.deps, f.vault, index));
+    expect(index.all().map((e) => e.path)).toEqual(['bbb.md']);
+
+    f.fs.links.delete('bbb.md'); // the indexed alias is gone, but real.md is still on disk
+    unwrap(await refreshIndex(f.deps, f.vault, index, { paths: ['bbb.md'] }));
+    expect(index.all().map((e) => e.path)).toEqual(['real.md']); // promoted, not dropped
+    expect(index.byId('A1')).toHaveLength(1);
+  });
+
   it('rebuild from scratch equals the incremental result', async () => {
     const f = fixture();
     f.fs.files.set('a.md', note('A1', 'A', 'see [[B1]]'));
