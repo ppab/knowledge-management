@@ -28,15 +28,18 @@ import { BUILTIN_DEFAULT_TEMPLATE } from '../../src/infrastructure/templates/tem
 
 const version = (source: string) => createHash('sha256').update(source).digest('hex');
 /** A content-derived "mtime": any edit to the fake file changes it, like a real clock would. */
-const fingerprint = (path: string, source: string) => ({
+const fingerprint = (path: string, source: string, physicalKey = path) => ({
   path,
   mtime: parseInt(version(source).slice(0, 10), 16),
   size: source.length,
+  physicalKey,
 });
 
 export interface FakeFs {
   files: Map<string, string>;
   writes: { path: string; source: string }[];
+  /** Alias path -> canonical path: two vault paths that resolve to the same physical note. */
+  links?: Map<string, string>;
 }
 
 export const createFakeNoteStore = (roots: Map<string, FakeFs>): NoteStore => {
@@ -45,25 +48,42 @@ export const createFakeNoteStore = (roots: Map<string, FakeFs>): NoteStore => {
     if (!fs) throw new Error(`fake store: unknown vault root ${root}`);
     return fs;
   };
+  /** The physical note an alias path points at (itself when it is not a link). */
+  const canonicalOf = (fs: FakeFs, path: string): string => fs.links?.get(path) ?? path;
   return {
-    list: (root, include) =>
-      Promise.resolve(
-        [...fsOf(root).files.entries()]
-          .filter(([p]) => p.endsWith('.md') && include.length > 0)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([path, source]) => fingerprint(path, source)),
-      ),
+    list: (root, include) => {
+      const fs = fsOf(root);
+      const entries = [...fs.files.entries()].map(([path, source]) => ({
+        path,
+        source,
+        key: path,
+      }));
+      for (const [alias, canonical] of fs.links ?? []) {
+        const source = fs.files.get(canonical);
+        if (source !== undefined) entries.push({ path: alias, source, key: canonical });
+      }
+      return Promise.resolve(
+        entries
+          .filter(({ path }) => path.endsWith('.md') && include.length > 0)
+          .sort((a, b) => a.path.localeCompare(b.path))
+          .map(({ path, source, key }) => fingerprint(path, source, key)),
+      );
+    },
     read: (root, path) => {
-      const source = fsOf(root).files.get(path);
+      const fs = fsOf(root);
+      const canonical = canonicalOf(fs, path);
+      const source = fs.files.get(canonical);
       return Promise.resolve(
         source === undefined
           ? err(notFound(`No file at ${path}`, { path }))
-          : ok({ ...fingerprint(path, source), source, version: version(source) }),
+          : ok({ ...fingerprint(path, source, canonical), source, version: version(source) }),
       );
     },
     write: (root, path, source, options = {}) => {
       const fs = fsOf(root);
-      const current = fs.files.get(path);
+      // Writing through an alias updates its canonical target, preserving the link.
+      const canonical = canonicalOf(fs, path);
+      const current = fs.files.get(canonical);
       if (options.createOnly && current !== undefined) {
         return Promise.resolve(err(conflict(`${path} already exists`, { path })));
       }
@@ -73,7 +93,7 @@ export const createFakeNoteStore = (roots: Map<string, FakeFs>): NoteStore => {
           return Promise.resolve(err(conflict(`${path} modified`, { path })));
         }
       }
-      fs.files.set(path, source);
+      fs.files.set(canonical, source);
       fs.writes.push({ path, source });
       return Promise.resolve(ok({ version: version(source) }));
     },

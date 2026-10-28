@@ -19,7 +19,7 @@ import type {
 } from '../../application/ports.js';
 import { openSqlite, type SqliteDriver, type SqliteStatement } from './driver.js';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const INDEX_FILE = 'index.sqlite';
 
 /*
@@ -35,6 +35,7 @@ CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE notes (
   rowid INTEGER PRIMARY KEY,
   path TEXT NOT NULL UNIQUE,
+  physical_key TEXT,
   id TEXT,
   title TEXT NOT NULL,
   title_key TEXT NOT NULL,
@@ -202,7 +203,7 @@ export const createSqliteNoteIndex = (
     remove(entry.path);
     const summary = summarize(entry);
     const { lastInsertRowid } = sql(
-      `INSERT INTO notes (${NOTE_COLUMNS}, title_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO notes (${NOTE_COLUMNS}, title_key, physical_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       entry.path,
       summary.kind === 'note' ? summary.id : null,
@@ -220,6 +221,7 @@ export const createSqliteNoteIndex = (
       JSON.stringify(summary.fields),
       JSON.stringify(summary.issues),
       summary.title.toLowerCase(),
+      file.physicalKey ?? null,
     );
     for (const alias of summary.aliases) {
       sql('INSERT INTO aliases (path, alias, alias_key) VALUES (?, ?, ?)').run(
@@ -262,7 +264,13 @@ export const createSqliteNoteIndex = (
 
   let closed = false;
   return {
-    files: () => sql('SELECT path, version, mtime, size FROM notes').all<IndexedFile>(),
+    files: () =>
+      sql('SELECT path, version, mtime, size, physical_key FROM notes')
+        .all<IndexedFile & { physical_key: string | null }>()
+        .map(({ physical_key, ...file }) => ({
+          ...file,
+          ...(physical_key !== null && { physicalKey: physical_key }),
+        })),
     upsert,
     touch: (file) => {
       sql('UPDATE notes SET mtime = ?, size = ? WHERE path = ?').run(

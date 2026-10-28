@@ -70,6 +70,58 @@ describe('index refresh', () => {
     expect(index.all().map((e) => e.path)).toEqual(['a.md']);
   });
 
+  it('indexes a physical note reached by two paths once, keeping the canonical path', async () => {
+    const f = fixture();
+    f.fs.files.set('real.md', note('A1', 'A'));
+    f.fs.links = new Map([['zzz-alias.md', 'real.md']]);
+    const index = await open(f);
+    unwrap(await refreshIndex(f.deps, f.vault, index));
+    expect(index.all().map((e) => e.path)).toEqual(['real.md']); // alias collapsed
+    expect(index.byId('A1')).toHaveLength(1); // not a false ambiguity
+  });
+
+  it('keeps two separate files that share an id as distinct, ambiguous rows', async () => {
+    const f = fixture();
+    f.fs.files.set('a.md', note('DUP', 'A'));
+    f.fs.files.set('b.md', note('DUP', 'B'));
+    const index = await open(f);
+    unwrap(await refreshIndex(f.deps, f.vault, index));
+    expect(index.byId('DUP')).toHaveLength(2); // integrity error preserved
+  });
+
+  it('a targeted refresh of a non-canonical alias cannot resurrect a duplicate', async () => {
+    const f = fixture();
+    f.fs.files.set('real.md', note('A1', 'A'));
+    f.fs.links = new Map([['zzz-alias.md', 'real.md']]);
+    const index = await open(f);
+    unwrap(await refreshIndex(f.deps, f.vault, index));
+    expect(index.byId('A1')).toHaveLength(1);
+
+    f.fs.files.set('real.md', note('A1', 'A changed'));
+    unwrap(await refreshIndex(f.deps, f.vault, index, { paths: ['zzz-alias.md'] }));
+    expect(index.byId('A1')).toHaveLength(1);
+    expect(index.all().map((e) => [e.path, e.title])).toEqual([['real.md', 'A changed']]);
+  });
+
+  it('re-selects the canonical path deterministically as aliases appear and disappear', async () => {
+    const f = fixture();
+    f.fs.files.set('real.md', note('A1', 'A'));
+    f.fs.links = new Map([['bbb.md', 'real.md']]);
+    const index = await open(f);
+    unwrap(await refreshIndex(f.deps, f.vault, index));
+    expect(index.all().map((e) => e.path)).toEqual(['bbb.md']); // 'bbb.md' < 'real.md'
+
+    f.fs.links.set('aaa.md', 'real.md'); // a smaller alias appears → new canonical
+    unwrap(await refreshIndex(f.deps, f.vault, index));
+    expect(index.all().map((e) => e.path)).toEqual(['aaa.md']);
+    expect(index.byId('A1')).toHaveLength(1);
+
+    f.fs.links.delete('aaa.md'); // the selected path is removed → survivor promoted
+    unwrap(await refreshIndex(f.deps, f.vault, index));
+    expect(index.all().map((e) => e.path)).toEqual(['bbb.md']);
+    expect(index.byId('A1')).toHaveLength(1);
+  });
+
   it('rebuild from scratch equals the incremental result', async () => {
     const f = fixture();
     f.fs.files.set('a.md', note('A1', 'A', 'see [[B1]]'));

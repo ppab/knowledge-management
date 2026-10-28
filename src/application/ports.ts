@@ -33,6 +33,14 @@ export interface NoteFile {
   readonly path: string;
   readonly mtime: number;
   readonly size: number;
+  /**
+   * Opaque key identifying the file's physical target: a normalized real path (symlinks in the
+   * path resolved), so two vault paths that resolve to the same file share it. It identifies
+   * symlink aliases, not hard links. Absent when the target cannot be resolved (a missing or
+   * dangling path), in which case the path is its own identity. Computed by the filesystem
+   * adapter — the application groups and selects by it without touching the filesystem.
+   */
+  readonly physicalKey?: string;
 }
 
 export interface NoteDocument extends NoteFile {

@@ -58,7 +58,7 @@ describe('sqlite note index', () => {
     ]);
     expect(index.backlinks('A').map((r) => r.sourcePath)).toEqual(['u.md']);
     expect(index.dangling().map((r) => r.target)).toEqual(['C']);
-    expect(index.stats()).toEqual({ notes: 3, unidentified: 1, references: 3, schemaVersion: 1 });
+    expect(index.stats()).toEqual({ notes: 3, unidentified: 1, references: 3, schemaVersion: 2 });
 
     index.remove('a.md');
     expect(index.byId('A')).toEqual([]);
