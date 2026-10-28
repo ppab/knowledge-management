@@ -247,6 +247,39 @@ Insertion locations: `AtEnd` appends after trailing content with a blank line; `
 inserts before the next heading of equal or higher depth; `InReferencesSection` finds a heading
 whose text is `References` (case-insensitive) or creates one at the end.
 
+### Write concurrency and its limits
+
+`NoteStore.write` is the one place notes change on disk, and it defines exactly what it does and
+does not guarantee (`note-store.ts`, issue #2):
+
+- **Atomic replacement.** The new content is written to a sibling temp file and then `rename`d
+  over the target. A reader therefore sees either the whole old file or the whole new one, never
+  a partial write, and a failed write (conflict, validation, I/O) leaves no temp artifact behind.
+  `createOnly` uses `link` instead, whose `EEXIST` is an atomic create-if-absent.
+- **Compare-and-swap.** With `expectedVersion`, the temp is staged first and the destination's
+  current version is re-read _immediately before_ the rename, so the window between the check and
+  the swap is only the atomic rename itself. A changed source conflicts; a deleted source
+  conflicts (never a silent re-create).
+- **In-process serialization.** A per-path promise-chain lock serializes cooperating writers in
+  the same process across the whole locate → stage → recheck → rename sequence. Two application
+  writers holding the same expected version cannot both win: the loser rechecks after the
+  winner's rename and conflicts, so an update is never silently lost. The lock is keyed by the
+  lexical path and its entry is dropped once it drains, so the map does not grow without bound.
+- **Editor-session coordination.** The TUI edit handoff sets an `editing` flag that gates all of
+  `NoteView`'s input (`useInput` and the leader) off for the whole session, so no second handoff
+  and no mutation can be launched in-process while the external editor holds the note — defence in
+  depth over the OS handoff, which already starves the parent of input. When the editor exits the
+  view reloads to the new version, and because every mutation carries the version read when the
+  note was opened, a write still aimed at the pre-edit version is refused by the compare-and-swap
+  rather than overwriting the editor's change.
+
+**Residual limit (stated, not papered over).** Against a _non-cooperating_ external process, a
+portable hash-check plus `rename` is not a true atomic compare-and-swap: another process can
+write between our version re-read and our rename, and the in-process lock cannot constrain it. We
+do not claim stronger protection than this. Two narrower windows are likewise accepted within the
+threat model: an ancestor directory swapped for a symlink between the parent-realpath recheck and
+the rename, and directories created by `mkdir` that are not rolled back when a write then fails.
+
 ### TUI rendered↔source map
 
 `render(source, bodyStart, {width, referenceText}) → RenderedLine[]`, each line a list of

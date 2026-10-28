@@ -89,6 +89,31 @@ describe('addReference', () => {
     expect(f.fs.files.get('a.md')).toBe(A + '\n## References\n\n[[B]]\n\n[[C]]\n');
   });
 
+  it('refuses to clobber a change made while an external editor held the note', async () => {
+    const f = fixture();
+    const original = '---\nid: A\ntitle: Alpha\n---\n\n# Alpha\n\nIntro.\n';
+    f.fs.files.set('a.md', original);
+    f.fs.files.set('b.md', '---\nid: B\n---\n');
+    // The TUI reads the note, then hands the terminal to `o`'s external editor.
+    const readVersion = unwrap(await f.deps.notes.read('/vault', 'a.md')).version;
+    // During that session the user rewrites the body on disk, producing a new version.
+    const edited = original.replace('Intro.', 'Intro, rewritten in the editor.');
+    f.fs.files.set('a.md', edited);
+    // A mutation still carrying the pre-edit version must conflict, not overwrite the edit. This
+    // is the application-boundary guard behind the editor handoff: the TUI reloads to the new
+    // version after a cooperating handoff, and a stale write (e.g. a non-cooperating editor the
+    // TUI did not launch) is refused by the compare-and-swap rather than silently winning.
+    const stale = await addReference(f.deps, f.scope, {
+      source: 'A',
+      target: 'B',
+      at: { kind: 'references' },
+      expectedVersion: readVersion,
+    });
+    expect(stale).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+    expect(f.fs.files.get('a.md')).toBe(edited); // the editor's change is intact
+    expect(f.fs.writes).toEqual([]); // nothing was written
+  });
+
   it('previews with --dry-run and fails cleanly on unknown notes or headings', async () => {
     const f = fixture();
     f.fs.files.set('a.md', A);
