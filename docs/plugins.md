@@ -241,6 +241,13 @@ Rules the TUI enforces for every panel, core or plugin:
   refresh; the TUI shows the outcome and reloads the panel.
 - Key collisions are resolved at registry build time: a plugin key that clashes with a core key
   or another plugin's key is a startup error naming both, never a silent override.
+- **Decided for M7.5** ([decision 0003](./decisions/0003-workspace-layout-and-leader-key.md)):
+  `key` becomes `chord`, one or more keys typed after the leader (`Space` by default), so a
+  plugin's `T` is reached as `Space T`. The registry rejects equal chords and a chord that is a
+  prefix of another, naming both. Single letters stay with the focused panel's own actions
+  (`actions[].key`), which keep colliding only with that panel. Panels also become placeable in
+  the user's workspace columns by id (`todos.open` in a `layouts:` entry); nothing in a plugin
+  changes for that.
 - Panels are loaded lazily when shown and reloaded on the watcher tick that touches a note they
   displayed.
 - Keys the screens bind themselves (`j`, `k`, `/`, `t`, `n`, `q`, `e`, `s`, `H`, the note

@@ -282,6 +282,18 @@ Exit codes: `0` ok · `1` unexpected · `2` usage · `3` not found · `4` ambigu
 
 Screen stack (`push`/`pop`); each screen owns its key map.
 
+**Workspace (decided, implemented in M7.5;
+[decision 0003](./decisions/0003-workspace-layout-and-leader-key.md)).** The screen stack
+becomes the `main` panel of a workspace made of columns: each column has a width (`1fr`, `28`)
+and a vertical stack of panels from the registry, named layouts live in the user configuration
+under `tui:`, and columns collapse from the outside in on narrow terminals so a one-column
+layout is exactly the TUI described below. One panel has the keyboard; its single letters are
+the keys in the table. Everything global sits under a leader (`Space` by default): focus moves
+(`Space h/j/k/l`, `Space 1`…`9`), column toggles (`Space t`), the layout picker (`Space L`),
+and every panel jump that is a bare letter today (`c` calendar, `m` metadata, `B` backlinks,
+`T` todos become `Space c`, `Space m`, `Space B`, `Space T`). A which-key popup after the
+leader lists the continuations. Until M7.5 lands, the tables below describe the shipped keys.
+
 | Screen     | Keys                                                                                                                                                                                                                                                                                                                                        |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NoteList` | `j/k` move · `/` search · `t` tag filter · `c` calendar · `Enter` open · `n` new note (title, then a template, each row showing the path it would write; `default` alone still asks) · `q` quit                                                                                                                                             |

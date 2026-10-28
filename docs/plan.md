@@ -10,9 +10,9 @@ independently testable and leaves `main` working. Definition of done applies to 
 
 ```
 M0 ─ M1 ─ M2 ─┬─ M3 ─┐
-              ├─ M4 ─┼─ M5 ─ M6 ─┐
-              ├─ M7 ──────────────┼─ M9
-              └─ M8 ─ ────────────┘
+              ├─ M4 ─┼─ M5 ─ M6 ─ M7.5 ─┐
+              ├─ M7 ────────────────────┼─ M9
+              └─ M8 ─ ──────────────────┘
 ```
 
 M7 (history) and M8 (export) depend only on M2/M4 and can be scheduled before the TUI if the
@@ -498,6 +498,57 @@ application may import the indexer's glob library.
 - infrastructure: real tmp git repo — rename tracking, pathspec commit isolation, hook failure,
   non-repo directory, vault nested below repo root.
 - TUI: history screen keys; save prompt flow.
+
+---
+
+## M7.5 — Workspace: columns, a leader key, and a visual pass
+
+**Objective.** The TUI shows more than one panel at once in an arrangement the user chooses,
+every global action is reachable and discoverable through a leader key, and the screens look
+deliberate. Decided in
+[decision 0003](./decisions/0003-workspace-layout-and-leader-key.md); scheduled before M8
+because it changes what plugins register.
+
+**Deliverables**
+
+- Visual pass (first, independent of the layout): `src/interfaces/tui/theme.ts` with named
+  roles (accent, muted, selection, link, ok, error) honouring `NO_COLOR`; hints rendered as
+  accent key + dim label; header with title left and scope/count right; `Rows` with per-column
+  roles and a `▸` cursor marker instead of full inverse; prompts and pickers as rounded bordered
+  overlays.
+- domain/application: `Layout` (columns of `{ width, panels }` with `1fr`/cells), a pure
+  `arrange(layout, columns, rows, minimums)` that yields column rectangles and the collapse
+  order; `UserConfig.tui` (leader, layout, layouts) validated in the user-config adapter, with
+  the built-in `focus` layout as fallback.
+- TUI: `Workspace` renders the arranged columns, each panel through `PanelView` with its own
+  cursor; `main` hosts the screen stack; a single focused panel; the leader with a which-key
+  popup; chords for focus, column toggles, the layout picker, and every panel jump; plugin
+  `chord` replaces `key` in `PanelSpec`, with prefix/equality collision checks in the registry.
+- CLI: `capabilities --json` lists chords instead of keys.
+
+**Dependencies.** M6 (M7 for the history panel).
+
+**Acceptance criteria**
+
+- With the `review` layout from the decision record on a 120×40 terminal, the note and its
+  backlinks render side by side; `Space l` moves focus to the backlinks, `Enter` there opens
+  the row's note in `main`; `Space t 2` hides the column and `main` takes the full width.
+- On an 80-column terminal the same layout shows only `main`; every key of M5–M7 behaves as
+  before, and `Space c` opens the calendar as a screen.
+- A plugin declaring the chord `T` while another declares `T x` fails registry build with a
+  message naming both panels.
+- `Space` inside the title prompt types a space; `Esc` after a lone `Space` cancels the chord
+  and leaves the screen unchanged.
+- An invalid `layouts:` entry falls back to `focus` and says so in the status line.
+- Colours are absent with `NO_COLOR=1` and the same text is rendered.
+
+**Tests**
+
+- domain: `arrange` matrix (fractions, fixed cells, minimums, collapse order, one column).
+- infrastructure: `tui:` parsing and its error messages.
+- TUI (harness): focus movement, toggles, which-key popup, chord cancellation, leader ignored
+  in prompts, panel jump falling back to a screen in a one-column layout.
+- registry: chord collisions.
 
 ---
 
