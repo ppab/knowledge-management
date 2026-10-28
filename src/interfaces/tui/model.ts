@@ -11,6 +11,8 @@ import type { Selection } from './selection.js';
  * reducer is pure; the React tree renders only the top entry.
  */
 
+export type CalendarView = 'month' | 'week' | 'year' | 'agenda';
+
 export type Screen =
   | {
       readonly kind: 'list';
@@ -30,7 +32,20 @@ export type Screen =
       /** Visual selection (`v`); present only while selecting. */
       readonly selection?: Selection;
     }
-  | { readonly kind: 'calendar'; readonly cursor: IsoDate }
+  /**
+   * The calendar: a month grid (with the cursor day's notes beside it on a wide terminal), a
+   * week, a year strip or the month's agenda, all sharing one cursor date.
+   */
+  | {
+      readonly kind: 'calendar';
+      readonly cursor: IsoDate;
+      /** `month` when absent. */
+      readonly view?: CalendarView;
+      /** Month view only: which side takes the keys; `grid` when absent. */
+      readonly focus?: 'grid' | 'list';
+      /** Cursor in the day's note list or the agenda; derived from the date when absent. */
+      readonly listCursor?: number;
+    }
   | { readonly kind: 'day'; readonly date: IsoDate; readonly cursor: number }
   | { readonly kind: 'panel'; readonly id: string; readonly cursor: number }
   /** The revision list; on a wide terminal the selected revision previews beside it. */

@@ -110,7 +110,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
 /** Chords the screens bind themselves under the leader; a plugin may not claim them. */
 export const RESERVED_CHORDS: Readonly<Record<Placement, readonly string[]>> = {
   home: ['b', 'q'],
-  note: ['b', 'q'],
+  note: ['b', 'd', 'q'],
   list: [],
 };
 

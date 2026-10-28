@@ -22,6 +22,8 @@ import type { Resolution } from '../../../application/references/references.js';
 import { removeReference } from '../../../application/references/remove-reference.js';
 import { readRevision } from '../../../application/history/history.js';
 import { changedLines, lineNumberAt } from '../../../domain/text/diff.js';
+import { parseIsoDate } from '../../../domain/calendar/date-binding.js';
+import { bindNote } from '../calendar-actions.js';
 import { firstSourceOffset } from '../../../domain/text/rendered.js';
 import { isNote } from '../../../domain/note/note.js';
 import type { AppError } from '../../../domain/errors.js';
@@ -75,7 +77,9 @@ type Flow =
   | { readonly kind: 'pick'; readonly purpose: 'wrap'; readonly range: SourceRange }
   | { readonly kind: 'locate'; readonly target: Picked }
   | { readonly kind: 'url'; readonly range: SourceRange }
-  | { readonly kind: 'save' };
+  | { readonly kind: 'save' }
+  /** `Space d`: a date to add under `dates:`. */
+  | { readonly kind: 'date' };
 
 const PANEL_WIDTH = 36;
 
@@ -256,8 +260,15 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         update({ panel: panelId === p.id ? null : p.id, panelCursor: 0 });
       },
     }));
+  const dateChord: Chord = {
+    key: 'd',
+    label: 'bind to date',
+    run: () => {
+      if (identified()) setFlow({ kind: 'date' });
+    },
+  };
   const leader = useLeader(
-    screenChords(tui, { back: true, extra: panelChords }),
+    screenChords(tui, { back: true, extra: [...panelChords, dateChord] }),
     flow === null && !selection,
   );
   const half = Math.max(1, Math.floor(height / 2));
@@ -561,6 +572,19 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     });
   };
 
+  const onDate = (value: string) => {
+    setFlow(null);
+    if (!located || value.trim() === '') return;
+    const date = parseIsoDate(value);
+    if (!date.ok) {
+      report(date.error);
+      return;
+    }
+    void bindNote(tui, located.note, date.value).then((written) => {
+      if (written) reload();
+    });
+  };
+
   const onUrl = (url: string) => {
     if (flow?.kind !== 'url' || !located) return;
     const trimmed = url.trim();
@@ -766,11 +790,17 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       ) : (
         <Box flexDirection="row" height={height}>
           <Box flexDirection="column" width={bodyWidth} overflow="hidden">
-            {flow?.kind === 'url' || flow?.kind === 'save' ? (
+            {flow?.kind === 'url' || flow?.kind === 'save' || flow?.kind === 'date' ? (
               <Dialog width={60}>
                 <Prompt
-                  label={flow.kind === 'url' ? 'url:' : 'save message:'}
-                  onSubmit={flow.kind === 'url' ? onUrl : onSave}
+                  label={
+                    flow.kind === 'url'
+                      ? 'url:'
+                      : flow.kind === 'save'
+                        ? 'save message:'
+                        : 'bind to date (YYYY-MM-DD):'
+                  }
+                  onSubmit={flow.kind === 'url' ? onUrl : flow.kind === 'save' ? onSave : onDate}
                   onCancel={() => {
                     setFlow(null);
                   }}

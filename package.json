@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test",
     "compile": "bun scripts/compile.ts --host",
-    "compile:all": "bun scripts/compile.ts"
+    "compile:all": "bun scripts/compile.ts",
+    "load": "bun run compile && install -m 755 release/notes-linux-x64 ~/.local/bin/notes"
   },
   "dependencies": {
     "chokidar": "^6.0.0",

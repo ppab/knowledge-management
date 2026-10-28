@@ -44,7 +44,8 @@ export const Frame = ({
   children,
 }: {
   readonly title: string;
-  readonly meta?: string;
+  /** Right-aligned header text, or a node such as the calendar's view tabs. */
+  readonly meta?: ReactNode;
   readonly hints: readonly Hint[];
   /** A prefix naming the mode the hints belong to (`select`, `panel`). */
   readonly mode?: string;
@@ -62,9 +63,13 @@ export const Frame = ({
         {meta !== undefined && (
           <>
             <Spacer />
-            <Text dimColor wrap="truncate">
-              {meta}
-            </Text>
+            {typeof meta === 'string' ? (
+              <Text dimColor wrap="truncate">
+                {meta}
+              </Text>
+            ) : (
+              meta
+            )}
           </>
         )}
       </Box>

@@ -338,7 +338,12 @@ services as the CLI.
   the terminal in a sane state (raw mode restored, no leftover output).
 - Modifying a note file externally while the TUI is open updates the list and the open view
   within one watcher tick.
-- Calendar highlights days from `dates:` only, not file mtimes.
+- Calendar highlights days from `dates:` only, not file mtimes. A cell is the day number plus
+  one marker: `·` for one bound note, a superscript count (`²`…`⁹`, `⁺` past nine) for more;
+  today is painted in the accent colour, weekends dim. The year view is a strip of twelve
+  month rows by 31 day columns (a dim `·` per day, the count where notes are bound), which
+  fits an 80×24 terminal where twelve mini grids would not. Binding from the TUI (`b`, `x`,
+  `Space d` in the note view) runs `bindDate`, the same service as `notes bind`.
 - The TUI never reads SQLite or the filesystem directly; all data flows through application
   services (enforced by lint).
 
@@ -593,6 +598,23 @@ through their first source span). `save` records every revision as `note: <messa
 as their own kind in a repository that also holds other work. Still open from this milestone: the
 column workspace, `UserConfig.tui`, focus moves and
 layout chords, multi-key chords with the prefix rule.
+
+Calendar reworked 2026-10-27 (from use: "it could benefit from a better ui/ux"). The weekday
+header and the cells share one four-cell rhythm (they were misaligned); today is marked; a
+cell's marker counts the bound notes (`·`, `²`…`⁹`, `⁺`); weekends are dim. On 90+ columns the
+notes of the cursor day list beside the grid (`Enter`/`Tab` focus the list, `Enter` opens,
+`Tab`/`h` return); narrower terminals keep the day screen. Jumps: `t` today, `g` prompts for
+`YYYY-MM-DD` or `YYYY-MM` (`parseDateJump`), `{`/`}` a year. Binding reached the TUI: `b`
+picks a note and binds it to the cursor day, `x` unbinds the listed note (calendar list and
+day screen), and `Space d` in the note view binds the open note to a typed date; all through
+`bindDate`, reported in the status line (`Bound <title> to <date>`). The same day the views
+followed ("I would add the missing calendar views"): one `calendar` screen with
+`view: month | week | year | agenda` on one cursor date, switched by `m/w/y/a` and shown as
+tabs in the header; `d` pushes the day screen, now richer (tags, the first two body lines,
+`h/l` walk the days). Week: seven columns of titles; year: the month-by-day strip; agenda:
+the month's bindings as rows (`Enter` opens, `x` unbinds), the cursor landing on the cursor
+date. All views load `boundDates` for their range, so the month's side list needs no second
+query.
 
 ---
 
