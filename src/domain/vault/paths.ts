@@ -7,6 +7,17 @@ export const absoluteNotePath = (root: string, path: string): string =>
   `${root.replace(/[\\/]+$/, '')}/${path}`;
 
 /**
+ * Where a template's `template.path` lands: inside the notes directory (the first `include`
+ * glob's literal prefix) unless it starts with `/`, which anchors it at the vault root instead.
+ * The leading slash is consumed here so the result is an ordinary vault-relative path.
+ */
+export const resolveTemplatePath = (path: string, notesDir: string): string => {
+  const text = path.replace(/\\/g, '/').trim();
+  if (text.startsWith('/')) return text.replace(/^\/+/, '');
+  return notesDir === '' || text === '' ? text : `${notesDir}/${text}`;
+};
+
+/**
  * Normalizes a user- or template-supplied path to a vault-relative POSIX path, refusing
  * anything that would escape the vault root or write into `.notes`. Pure string logic so the
  * application layer can enforce it without touching the filesystem.

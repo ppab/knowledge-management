@@ -73,13 +73,13 @@ Libraries:
 
 ### Entities
 
-| Entity                 | Identity                        | Fields                                                                                        |
-| ---------------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
-| `Vault`                | `VaultId` (ULID, set at `init`) | name, include/exclude globs, identity strategy. Root path is an infrastructure detail.        |
-| `Note`                 | `NoteId`                        | title, aliases, dates, tags, visibility, references, opaque extra frontmatter, body           |
-| `UnidentifiedNote`     | path (vault-relative)           | A Markdown file matched by `include` with no `id`. Listed and searchable; read-only.          |
-| `Template` / `Snippet` | name                            | variables, content; template adds output path, snippet adds default insertion location        |
-| `Publication`          | name                            | vault selection, include/exclude, visibility filter, route template, reference policy, format |
+| Entity                 | Identity                        | Fields                                                                                                                                               |
+| ---------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Vault`                | `VaultId` (ULID, set at `init`) | name, include/exclude globs, identity strategy. Root path is an infrastructure detail.                                                               |
+| `Note`                 | `NoteId`                        | title, aliases, dates, tags, visibility, references, opaque extra frontmatter, body                                                                  |
+| `UnidentifiedNote`     | path (vault-relative)           | A Markdown file matched by `include` with no `id`. Listed and searchable; read-only.                                                                 |
+| `Template` / `Snippet` | name                            | variables, content; template adds an output path (under the notes directory, `/` anchors at the vault root), snippet adds default insertion location |
+| `Publication`          | name                            | vault selection, include/exclude, visibility filter, route template, reference policy, format                                                        |
 
 ### Value objects
 
@@ -114,20 +114,21 @@ Libraries:
 
 ## 3. Decisions (resolved 2026-10-27)
 
-| #   | Question                        | Decision                                                                                                                                                                             |
-| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A1  | `{type}` in formatted identity  | Taken from the template name (`templates/adr.md` ⇒ `ADR`); overridable by frontmatter `type`. A format referencing an unavailable variable fails config validation.                  |
-| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `notes adopt <path>` assigns an id. Mutations and references require an id.                          |
-| A3  | Missing `visibility`            | Treated as `private` for publishing (default-deny).                                                                                                                                  |
-| A4  | Commits                         | Never implicit. `save` (TUI `s`, CLI `notes save <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                                      |
-| A5  | Working copy as revision        | `history` lists commits only; `diff` defaults to last revision → working file.                                                                                                       |
-| A6  | `NotFound` vs `Unavailable`     | `Unavailable` when any vault in the scope could not be opened; otherwise `NotFound`.                                                                                                 |
-| A7  | HTML export shape               | Body fragments + `manifest.json`. Layout belongs to the static site generator.                                                                                                       |
-| A8  | `create` without template       | Built-in `default` template writing `{{slug}}.md` into the first `include` directory, bound to its creation day (`dates: ["{{date}}"]`); `.notes/templates/default.md` overrides it. |
-| A9  | Notes per file                  | Exactly one.                                                                                                                                                                         |
-| A10 | Federated FTS ranking           | BM25 scores are not comparable across indexes. Human views interleave by rank position across vaults; `--json` carries `vault` and `rankInVault`.                                    |
-| A11 | Named scope with a moved vault  | Scopes reference paths; `doctor` and `scope show` flag missing vaults as unavailable. No registry.                                                                                   |
-| A12 | Visual selection                | Restricted to a single mdast `text` node in v0.1.                                                                                                                                    |
+| #   | Question                        | Decision                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | `{type}` in formatted identity  | Taken from the template name (`templates/adr.md` ⇒ `ADR`); overridable by frontmatter `type`. A format referencing an unavailable variable fails config validation.                                                                                                                                                                                      |
+| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `notes adopt <path>` assigns an id. Mutations and references require an id.                                                                                                                                                                                              |
+| A3  | Missing `visibility`            | Treated as `private` for publishing (default-deny).                                                                                                                                                                                                                                                                                                      |
+| A4  | Commits                         | Never implicit. `save` (TUI `s`, CLI `notes save <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                                                                                                                                                                                                          |
+| A5  | Working copy as revision        | `history` lists commits only; `diff` defaults to last revision → working file.                                                                                                                                                                                                                                                                           |
+| A6  | `NotFound` vs `Unavailable`     | `Unavailable` when any vault in the scope could not be opened; otherwise `NotFound`.                                                                                                                                                                                                                                                                     |
+| A7  | HTML export shape               | Body fragments + `manifest.json`. Layout belongs to the static site generator.                                                                                                                                                                                                                                                                           |
+| A8  | `create` without template       | Built-in `default` template writing `{{slug}}.md` into the first `include` directory, bound to its creation day (`dates: ["{{date}}"]`); `.notes/templates/default.md` overrides it.                                                                                                                                                                     |
+| A8b | Where `create` may write        | A template's `template.path` is relative to the notes directory (the first `include` glob's literal prefix); a leading `/` anchors it at the vault root. `--path` is vault-relative. Whatever decides the path, `create` refuses (exit 6, naming the path and the globs) any file `include`/`exclude` would not index, so a new note is never invisible. |
+| A9  | Notes per file                  | Exactly one.                                                                                                                                                                                                                                                                                                                                             |
+| A10 | Federated FTS ranking           | BM25 scores are not comparable across indexes. Human views interleave by rank position across vaults; `--json` carries `vault` and `rankInVault`.                                                                                                                                                                                                        |
+| A11 | Named scope with a moved vault  | Scopes reference paths; `doctor` and `scope show` flag missing vaults as unavailable. No registry.                                                                                                                                                                                                                                                       |
+| A12 | Visual selection                | Restricted to a single mdast `text` node in v0.1.                                                                                                                                                                                                                                                                                                        |
 
 ## 4. Application layer
 
@@ -252,7 +253,7 @@ notes init [--name <n>] [--dir <notes-dir>] [--identity ulid|uuidv7|formatted --
 notes list [--tag <t>] [--date <d>|<from>..<to>] [--vault <name>] [--unidentified]
 notes show <id|alias> [--raw] [--at <rev>]
 notes search <words...> [--limit <n>]        # trailing * on a word matches prefixes
-notes create --template <name> --title <t> [--var k=v]... [--in <vault>]   # --in: name or path within the scope
+notes create --template <name> --title <t> [--var k=v]... [--path <p>] [--in <vault>]   # --in: name or path within the scope; --path: vault-relative
 notes edit <id>
 notes adopt <path>... [--type <type>] [--in <vault>]
 notes save <id> [-m <message>]

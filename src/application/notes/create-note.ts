@@ -4,7 +4,8 @@ import { wrapFrontmatter } from '../../domain/note/frontmatter.js';
 import { slugify, type Note } from '../../domain/note/note.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { renderTemplate, type TemplateVariables } from '../../domain/template/render.js';
-import { normalizeVaultPath } from '../../domain/vault/paths.js';
+import { inclusionOf } from '../../domain/vault/glob.js';
+import { normalizeVaultPath, resolveTemplatePath } from '../../domain/vault/paths.js';
 import { globStaticPrefix } from '../../domain/vault/vault.js';
 import type { AppDeps, TemplateSource } from '../ports.js';
 import { prepareTemplate, unprotectPlaceholders } from '../templates/prepare-template.js';
@@ -16,7 +17,7 @@ export interface CreateNoteInput {
   /** Template name under `.notes/templates/`; the built-in `default` when omitted. */
   readonly template?: string;
   readonly variables?: TemplateVariables;
-  /** Overrides the template's output path. Vault-relative. */
+  /** Overrides the template's output path. Vault-relative; must still fall under `include`. */
   readonly path?: string;
 }
 
@@ -118,15 +119,28 @@ export const createNote = async (
   const body = substitute(template.value.body);
   const content = wrapFrontmatter(yaml.value) + body;
 
+  // A template's path is relative to the notes directory (`/` anchors it at the vault root);
+  // `--path` is vault-relative as documented. Either way the note must land where the vault
+  // looks for notes, or it would be invisible to every list, search and link.
   const rawPath =
     input.path ??
-    (template.value.pathTemplate !== undefined
-      ? substitute(template.value.pathTemplate)
-      : notesDir === ''
-        ? `${slug}.md`
-        : `${notesDir}/${slug}.md`);
+    resolveTemplatePath(substitute(template.value.pathTemplate ?? `${slug}.md`), notesDir);
   const path = normalizeVaultPath(rawPath);
   if (!path.ok) return path;
+  const inclusion = inclusionOf(vault.config, path.value);
+  if (inclusion.kind !== 'included') {
+    const reason =
+      inclusion.kind === 'excluded'
+        ? `it is excluded by ${inclusion.by}`
+        : `it is not matched by include ${inclusion.include.join(', ')}`;
+    return err(
+      validation(`Refusing to create ${path.value}: ${reason}, so the vault would not see it`, {
+        path: path.value,
+        include: vault.config.include,
+        exclude: vault.config.exclude,
+      }),
+    );
+  }
 
   const written = await deps.notes.write(vault.root, path.value, content, { createOnly: true });
   if (!written.ok) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../result.js';
-import { normalizeVaultPath } from './paths.js';
+import { normalizeVaultPath, resolveTemplatePath } from './paths.js';
 import { globStaticPrefix } from './vault.js';
 
 describe('normalizeVaultPath', () => {
@@ -19,6 +19,20 @@ describe('normalizeVaultPath', () => {
     'docs/..',
   ])('rejects %j', (input) => {
     expect(normalizeVaultPath(input).ok).toBe(false);
+  });
+});
+
+describe('resolveTemplatePath', () => {
+  it('lands inside the notes directory by default', () => {
+    expect(resolveTemplatePath('decisions/{{slug}}.md', 'notes')).toBe(
+      'notes/decisions/{{slug}}.md',
+    );
+    expect(resolveTemplatePath('decisions/x.md', '')).toBe('decisions/x.md');
+  });
+
+  it('anchors a leading slash at the vault root', () => {
+    expect(resolveTemplatePath('/journal/x.md', 'notes')).toBe('journal/x.md');
+    expect(resolveTemplatePath('//x.md', '')).toBe('x.md');
   });
 });
 

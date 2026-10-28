@@ -61,6 +61,69 @@ describe('createNote', () => {
     expect(source).toContain('Decided in monitor by me.');
   });
 
+  it('resolves template.path inside the notes directory; a leading / anchors at the root', async () => {
+    const f = fixture({ include: ['notes/**/*.md', 'journal/*.md'] });
+    f.templates.set(
+      'decision',
+      '---\ntemplate:\n  path: "decisions/{{date}}-{{slug}}.md"\n---\n# {{title}}\n',
+    );
+    f.templates.set(
+      'journal',
+      '---\ntemplate:\n  path: "/journal/{{date}}.md"\n---\n# {{title}}\n',
+    );
+
+    const inside = unwrap(
+      await createNote(f.deps, f.vault, { title: 'Use SQLite', template: 'decision' }),
+    );
+    expect(inside.path).toBe('notes/decisions/2026-10-27-use-sqlite.md');
+    const anchored = unwrap(
+      await createNote(f.deps, f.vault, { title: 'Today', template: 'journal' }),
+    );
+    expect(anchored.path).toBe('journal/2026-10-27.md');
+  });
+
+  it('refuses a path the vault would not index, naming the path and the globs', async () => {
+    const f = fixture({ include: ['notes/**/*.md'], exclude: ['notes/archive/**'] });
+    f.templates.set(
+      'stray',
+      '---\ntemplate:\n  path: "/decisions/{{slug}}.md"\n---\n# {{title}}\n',
+    );
+
+    const outside = await createNote(f.deps, f.vault, { title: 'Lost', template: 'stray' });
+    expect(outside).toMatchObject({
+      ok: false,
+      error: {
+        code: 'VALIDATION',
+        message:
+          'Refusing to create decisions/lost.md: it is not matched by include notes/**/*.md, so the vault would not see it',
+        details: { path: 'decisions/lost.md', include: ['notes/**/*.md'] },
+      },
+    });
+    const byOption = await createNote(f.deps, f.vault, {
+      title: 'Lost',
+      path: 'elsewhere/lost.md',
+    });
+    expect(byOption).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    const excluded = await createNote(f.deps, f.vault, {
+      title: 'Old',
+      path: 'notes/archive/old.md',
+    });
+    expect(excluded).toMatchObject({
+      ok: false,
+      error: {
+        code: 'VALIDATION',
+        message:
+          'Refusing to create notes/archive/old.md: it is excluded by notes/archive/**, so the vault would not see it',
+      },
+    });
+    expect(f.fs.writes).toEqual([]);
+
+    const fine = unwrap(
+      await createNote(f.deps, f.vault, { title: 'Kept', path: 'notes/kept.md' }),
+    );
+    expect(fine.path).toBe('notes/kept.md');
+  });
+
   it('takes {type} from the template name for formatted identities', async () => {
     const f = fixture({
       identity: { strategy: 'formatted', format: '{vault}-{type}-{date}-{ulid}' },

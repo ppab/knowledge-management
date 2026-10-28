@@ -104,7 +104,7 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
       'template under .notes/templates/, or a plugin one as <plugin>/<name> (default: default)',
     )
     .option('--var <name=value>', 'template variable (repeatable)', parseVar)
-    .option('--path <path>', 'output path relative to the vault root')
+    .option('--path <path>', 'output path relative to the vault root (must fall under include)')
     .option('--in <vault>', IN_HELP)
     .action(
       async (

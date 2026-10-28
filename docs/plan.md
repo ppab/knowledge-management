@@ -469,6 +469,13 @@ plugins' built-ins, `default` first); with only `default` it creates at once as 
 `notes init` takes `--dir <notes-dir>` (the single `include` glob `<dir>/**/*.md`, created with
 the vault, where `create` writes by default) and asks for it when run at a terminal without the
 flag; `--json`, pipes and scripts are never asked and keep the whole vault as before.
+A template's `template.path` now resolves inside that notes directory (a leading `/` anchors it
+at the vault root), so a vault with `include: notes/**/*.md` and a template writing
+`decisions/{{date}}-{{slug}}.md` lands at `notes/decisions/...` rather than at an unindexed
+`decisions/...`. Whatever chooses the path, `create` refuses with exit 6 any file the vault's
+`include`/`exclude` globs would not index, naming the path and the globs; the domain gained a
+small glob matcher (`matchesGlob`, `inclusionOf`) for that, since neither the domain nor the
+application may import the indexer's glob library.
 
 **Acceptance criteria**
 

@@ -8,7 +8,8 @@ import type { AppDeps, TemplateSource } from '../ports.js';
  * A template is a Markdown file whose frontmatter may carry a `template:` block:
  *
  *   template:
- *     path: "docs/decisions/{{date}}-{{slug}}.md"   # output path, vault-relative
+ *     path: "decisions/{{date}}-{{slug}}.md"   # output path under the notes directory;
+ *                                               # a leading "/" anchors it at the vault root
  *     variables:
  *       owner: { default: "unassigned" }            # defaults for user variables
  *
