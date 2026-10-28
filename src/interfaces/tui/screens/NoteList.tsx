@@ -1,6 +1,10 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
-import { availableTemplates, createNote } from '../../../application/notes/create-note.js';
+import {
+  createNote,
+  previewTemplates,
+  type TemplatePreview,
+} from '../../../application/notes/create-note.js';
 import { listNotes, type ScopedEntry } from '../../../application/notes/list-notes.js';
 import { searchNotes } from '../../../application/search/search-notes.js';
 import { isoDate } from '../../../application/notes/create-note.js';
@@ -16,10 +20,10 @@ import { clamp, locatorOfEntry, noteScreen, type Screen } from '../model.js';
 type ListScreen = Extract<Screen, { kind: 'list' }>;
 type PromptKind = 'search' | 'tag' | 'title';
 
-/** After the title: the templates the target vault offers, when there is a choice to make. */
+/** After the title: the templates the target vault offers, each with the path it would write. */
 interface TemplateChoice {
   readonly title: string;
-  readonly templates: readonly string[];
+  readonly templates: readonly TemplatePreview[];
   readonly cursor: number;
 }
 
@@ -88,16 +92,15 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
     navigate({ type: 'push', screen: noteScreen({ query: created.value.id }) });
   };
 
-  /** A title was given: offer the vault's templates, or create straight away if there is one. */
+  /** A title was given: offer the vault's templates (always at least `default`) with paths. */
   const startCreate = async (title: string) => {
     const target = resolveWriteTarget(scope, { cwd });
     if (!target.ok) {
       report(target.error);
       return;
     }
-    const templates = await availableTemplates(deps, target.value, registry.templates());
-    if (templates.length <= 1) await create(title, templates[0]);
-    else setChoice({ title, templates, cursor: 0 });
+    const templates = await previewTemplates(deps, target.value, title, registry.templates());
+    setChoice({ title, templates, cursor: 0 });
   };
 
   useInput(
@@ -107,7 +110,7 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
       if (key.escape) setChoice(null);
       else if (isDown(input, key)) setChoice({ ...choice, cursor: clamp(choice.cursor + 1, last) });
       else if (isUp(input, key)) setChoice({ ...choice, cursor: clamp(choice.cursor - 1, last) });
-      else if (key.return) void create(choice.title, choice.templates[choice.cursor]);
+      else if (key.return) void create(choice.title, choice.templates[choice.cursor]?.name);
     },
     { isActive: choice !== null },
   );
@@ -167,8 +170,8 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
     <Frame title={title} hints={hints}>
       {choice ? (
         <Rows
-          header={['template']}
-          rows={choice.templates.map((t) => [t])}
+          header={['template', 'path']}
+          rows={choice.templates.map((t) => [t.name, t.path])}
           cursor={choice.cursor}
           height={height}
           empty="No templates"

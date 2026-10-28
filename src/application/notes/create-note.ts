@@ -3,12 +3,20 @@ import { generateNoteId } from '../../domain/identity/identity.js';
 import { wrapFrontmatter } from '../../domain/note/frontmatter.js';
 import { slugify, type Note } from '../../domain/note/note.js';
 import { err, ok, type Result } from '../../domain/result.js';
-import { renderTemplate, type TemplateVariables } from '../../domain/template/render.js';
+import {
+  renderTemplate,
+  templateVariables,
+  type TemplateVariables,
+} from '../../domain/template/render.js';
 import { inclusionOf } from '../../domain/vault/glob.js';
 import { normalizeVaultPath, resolveTemplatePath } from '../../domain/vault/paths.js';
 import { globStaticPrefix } from '../../domain/vault/vault.js';
 import type { AppDeps, TemplateSource } from '../ports.js';
-import { prepareTemplate, unprotectPlaceholders } from '../templates/prepare-template.js';
+import {
+  prepareTemplate,
+  unprotectPlaceholders,
+  type PreparedTemplate,
+} from '../templates/prepare-template.js';
 import type { VaultHandle } from '../vault/vault.js';
 import { loadNoteEntry } from './load-note.js';
 
@@ -53,6 +61,74 @@ export const availableTemplates = async (
   );
 };
 
+/** The variables every template may use, before the identity is generated. */
+const baseVariables = (
+  vault: VaultHandle,
+  template: PreparedTemplate,
+  title: string,
+  now: Date,
+  notesDir: string,
+): TemplateVariables => ({
+  title,
+  slug: slugify(title),
+  date: isoDate(now),
+  datetime: now.toISOString(),
+  vault: vault.config.name,
+  type: template.type,
+  notesDir,
+});
+
+/** The vault-relative path a template writes, before normalization (see `resolveTemplatePath`). */
+const templateOutputPath = (
+  template: PreparedTemplate,
+  variables: TemplateVariables,
+  notesDir: string,
+): string => {
+  const text = unprotectPlaceholders(template.pathTemplate ?? `${variables.slug ?? ''}.md`);
+  // Placeholders without a value stay visible rather than failing: a preview shows `{{id}}`
+  // where the identity will go; `createNote` has already checked that nothing is missing.
+  const known = Object.fromEntries(
+    templateVariables(text).map((name) => [name, variables[name] ?? `{{${name}}}`]),
+  );
+  const rendered = renderTemplate(text, known);
+  return resolveTemplatePath(rendered.ok ? rendered.value : text, notesDir);
+};
+
+export interface TemplatePreview {
+  readonly name: string;
+  /** Where a note with this title would land; an unusable template says why instead. */
+  readonly path: string;
+}
+
+/**
+ * `availableTemplates` with the output path each would give a note titled `title`, for a
+ * picker. Identity placeholders are left as `{{id}}` since no id is generated for a preview.
+ */
+export const previewTemplates = async (
+  deps: AppDeps,
+  vault: VaultHandle,
+  title: string,
+  builtinTemplates: Readonly<Record<string, string>> = {},
+): Promise<TemplatePreview[]> => {
+  const names = await availableTemplates(deps, vault, builtinTemplates);
+  const notesDir = globStaticPrefix(vault.config.include[0] ?? '');
+  const now = deps.clock.now();
+  return Promise.all(
+    names.map(async (name): Promise<TemplatePreview> => {
+      const source = await findTemplate(deps, vault.root, name, builtinTemplates);
+      const template = source.ok ? prepareTemplate(deps, source.value) : source;
+      if (!template.ok) return { name, path: `invalid: ${template.error.message}` };
+      const variables = {
+        ...template.value.defaults,
+        ...baseVariables(vault, template.value, title, now, notesDir),
+      };
+      const raw = templateOutputPath(template.value, variables, notesDir);
+      const path = normalizeVaultPath(raw);
+      return { name, path: path.ok ? path.value : raw };
+    }),
+  );
+};
+
 export const createNote = async (
   deps: AppDeps,
   vault: VaultHandle,
@@ -79,20 +155,13 @@ export const createNote = async (
   );
   if (!id.ok) return id;
 
-  const slug = slugify(input.title);
   const notesDir = globStaticPrefix(vault.config.include[0] ?? '');
   // Built-ins win over user variables so a `--var id=...` can never forge an identity.
   const variables: TemplateVariables = {
     ...template.value.defaults,
     ...input.variables,
+    ...baseVariables(vault, template.value, input.title, now, notesDir),
     id: id.value,
-    title: input.title,
-    slug,
-    date: isoDate(now),
-    datetime: now.toISOString(),
-    vault: vault.config.name,
-    type: template.value.type,
-    notesDir,
   };
 
   // Validate every placeholder up front so nothing is generated or written on a gap.
@@ -122,9 +191,7 @@ export const createNote = async (
   // A template's path is relative to the notes directory (`/` anchors it at the vault root);
   // `--path` is vault-relative as documented. Either way the note must land where the vault
   // looks for notes, or it would be invisible to every list, search and link.
-  const rawPath =
-    input.path ??
-    resolveTemplatePath(substitute(template.value.pathTemplate ?? `${slug}.md`), notesDir);
+  const rawPath = input.path ?? templateOutputPath(template.value, variables, notesDir);
   const path = normalizeVaultPath(rawPath);
   if (!path.ok) return path;
   const inclusion = inclusionOf(vault.config, path.value);

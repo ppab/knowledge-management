@@ -50,16 +50,20 @@ describe('NoteList', () => {
     await exited;
   });
 
-  it('creates a note from the title prompt and opens it', async () => {
+  it('creates a note from the title prompt, confirming the only template, and opens it', async () => {
     const h = harness(() => undefined);
     term = h.start();
     await term.waitFor('0 notes');
     await term.press('n', 'N', 'e', 'w', KEYS.enter);
+    const choice = await term.waitFor('new note "New" · choose a template');
+    expect(choice).toContain('default');
+    expect(choice).toContain('new.md');
+    await term.press(KEYS.enter);
     await term.waitFor('New · monitor · ID1');
     expect(h.f.fs.writes.map((w) => w.path)).toEqual(['new.md']);
   });
 
-  it('offers the vault templates after the title when there is more than one', async () => {
+  it('offers the vault templates after the title, default first', async () => {
     const h = harness((f) => {
       f.templates.set(
         'adr',
@@ -73,6 +77,8 @@ describe('NoteList', () => {
     await term.press(KEYS.enter);
     const choice = await term.waitFor('new note "Use git" · choose a template');
     expect(choice.indexOf('default')).toBeLessThan(choice.indexOf('adr'));
+    expect(choice).toContain('use-git.md'); // where `default` would write
+    expect(choice).toContain('decisions/use-git.md'); // where `adr` would
     expect(choice).toContain('Enter create  Esc cancel');
 
     await term.press(KEYS.escape);

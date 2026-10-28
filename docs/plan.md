@@ -464,8 +464,12 @@ sets it; `created` is a recognized key (shown by `show` and the metadata panel, 
 plugin fields) and is not a date binding. So that new notes still appear in the calendar, the
 built-in `default` template binds them to their creation day (`dates: ["{{date}}"]`); a vault's
 own `default.md` and other templates decide for themselves. The TUI's `n` asks for a template
-after the title whenever the target vault offers more than one (its own plus the enabled
-plugins' built-ins, `default` first); with only `default` it creates at once as before.
+after the title, every time (the vault's own plus the enabled plugins' built-ins, `default`
+first); with only `default` the picker shows that one row, so the step reads the same whatever
+the vault offers and a vault's own `default.md` is visibly the one in use. Each row shows the
+path that template would write for the typed title (`previewTemplates`, sharing `createNote`'s
+path logic; an `{{id}}` in a path stays as a placeholder since no id is generated for a
+preview, and an unusable template says why in place of a path).
 `notes init` takes `--dir <notes-dir>` (the single `include` glob `<dir>/**/*.md`, created with
 the vault, where `create` writes by default) and asks for it when run at a terminal without the
 flag; `--json`, pipes and scripts are never asked and keep the whole vault as before.

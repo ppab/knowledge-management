@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { createNote } from './create-note.js';
+import { createNote, previewTemplates } from './create-note.js';
 
 describe('createNote', () => {
   it('creates a note from the built-in default template in the first include directory', async () => {
@@ -80,6 +80,24 @@ describe('createNote', () => {
       await createNote(f.deps, f.vault, { title: 'Today', template: 'journal' }),
     );
     expect(anchored.path).toBe('journal/2026-10-27.md');
+  });
+
+  it('previews where each template would write a note with the given title', async () => {
+    const f = fixture({ include: ['notes/**/*.md'] });
+    f.templates.set(
+      'decision',
+      '---\ntemplate:\n  path: "decisions/{{date}}-{{slug}}.md"\n---\n# {{title}}\n',
+    );
+    f.templates.set('by-id', '---\ntemplate:\n  path: "/ids/{{id}}.md"\n---\n# {{title}}\n');
+    f.templates.set('broken', '---\ntemplate:\n  path: 3\n---\n# {{title}}\n');
+
+    expect(await previewTemplates(f.deps, f.vault, 'Use SQLite')).toEqual([
+      { name: 'default', path: 'notes/use-sqlite.md' },
+      { name: 'broken', path: 'invalid: Template "broken": template.path must be a string' },
+      { name: 'by-id', path: 'ids/{{id}}.md' },
+      { name: 'decision', path: 'notes/decisions/2026-10-27-use-sqlite.md' },
+    ]);
+    expect(f.fs.writes).toEqual([]);
   });
 
   it('refuses a path the vault would not index, naming the path and the globs', async () => {
