@@ -618,6 +618,43 @@ query.
 
 ---
 
+## M7.6 — Goals plugin (issue #6)
+
+**Objective.** The first reference case that evolves the plugin contract: goals with a committed
+amount of work, progress derived from confirmed session notes, a persistent timer without a
+daemon, and the core extensions each step needs. Specified in [goals.md](./goals.md); planned
+and reviewed in GitHub issue #6.
+
+**Deliveries**
+
+- A — contract and fixtures: schema, templates, `doctor` checks, pure `units`/`model`/`progress`,
+  valid and invalid fixtures as the contract; core `FieldType: 'reference'` validated as a
+  wikilink in a field.
+- B — goals and manual logging by CLI: `goals new/list/show/log` with `--key` idempotency;
+  core `expectedVersion` on `setFields`, create as plan + write with typed fields and dry-run,
+  field references indexed with an explicit origin.
+- C — timer: `goals start/stop/void`, one registered open session per goal by compare-and-swap
+  on the goal note, detached and stale sessions, no pauses.
+- D — TUI: home panel with `ProgressBar`, goal detail, note panel, declarative panel inputs.
+- E — reviews and the external-skill example.
+
+**Dependencies.** M4.5, M5; #2 for the store's guarantees; #4 for the TUI controls.
+
+**Acceptance criteria.** The issue's: the CKA flow end to end, only confirmed compatible
+amounts count, completing the work never marks the outcome reached, invalid external edits stay
+Markdown with diagnostics, stale versions give `CONFLICT`, retries never double-count, a timed
+session survives closing the TUI, index rebuilds lose nothing, disabling the plugin keeps the notes.
+
+**Status (2026-10-28).** Delivery A landed: `docs/goals.md`, `src/plugins/goals/` (`units`,
+`model`, `progress`, `templates`, `plugin` with three `doctor` checks, registered as the second
+first-party plugin), `test/fixtures/goals/{valid,invalid}` with the contract test, and the
+`reference` field type (`parseFieldReference` in the domain, validated by `doctor`), and
+`FieldSpec.types`, which scopes a field to some of a plugin's types so that `doctor`, `show` and
+the metadata panel check a session against session fields only (`PluginRegistry.fieldsFor`).
+Decisions recorded in the issue body under "Decisiones acordadas". B is next.
+
+---
+
 ## M8 — Export
 
 **Objective.** Publish selected notes to Markdown or HTML fragments with transformed references

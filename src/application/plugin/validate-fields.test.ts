@@ -10,6 +10,7 @@ const specs: FieldSpec[] = [
   { name: 'label', type: 'string' },
   { name: 'people', type: 'list' },
   { name: 'amounts', type: 'list', of: 'number' },
+  { name: 'parent', type: 'reference' },
 ];
 
 describe('validateFields', () => {
@@ -76,5 +77,18 @@ describe('describeFields', () => {
       ['priority', 'number', undefined, undefined],
     ]);
     expect(description.undeclared).toEqual(['note']);
+  });
+});
+
+describe('reference fields', () => {
+  it('accepts a wikilink and rejects a bare id, naming the expected form', () => {
+    expect(validateFields(specs, { status: 'open', parent: '[[X1]]' })).toEqual([]);
+    expect(validateFields(specs, { status: 'open', parent: 'X1' })).toEqual([
+      {
+        field: 'parent',
+        problem: 'type',
+        message: '"parent" must be a note link ("[[id]]"), got "X1"',
+      },
+    ]);
   });
 });

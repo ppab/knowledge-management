@@ -38,7 +38,7 @@ value, kind)`, `EntrySummary.fields`, `NoteIndex.byField`). A plugin adds the sc
 
 ```ts
 // src/application/plugin/plugin.ts
-export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'list';
+export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'list' | 'reference';
 
 export interface FieldSpec {
   readonly name: string;
@@ -48,9 +48,16 @@ export interface FieldSpec {
   readonly of?: Exclude<FieldType, 'enum' | 'list'>;
   /** A note of an owned type without this field is a `doctor` warning. */
   readonly required?: boolean;
+  /** The owned types this field belongs to; omitted means every type the plugin owns. */
+  readonly types?: readonly string[];
   readonly description?: string;
 }
 ```
+
+A plugin that owns several types scopes each field with `types`, so a required field of one
+type is not a missing field of the other. `PluginRegistry.fieldsFor(type)` returns the specs that
+apply to a type; `doctor`, `show` and the metadata panel use it. The registry rejects a spec that
+names a type its plugin does not own.
 
 Declared fields have three effects, all implemented once in the core:
 
@@ -63,6 +70,14 @@ Declared fields have three effects, all implemented once in the core:
   already distinguishes `number`), so "expenses over 100 this month" is one query.
 - **Display.** The TUI metadata panel and `show` print declared fields with their types and
   flag undeclared ones on owned notes.
+- **References.** A field of type `reference` holds a wikilink, `"[[id]]"` or `"[[id|Label]]"`.
+  The convention is the core's, not the plugin's: any frontmatter string that is exactly one
+  wikilink is a field reference (`parseFieldReference`), so the relation survives disabling the
+  plugin and rebuilding the index. A bare id is never a link (ids may not contain brackets).
+  `doctor` validates the shape today (goals delivery A, 2026-10-28); indexing field references
+  beside body references, with an explicit origin (`{ kind: 'field', key }` versus
+  `{ kind: 'body', range }`) so `backlinks` and `dangling` see both, comes with goals delivery B.
+  `Note.references` stays body-only; `removeReference` refuses a field origin.
 
 A field name declared by two enabled plugins with different types is a configuration error
 (`VALIDATION`, exit 6) at vault open. The same declaration twice is fine.
@@ -314,13 +329,15 @@ not import `plugins`. The layer-boundary test gains both cases.
 
 Illustrative, not a commitment; each one is a separate milestone with its own acceptance.
 
-| Plugin     | Owned type | Fields                                                      | Commands                                      | Panels                                                |
-| ---------- | ---------- | ----------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
-| `todos`    | `todo`     | `status: enum(open, done)`, `due: date`, `priority: number` | `todos list [--due today]`, `todos done <id>` | home `Todos` (`Space T`), note panel for linked todos |
-| `goals`    | `goal`     | `target: date`, `progress: number`, `status: enum`          | `goals list`, `goals progress <id> <n>`       | home `Goals` (`G`)                                    |
-| `expenses` | `expense`  | `amount: number`, `category: string`, `account: string`     | `expenses list [--month]`, `expenses total`   | home `Expenses` (`E`), monthly table                  |
+| Plugin     | Owned type        | Fields                                                                                                                               | Commands                                                             | Panels                                                |
+| ---------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ----------------------------------------------------- |
+| `todos`    | `todo`            | `status: enum(open, done)`, `due: date`, `priority: number`                                                                          | `todos list [--due today]`, `todos done <id>`                        | home `Todos` (`Space T`), note panel for linked todos |
+| `goals`    | `goal`, `session` | `goal_target: number`, `goal_unit`, `goal_status: enum`; `session_goal: reference`, `session_amount: number`, `session_status: enum` | `goals new`, `goals log <goal> <amount> [--key]`, `goals start/stop` | home `Goals` (`G`) with progress bars, note panel     |
+| `expenses` | `expense`         | `amount: number`, `category: string`, `account: string`                                                                              | `expenses list [--month]`, `expenses total`                          | home `Expenses` (`E`), monthly table                  |
 
 All three use `dates:` for their calendar date, so they appear in the core calendar for free.
+`goals` is specified in [goals.md](./goals.md) (issue #6); its progress is derived from session
+notes, never a counter on the goal.
 
 ## 8. Plan impact
 

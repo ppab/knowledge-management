@@ -20,7 +20,15 @@ import type { InsertSnippetInput } from '../snippets/insert-snippet.js';
  * `PluginApi`; the core never imports a plugin.
  */
 
-export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'list';
+export type FieldType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'enum'
+  | 'list'
+  /** The canonical id of another note; a relation the index can follow (docs/plugins.md §2). */
+  | 'reference';
 
 export interface FieldSpec {
   readonly name: string;
@@ -31,6 +39,8 @@ export interface FieldSpec {
   readonly of?: Exclude<FieldType, 'enum' | 'list'>;
   /** A note of an owned type without this field is a `doctor` warning. */
   readonly required?: boolean;
+  /** The owned types this field belongs to; omitted means every type the plugin owns. */
+  readonly types?: readonly string[];
   readonly description?: string;
 }
 
@@ -198,6 +208,7 @@ export interface PluginRegistry {
   readonly enabled: readonly EnabledPlugin[];
   readonly plugins: readonly NotePlugin[];
   ownerOf(type: string): NotePlugin | undefined;
+  /** The owner's specs that apply to notes of `type`; empty for an unowned type. */
   fieldsFor(type: string): readonly FieldSpec[];
   /** Core panels first, then plugin panels in plugin order. */
   panels(placement: Placement): readonly PanelSpec[];

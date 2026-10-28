@@ -42,8 +42,11 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
       if (note.tags.length) lines.push(`tags: ${note.tags.join(', ')}`);
       lines.push(`visibility: ${note.visibility}`);
       const owner = note.type === undefined ? undefined : registry().ownerOf(note.type);
-      if (owner) {
-        const fields = describeFields(owner.fields, extractFields(note.frontmatter));
+      if (owner && note.type !== undefined) {
+        const fields = describeFields(
+          registry().fieldsFor(note.type),
+          extractFields(note.frontmatter),
+        );
         lines.push('', `fields (${owner.name}):`);
         for (const f of fields.declared) {
           const value =

@@ -1,5 +1,6 @@
 import { parseIsoDate } from '../../domain/calendar/date-binding.js';
 import type { FieldValue } from '../../domain/note/fields.js';
+import { parseFieldReference } from '../../domain/reference/reference.js';
 import type { FieldSpec, FieldType } from './plugin.js';
 
 /*
@@ -27,6 +28,8 @@ const scalarMatches = (type: Exclude<FieldType, 'enum' | 'list'>, value: FieldVa
       return typeof value === 'boolean';
     case 'date':
       return typeof value === 'string' && parseIsoDate(value).ok;
+    case 'reference':
+      return parseFieldReference(value) !== null;
   }
 };
 
@@ -34,6 +37,7 @@ const describe = (spec: FieldSpec): string => {
   if (spec.type === 'enum') return `one of ${(spec.values ?? []).join(', ')}`;
   if (spec.type === 'list') return `a list of ${spec.of ?? 'string'}`;
   if (spec.type === 'date') return 'a date (YYYY-MM-DD)';
+  if (spec.type === 'reference') return 'a note link ("[[id]]")';
   return `a ${spec.type}`;
 };
 

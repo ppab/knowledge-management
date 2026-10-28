@@ -49,7 +49,7 @@ const fieldFindings = (registry: PluginRegistry, opened: readonly OpenedVault[])
         (e) => e.plugin === owner && e.scope.members.some((m) => m.root === vault.root),
       );
       if (!enabledHere) continue;
-      for (const issue of validateFields(owner.fields, entry.fields)) {
+      for (const issue of validateFields(registry.fieldsFor(entry.type), entry.fields)) {
         findings.push({
           kind: 'field',
           severity: issue.problem === 'undeclared' ? 'info' : 'warning',

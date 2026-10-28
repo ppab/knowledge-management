@@ -64,6 +64,31 @@ describe('buildRegistry', () => {
     expect(Object.keys(registry.templates())).toEqual(['todos/task']);
   });
 
+  it('scopes a field to the types it names and rejects a type the plugin does not own', () => {
+    const f = fixture({ plugins: { pair: {} } });
+    const pair = plugin('pair', {
+      types: ['goal', 'session'],
+      fields: [
+        { name: 'goal_target', type: 'number', required: true, types: ['goal'] },
+        { name: 'session_goal', type: 'reference', required: true, types: ['session'] },
+        { name: 'note', type: 'string' },
+      ],
+    });
+    const registry = unwrap(buildRegistry([pair], f.scope));
+    expect(registry.fieldsFor('goal').map((s) => s.name)).toEqual(['goal_target', 'note']);
+    expect(registry.fieldsFor('session').map((s) => s.name)).toEqual(['session_goal', 'note']);
+    expect(registry.fieldsFor('other')).toEqual([]);
+
+    const foreign = plugin('pair', {
+      types: ['goal'],
+      fields: [{ name: 'x', type: 'string', types: ['session'] }],
+    });
+    expect(buildRegistry([foreign], f.scope)).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION', message: expect.stringContaining('does not own') as string },
+    });
+  });
+
   it('is empty for a vault without plugins', () => {
     const f = fixture();
     const registry = unwrap(buildRegistry([todos, goals], f.scope));

@@ -116,6 +116,15 @@ export const buildRegistry = (
       owners.set(type, plugin);
     }
     for (const spec of plugin.fields) {
+      const foreign = spec.types?.find((type) => !plugin.types.includes(type));
+      if (foreign !== undefined) {
+        return err(
+          validation(
+            `Field "${spec.name}" of "${plugin.name}" names type "${foreign}", which the plugin does not own`,
+            { field: spec.name, plugin: plugin.name, type: foreign },
+          ),
+        );
+      }
       const other = fields.get(spec.name);
       if (other && fieldShape(other.spec) !== fieldShape(spec)) {
         return err(
@@ -167,7 +176,10 @@ export const buildRegistry = (
     enabled,
     plugins: enabled.map((e) => e.plugin),
     ownerOf: (type) => owners.get(type),
-    fieldsFor: (type) => owners.get(type)?.fields ?? [],
+    fieldsFor: (type) =>
+      (owners.get(type)?.fields ?? []).filter(
+        (s) => s.types === undefined || s.types.includes(type),
+      ),
     panels: (placement: Placement) =>
       panels.filter((p) => p.panel.placement === placement).map((p) => p.panel),
     commands: () =>

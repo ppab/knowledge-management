@@ -33,7 +33,9 @@ import { parseVar } from './mutations.js';
 const fieldsOf = (registry: PluginRegistry, entry: NoteEntry): FieldDescription | null => {
   if (!isNote(entry) || entry.type === undefined) return null;
   const owner = registry.ownerOf(entry.type);
-  return owner ? describeFields(owner.fields, extractFields(entry.frontmatter)) : null;
+  return owner
+    ? describeFields(registry.fieldsFor(entry.type), extractFields(entry.frontmatter))
+    : null;
 };
 
 const fieldLines = (fields: FieldDescription): string[] => {

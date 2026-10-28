@@ -33,3 +33,21 @@ export const findReferences = (text: string, offset = 0): Reference[] => {
 
 export const formatReference = (target: NoteId, label?: string): string =>
   label === undefined || label === '' ? `[[${target}]]` : `[[${target}|${label}]]`;
+
+const FIELD_REFERENCE = /^\[\[([^\s|[\]]+)(?:\|([^[\]]*))?\]\]$/;
+
+/**
+ * A frontmatter value that is exactly one `[[ID]]` or `[[ID|Label]]` is a field reference: the
+ * relation lives in the Markdown itself, so it survives whichever plugin declared the field
+ * (docs/plugins.md §2). A bare id is never one, since ids may not contain brackets.
+ */
+export const parseFieldReference = (
+  value: unknown,
+): { readonly target: NoteId; readonly label?: string } | null => {
+  if (typeof value !== 'string') return null;
+  const match = FIELD_REFERENCE.exec(value.trim());
+  if (!match) return null;
+  const [, id, label] = match;
+  if (id === undefined || !isNoteId(id)) return null;
+  return label === undefined ? { target: id } : { target: id, label };
+};

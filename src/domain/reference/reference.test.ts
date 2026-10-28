@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../result.js';
 import { parseNoteId } from '../note/note-id.js';
-import { findReferences, formatReference } from './reference.js';
+import { findReferences, formatReference, parseFieldReference } from './reference.js';
 
 describe('reference grammar', () => {
   it('parses plain and labelled references with exact ranges', () => {
@@ -28,5 +28,21 @@ describe('reference grammar', () => {
     expect(formatReference(id)).toBe('[[N1]]');
     expect(formatReference(id, 'Label')).toBe('[[N1|Label]]');
     expect(formatReference(id, '')).toBe('[[N1]]');
+  });
+});
+
+describe('field references', () => {
+  it('reads a frontmatter value that is exactly one wikilink', () => {
+    expect(parseFieldReference('[[GOAL-1]]')).toEqual({ target: 'GOAL-1' });
+    expect(parseFieldReference('  [[GOAL-1|Pass the CKA]] ')).toEqual({
+      target: 'GOAL-1',
+      label: 'Pass the CKA',
+    });
+  });
+
+  it('is not a bare id, prose with a link inside, or a non-string', () => {
+    for (const value of ['GOAL-1', 'see [[GOAL-1]]', '[[a b]]', '[[]]', '', 3, null, ['[[x]]']]) {
+      expect(parseFieldReference(value)).toBeNull();
+    }
   });
 });

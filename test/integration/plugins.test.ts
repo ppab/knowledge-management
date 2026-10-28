@@ -51,7 +51,10 @@ describe('todos plugin (M4.5)', () => {
     const caps = json<{ plugins: { name: string; enabled: boolean }[] }>(
       await notes('capabilities', '--json'),
     );
-    expect(caps.plugins).toEqual([expect.objectContaining({ name: 'todos', enabled: false })]);
+    expect(caps.plugins).toEqual([
+      expect.objectContaining({ name: 'todos', enabled: false }),
+      expect.objectContaining({ name: 'goals', enabled: false }),
+    ]);
   });
 
   it('creates, lists, closes and checks todos once enabled', async () => {
@@ -141,7 +144,7 @@ describe('todos plugin (M4.5)', () => {
     expect(listing.code).toBe(6);
     expect(json<{ error: { details: unknown } }>(listing).error.details).toMatchObject({
       plugin: 'expenses',
-      available: ['todos'],
+      available: ['todos', 'goals'],
     });
   });
 });
