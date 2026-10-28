@@ -79,6 +79,24 @@ bun run compile:all           # Linux and macOS, x64 and arm64
 `bun run test` includes a smoke test of the compiled binary for the current machine; it is
 skipped until `bun run compile` has run.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` validates every pull request and every push to `main`. It installs the
+Node and Bun versions pinned in `mise.toml`, installs dependencies from the frozen `bun.lock`, and
+then runs the same commands you run locally:
+
+```bash
+bun install --frozen-lockfile   # dependencies, without touching bun.lock
+bun run compile                 # host binary first, so the smoke tests below run
+bun run check                   # lint, format check, typecheck, tests (incl. the binary smoke test)
+bun run build                   # the Node build in dist/
+```
+
+The host executable is compiled before `bun run check` so the compiled-binary smoke test is
+exercised rather than skipped, and the suite still runs only once. The workflow has read-only
+repository permissions and performs no publishing, deployment, or writes back to the repository; a
+failing step fails the run.
+
 ## Documentation
 
 - `docs/architecture.md`: layers, domain model, ports, TUI and CLI contracts.

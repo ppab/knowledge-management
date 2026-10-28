@@ -1,0 +1,54 @@
+# Validation for pull requests and pushes to main: lint, format, strict type
+# checking, tests, and the Node build, plus the compiled-binary smoke tests.
+#
+# The host executable is compiled *before* the test run so that
+# test/binary/compiled.test.ts is exercised instead of skipping itself (it skips
+# when no release/notes-<os>-<arch> binary exists). Because the compile happens
+# first, `bun run check` runs the whole suite — including the smoke tests — a
+# single time; there is no second test run.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Validation only: no publishing, deployment, or writes back to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # Installs the exact Node and Bun versions pinned in mise.toml.
+      - name: Install pinned Node and Bun (mise.toml)
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      # Respects bun.lock and fails rather than updating it.
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      # Build the host binary so the compiled-binary smoke tests run below.
+      - name: Compile the host executable
+        run: bun run compile
+
+      # Lint, format check, strict type check, and the full test suite — which
+      # now includes the compiled-binary smoke tests, since the binary exists.
+      - name: Lint, format, type check, and test
+        run: bun run check
+
+      # The Node build in dist/.
+      - name: Build (Node)
+        run: bun run build
