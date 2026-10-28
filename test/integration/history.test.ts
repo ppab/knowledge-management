@@ -74,7 +74,7 @@ describe('notes history / diff / save / show --at (M7)', () => {
       revision: { id: string; summary: string; path: string };
     };
     expect(outcome.status).toBe('saved');
-    expect(outcome.revision).toMatchObject({ summary: 'first words', path: `vault/${path}` });
+    expect(outcome.revision).toMatchObject({ summary: 'note: first words', path: `vault/${path}` });
     firstRevision = outcome.revision.id;
     expect((await git('show', '--name-only', '--format=', 'HEAD')).trim()).toBe(`vault/${path}`);
     expect((await git('diff', '--cached', '--name-only')).trim()).toBe('unrelated.txt');
@@ -122,7 +122,7 @@ describe('notes history / diff / save / show --at (M7)', () => {
       const rejected = await notes(vault, 'save', id, '-m', 'second words');
       expect(rejected.code).toBe(1);
       expect(rejected.stderr).toContain('hook says no');
-      expect((await git('log', '--format=%s')).trim()).toBe('first words');
+      expect((await git('log', '--format=%s')).trim()).toBe('note: first words');
     } finally {
       await rm(hook);
     }
@@ -148,8 +148,8 @@ describe('notes history / diff / save / show --at (M7)', () => {
     expect(parsed.status.kind).toBe('clean');
     expect(parsed.revisions.map((r) => [r.summary, r.path])).toEqual([
       ['move', 'vault/renamed.md'],
-      ['second words', `vault/${path}`],
-      ['first words', `vault/${path}`],
+      ['note: second words', `vault/${path}`],
+      ['note: first words', `vault/${path}`],
     ]);
   });
 

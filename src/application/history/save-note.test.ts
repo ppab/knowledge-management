@@ -15,13 +15,18 @@ describe('saveNote', () => {
     f.fs.files.set('other.md', '---\nid: O1\ntitle: Other\n---\n');
 
     const first = unwrap(await saveNote(f.deps, f.scope, { query: 'N1' }));
-    expect(first.outcome).toMatchObject({ kind: 'saved', revision: { summary: 'Save Note' } });
-    expect(f.revisions.recorded).toEqual([{ root: '/vault', path: 'n.md', message: 'Save Note' }]);
+    expect(first.outcome).toMatchObject({
+      kind: 'saved',
+      revision: { summary: 'note: save Note' },
+    });
+    expect(f.revisions.recorded).toEqual([
+      { root: '/vault', path: 'n.md', message: 'note: save Note' },
+    ]);
 
     const unchanged = unwrap(await saveNote(f.deps, f.scope, { query: 'N1' }, { message: 'x' }));
     expect(unchanged.outcome).toMatchObject({
       kind: 'nothing-to-save',
-      last: { summary: 'Save Note' },
+      last: { summary: 'note: save Note' },
     });
     expect(f.revisions.recorded).toHaveLength(1);
 
@@ -29,9 +34,9 @@ describe('saveNote', () => {
     const second = unwrap(
       await saveNote(f.deps, f.scope, { query: 'N1' }, { message: '  wording  ' }),
     );
-    expect(second.outcome).toMatchObject({ kind: 'saved', revision: { summary: 'wording' } });
+    expect(second.outcome).toMatchObject({ kind: 'saved', revision: { summary: 'note: wording' } });
     const history = unwrap(await listRevisions(f.deps, f.scope, { query: 'N1' }));
-    expect(history.revisions.map((r) => r.summary)).toEqual(['wording', 'Save Note']);
+    expect(history.revisions.map((r) => r.summary)).toEqual(['note: wording', 'note: save Note']);
     expect(history.status.kind).toBe('clean');
     expect(unwrap(await listRevisions(f.deps, f.scope, { query: 'O1' })).revisions).toEqual([]);
   });

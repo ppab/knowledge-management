@@ -20,6 +20,9 @@ import {
 } from '../../../application/references/add-reference.js';
 import type { Resolution } from '../../../application/references/references.js';
 import { removeReference } from '../../../application/references/remove-reference.js';
+import { readRevision } from '../../../application/history/history.js';
+import { changedLines, lineNumberAt } from '../../../domain/text/diff.js';
+import { firstSourceOffset } from '../../../domain/text/rendered.js';
 import { isNote } from '../../../domain/note/note.js';
 import type { AppError } from '../../../domain/errors.js';
 import { ok, type Result } from '../../../domain/result.js';
@@ -259,7 +262,21 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
   );
   const half = Math.max(1, Math.floor(height / 2));
 
-  const bodyWidth = Math.max(10, columns - (panel ? PANEL_WIDTH + 1 : 0));
+  // In a versioned vault a two-cell gutter marks lines changed since the last saved revision.
+  const gutter = status !== undefined && status.kind !== 'unversioned';
+  const lastSaved = status?.kind === 'modified' ? status.last : undefined;
+  const savedLoaded = useLoad(
+    () =>
+      lastSaved
+        ? readRevision(deps, scope, screen.locator, lastSaved.id)
+        : Promise.resolve(ok(null)),
+    [screen.locator, lastSaved?.id, revision, local],
+  );
+  const changes = useMemo(() => {
+    const saved = savedLoaded.value;
+    return saved && viewed ? changedLines(saved.entry.source, viewed.entry.source) : null;
+  }, [savedLoaded.value, viewed]);
+  const bodyWidth = Math.max(10, columns - (panel ? PANEL_WIDTH + 1 : 0) - (gutter ? 2 : 0));
   const lines = useMemo(
     () => (viewed ? renderNote(deps, viewed, bodyWidth) : []),
     [deps, viewed, bodyWidth],
@@ -653,7 +670,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         : flow?.kind === 'url'
           ? { hints: [['Enter', 'link'], cancel] }
           : flow?.kind === 'save'
-            ? { hints: [['Enter', 'save (empty message: "Save <title>")'], cancel] }
+            ? { hints: [['Enter', 'save (empty message: "save <title>")'], cancel] }
             : selection
               ? {
                   mode: 'select',
@@ -697,8 +714,17 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     ) : viewed ? (
       visible.map((line, i) => {
         const pieces = highlight(line, scroll + i, selection ?? { anchor: cursor, head: cursor });
+        const offset = changes ? firstSourceOffset(line) : null;
+        const at = offset === null ? null : lineNumberAt(viewed.entry.source, offset);
+        const mark =
+          at !== null && changes?.added.has(at)
+            ? (['▎ ', 'ok'] as const)
+            : at !== null && changes?.deletedBefore.has(at)
+              ? (['▁ ', 'error'] as const)
+              : null;
         return (
           <Text key={scroll + i} wrap="truncate">
+            {gutter && (mark ? <Text {...theme.paint(mark[1])}>{mark[0]}</Text> : '  ')}
             {pieces.length === 0
               ? ' '
               : pieces.map((piece, j) => (

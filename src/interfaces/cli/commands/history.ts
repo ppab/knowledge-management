@@ -128,7 +128,10 @@ export const registerHistoryCommands = (program: Command, io: CliIo, exit: Exit)
     .command('save')
     .description('record the current file as a new revision of the note')
     .argument('<query>', 'note id, title or alias')
-    .option('-m, --message <message>', 'revision message (default: "Save <title>")')
+    .option(
+      '-m, --message <message>',
+      'revision message, recorded as "note: <message>" (default: "note: save <title>")',
+    )
     .action(async (query: string, opts: { message?: string }, cmd: Command) => {
       const ctx = contextFor(io, cmd);
       exit(

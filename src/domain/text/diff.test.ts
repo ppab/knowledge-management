@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { unifiedDiff } from './diff.js';
+import { changedLines, lineNumberAt, unifiedDiff } from './diff.js';
 
 describe('unifiedDiff', () => {
   it('is empty for identical text and shows hunks with three lines of context', () => {
@@ -35,5 +35,28 @@ describe('unifiedDiff', () => {
     expect(unifiedDiff('', 'new\n', 'e.md')).toBe(
       '--- a/e.md\n+++ b/e.md\n@@ -1,0 +1,1 @@\n+new\n',
     );
+  });
+});
+
+describe('changedLines', () => {
+  it('numbers added lines in the new text and marks where deletions happened', () => {
+    const before = 'a\nb\nc\nd\n';
+    const after = 'a\nB\nc\nnew\nd\n';
+    const changes = changedLines(before, after);
+    expect([...changes.added]).toEqual([2, 4]);
+    expect([...changes.deletedBefore]).toEqual([2]); // "b" went where "B" now is
+    const gone = changedLines('a\nb\nc\n', 'a\nc\n');
+    expect([...gone.added]).toEqual([]);
+    expect([...gone.deletedBefore]).toEqual([2]); // "c" follows the hole
+    expect(changedLines('x\n', 'x\n')).toEqual({ added: new Set(), deletedBefore: new Set() });
+  });
+});
+
+describe('lineNumberAt', () => {
+  it('counts newlines before the offset', () => {
+    expect(lineNumberAt('a\nb\nc', 0)).toBe(1);
+    expect(lineNumberAt('a\nb\nc', 2)).toBe(2);
+    expect(lineNumberAt('a\nb\nc', 4)).toBe(3);
+    expect(lineNumberAt('a\n', 99)).toBe(2);
   });
 });

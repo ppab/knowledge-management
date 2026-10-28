@@ -581,7 +581,16 @@ plugin chords), `b` back on pushed screens, `q` quit. `PanelSpec.key` became `ch
 `chord`. Also from use: references can be removed in the note view with `x` on the reference
 under the cursor (`removeReference`, a `mutateNote` with `referenceDelta: -1`; a labelled
 reference becomes its label text, a bare one goes with one adjacent space, or with its whole
-line when it stood alone in a `## References` list). Still open from this milestone: the
+line when it stood alone in a `## References` list). The history screen previews the selected
+revision beside the list on terminals of 100 columns or more (`d` flips the pane between the
+revision's content and its diff against the working file, `Ctrl-d/u` scroll it, `Enter` still
+opens the full screen); narrower terminals keep the list alone with the pushed screens. The
+note view marks unsaved changes line by line: in a versioned vault a two-cell gutter shows `▎`
+on lines added or rewritten since the last saved revision and `▁` where lines were deleted
+(`changedLines` in the domain aligns the saved and working sources; rendered lines map back
+through their first source span). `save` records every revision as `note: <message>` (default
+`note: save <title>`, a message already carrying the scope is left alone), so note commits read
+as their own kind in a repository that also holds other work. Still open from this milestone: the
 column workspace, `UserConfig.tui`, focus moves and
 layout chords, multi-key chords with the prefix rule.
 

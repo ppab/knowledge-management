@@ -116,3 +116,31 @@ export const unifiedDiff = (before: string, after: string, path: string): string
   }
   return out;
 };
+
+/** Which lines of `after` differ from `before`, by 1-based line number in `after`. */
+export interface LineChanges {
+  /** Lines added or rewritten. */
+  readonly added: ReadonlySet<number>;
+  /** Lines before which something was deleted (the line after a pure deletion). */
+  readonly deletedBefore: ReadonlySet<number>;
+}
+
+export const changedLines = (before: string, after: string): LineChanges => {
+  const added = new Set<number>();
+  const deletedBefore = new Set<number>();
+  let line = 1;
+  for (const op of align(splitLines(before), splitLines(after))) {
+    if (op.kind === '+') added.add(line++);
+    else if (op.kind === '-') deletedBefore.add(line);
+    else line++;
+  }
+  return { added, deletedBefore };
+};
+
+/** The 1-based line number that holds `offset` in `text`. */
+export const lineNumberAt = (text: string, offset: number): number => {
+  let line = 1;
+  const end = Math.min(offset, text.length);
+  for (let i = 0; i < end; i += 1) if (text.charCodeAt(i) === 10) line += 1;
+  return line;
+};

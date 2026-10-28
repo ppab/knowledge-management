@@ -23,8 +23,10 @@ describe('history and save in the TUI', () => {
     await term.waitFor('save message:');
     await term.type('wording');
     await term.press(KEYS.enter);
-    await term.waitFor('Saved revision rev0001: wording');
-    expect(h.f.revisions.recorded).toEqual([{ root: '/vault', path: 'n.md', message: 'wording' }]);
+    await term.waitFor('Saved revision rev0001: note: wording');
+    expect(h.f.revisions.recorded).toEqual([
+      { root: '/vault', path: 'n.md', message: 'note: wording' },
+    ]);
     await term.waitFor((f) => f.includes('Note · monitor · N1\n'));
 
     // Saving a clean note records nothing; Esc cancels the prompt.
@@ -36,13 +38,17 @@ describe('history and save in the TUI', () => {
     await term.waitFor((f) => !f.includes('save message:'));
     expect(h.f.revisions.recorded).toHaveLength(1);
 
-    // An edit on disk brings the marker back; an empty message takes the default.
+    // An edit on disk brings the marker back, and the changed line gets a gutter mark that a
+    // save clears; an empty message takes the default.
+    expect(term.frame()).not.toContain('▎');
     h.f.fs.files.set('n.md', v2);
     h.changes.fire();
     await term.waitFor('Note · monitor · N1 ●');
+    await term.waitFor('▎ second words');
     await term.press('s', KEYS.enter);
-    await term.waitFor('Saved revision rev0002: Save Note');
+    await term.waitFor('Saved revision rev0002: note: save Note');
     await term.waitFor((f) => f.includes('Note · monitor · N1\n'));
+    await term.waitFor((f) => !f.includes('▎'));
   });
 
   it('explains an unversioned vault and a rejecting hook', async () => {
@@ -101,6 +107,41 @@ describe('history and save in the TUI', () => {
     await term.press(KEYS.escape, KEYS.escape);
     await term.waitFor('Note · monitor · N1 ●');
     expect(term.frame()).toContain('third words');
+  });
+
+  it('previews the selected revision beside the list on a wide terminal', async () => {
+    const h = harness((f) => {
+      f.revisions.enable('/vault');
+      f.fs.files.set('n.md', v3);
+      f.revisions.seed('/vault', 'n.md', v1, 'first');
+      f.revisions.seed('/vault', 'n.md', v2, 'second');
+    });
+    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })], { columns: 120 });
+    await term.waitFor('Note · monitor · N1 ●');
+    await term.press('H');
+    const list = await term.waitFor('rev0002 · 2026-10-27 12:02 · second');
+    expect(list).toContain('second words'); // the newest revision's content, beside the list
+    expect(list).toContain('d diff vs working  Ctrl-d/u scroll preview  Enter full screen');
+
+    await term.press('j');
+    await term.waitFor('rev0001 · 2026-10-27 12:01 · first');
+    expect(term.frame()).toContain('first words');
+    expect(term.frame()).not.toContain('second words');
+
+    // d flips the pane to the diff against the working file and back; the list stays.
+    await term.press('d');
+    const diff = await term.waitFor('rev0001 · 2026-10-27 12:01 · first → working file');
+    expect(diff).toContain('-first words');
+    expect(diff).toContain('+third words');
+    expect(diff).toContain('d content');
+    await term.press('d');
+    await term.waitFor((f) => f.includes('first words') && !f.includes('+third words'));
+
+    // Enter still opens the revision full screen; Esc comes back to the same selection.
+    await term.press(KEYS.enter);
+    await term.waitFor('@ rev0001 (2026-10-27 12:01) first');
+    await term.press(KEYS.escape);
+    await term.waitFor('rev0001 · 2026-10-27 12:01 · first');
   });
 
   it('says so when nothing was recorded yet', async () => {

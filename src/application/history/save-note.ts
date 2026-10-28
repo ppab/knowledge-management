@@ -13,7 +13,7 @@ import { withScope } from '../scope/session.js';
  */
 
 export interface SaveInput {
-  /** Revision message; default: `Save <title>`. */
+  /** Revision message, recorded as `note: <message>`; default: `note: save <title>`. */
   readonly message?: string;
 }
 
@@ -22,7 +22,17 @@ export type SaveOutcome =
   | { readonly kind: 'nothing-to-save'; readonly last: Revision }
   | { readonly kind: 'not-under-version-control' };
 
-export const defaultSaveMessage = (entry: LocatedEntry['entry']): string => `Save ${entry.title}`;
+/** Every revision a note records is scoped, so note commits stand out in a shared repository. */
+export const SAVE_SCOPE = 'note';
+
+export const defaultSaveMessage = (entry: LocatedEntry['entry']): string => `save ${entry.title}`;
+
+/** `note: <message>`; a message that already carries the scope is left alone. */
+export const saveMessage = (entry: LocatedEntry['entry'], message?: string): string => {
+  const text = message?.trim();
+  const body = text === undefined || text === '' ? defaultSaveMessage(entry) : text;
+  return body.toLowerCase().startsWith(`${SAVE_SCOPE}:`) ? body : `${SAVE_SCOPE}: ${body}`;
+};
 
 export interface SavedNote extends LocatedEntry {
   readonly outcome: SaveOutcome;
@@ -47,11 +57,10 @@ export const saveNote = (
     if (current.kind === 'clean') {
       return ok({ ...found.value, outcome: { kind: 'nothing-to-save', last: current.last } });
     }
-    const message = input.message?.trim();
     const recorded = await deps.revisions.record(
       vault.root,
       entry.path,
-      message === undefined || message === '' ? defaultSaveMessage(entry) : message,
+      saveMessage(entry, input.message),
     );
     if (!recorded.ok) return recorded;
     return ok({ ...found.value, outcome: { kind: 'saved', revision: recorded.value } });

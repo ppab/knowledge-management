@@ -33,7 +33,16 @@ export type Screen =
   | { readonly kind: 'calendar'; readonly cursor: IsoDate }
   | { readonly kind: 'day'; readonly date: IsoDate; readonly cursor: number }
   | { readonly kind: 'panel'; readonly id: string; readonly cursor: number }
-  | { readonly kind: 'history'; readonly locator: NoteLocator; readonly cursor: number }
+  /** The revision list; on a wide terminal the selected revision previews beside it. */
+  | {
+      readonly kind: 'history';
+      readonly locator: NoteLocator;
+      readonly cursor: number;
+      /** What the preview pane shows for the selected revision; `content` when absent. */
+      readonly pane?: 'content' | 'diff';
+      /** Scroll of the preview pane; 0 when absent. */
+      readonly scroll?: number;
+    }
   /** A note as it was at one revision (read-only). */
   | {
       readonly kind: 'revision';

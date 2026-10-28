@@ -35,6 +35,12 @@ export interface RenderedLine {
 
 export const lineText = (line: RenderedLine): string => line.spans.map((s) => s.text).join('');
 
+/** Where the line's first source-backed span starts in the source, or `null` when none does. */
+export const firstSourceOffset = (line: RenderedLine): number | null => {
+  for (const span of line.spans) if (span.source !== undefined) return span.source.start;
+  return null;
+};
+
 /** The line (and span) that displays reference `index`, or `null` when none does. */
 export const findReferenceSpan = (
   lines: readonly RenderedLine[],
