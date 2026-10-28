@@ -123,116 +123,133 @@ const locate = async (
   }
 };
 
-export const createNoteStore = (): NoteStore => ({
-  async list(root, include, exclude) {
-    const realRoot = await realRootOf(root);
-    const paths = await glob([...include], {
-      cwd: root,
-      ignore: [...exclude, `${VAULT_DIR}/**`],
-      onlyFiles: true,
-      dot: false,
-      // tinyglobby cannot prune only the unsafe symlinked directories (the option is all-or
-      // -nothing), so we keep following links and filter escaping targets out of the results
-      // below. External directories are still traversed; they just never enter discovery.
-    });
-    const files: NoteFile[] = [];
-    for (const path of paths.sort()) {
-      try {
-        const real = await realpath(resolve(root, path));
-        if (outside(realRoot, real, false)) continue; // a symlink leaving the vault
-        const s = await stat(real);
-        files.push({ path, mtime: s.mtimeMs, size: s.size, physicalKey: toKey(realRoot, real) });
-      } catch {
-        // Deleted or dangling between glob and stat: it simply is not there.
-      }
+export const createNoteStore = (): NoteStore => {
+  // A vault root is stable for the life of the store, so its real path is resolved once per root
+  // and shared across every read/write/list rather than paying a `realpath(root)` syscall each
+  // call. The in-flight promise is cached so concurrent callers never resolve it twice.
+  const realRoots = new Map<string, Promise<string>>();
+  const rootReal = (root: string): Promise<string> => {
+    let cached = realRoots.get(root);
+    if (!cached) {
+      cached = realRootOf(root);
+      realRoots.set(root, cached);
     }
-    return files;
-  },
+    return cached;
+  };
 
-  async read(root, path): Promise<Result<NoteDocument, AppError>> {
-    const realRoot = await realRootOf(root);
-    const located = await locate(realRoot, root, path);
-    if (!located.ok) return located;
-    try {
-      // Fingerprint first: if the file changes between the two calls, the next refresh re-reads.
-      const s = await stat(located.value.absolute);
-      const source = await readFile(located.value.absolute, 'utf8');
-      return ok({
-        path,
-        source,
-        version: contentVersion(source),
-        mtime: s.mtimeMs,
-        size: s.size,
-        ...(located.value.physicalKey !== undefined && { physicalKey: located.value.physicalKey }),
+  return {
+    async list(root, include, exclude) {
+      const realRoot = await rootReal(root);
+      const paths = await glob([...include], {
+        cwd: root,
+        ignore: [...exclude, `${VAULT_DIR}/**`],
+        onlyFiles: true,
+        dot: false,
+        // tinyglobby cannot prune only the unsafe symlinked directories (the option is all-or
+        // -nothing), so we keep following links and filter escaping targets out of the results
+        // below. External directories are still traversed; they just never enter discovery.
       });
-    } catch (cause) {
-      return errno(cause) === 'ENOENT'
-        ? err(notFound(`No file at ${path}`, { path }))
-        : err(unavailable(`Cannot read ${path}`, { path, cause: String(cause) }));
-    }
-  },
-
-  async write(root, path, source, options = {}) {
-    const realRoot = await realRootOf(root);
-    const located = await locate(realRoot, root, path);
-    if (!located.ok) return located;
-    // A normal write must never create through a dangling symlink (its target could be anywhere).
-    // `createOnly` falls through: the link below fails `EEXIST` on the symlink and so conflicts.
-    if (located.value.dangling && !options.createOnly) {
-      return err(validation(`${path} is a dangling symlink`, { path }));
-    }
-    // Write through to the canonical real path when the file exists, so an internal symlink is
-    // preserved rather than replaced; create new files at the lexical path.
-    const target =
-      located.value.physicalKey !== undefined
-        ? join(realRoot, ...located.value.physicalKey.split('/'))
-        : located.value.absolute;
-    const version = contentVersion(source);
-
-    if (options.expectedVersion !== undefined) {
-      const current = await this.read(root, path);
-      if (!current.ok) {
-        return current.error.code === 'NOT_FOUND'
-          ? err(conflict(`${path} was deleted since it was read`, { path }))
-          : current;
+      const files: NoteFile[] = [];
+      for (const path of paths.sort()) {
+        try {
+          const real = await realpath(resolve(root, path));
+          if (outside(realRoot, real, false)) continue; // a symlink leaving the vault
+          const s = await stat(real);
+          files.push({ path, mtime: s.mtimeMs, size: s.size, physicalKey: toKey(realRoot, real) });
+        } catch {
+          // Deleted or dangling between glob and stat: it simply is not there.
+        }
       }
-      if (current.value.version !== options.expectedVersion) {
-        return err(
-          conflict(`${path} was modified since it was read`, {
-            path,
-            expectedVersion: options.expectedVersion,
-            currentVersion: current.value.version,
+      return files;
+    },
+
+    async read(root, path): Promise<Result<NoteDocument, AppError>> {
+      const realRoot = await rootReal(root);
+      const located = await locate(realRoot, root, path);
+      if (!located.ok) return located;
+      try {
+        // Fingerprint first: if the file changes between the two calls, the next refresh re-reads.
+        const s = await stat(located.value.absolute);
+        const source = await readFile(located.value.absolute, 'utf8');
+        return ok({
+          path,
+          source,
+          version: contentVersion(source),
+          mtime: s.mtimeMs,
+          size: s.size,
+          ...(located.value.physicalKey !== undefined && {
+            physicalKey: located.value.physicalKey,
           }),
-        );
+        });
+      } catch (cause) {
+        return errno(cause) === 'ENOENT'
+          ? err(notFound(`No file at ${path}`, { path }))
+          : err(unavailable(`Cannot read ${path}`, { path, cause: String(cause) }));
       }
-    }
+    },
 
-    let temp: string | undefined;
-    try {
-      await mkdir(dirname(target), { recursive: true });
-      // Re-check the parent after creating it: an ancestor swapped for a symlink during `mkdir`
-      // must not let the write land outside the vault. A residual window remains between this
-      // check and the move below, and directories already created cannot be undone here — both
-      // are accepted platform limitations within the stated threat model.
-      const parentReal = await realpath(dirname(target));
-      if (outside(realRoot, parentReal, true)) {
-        return err(validation(`${path} resolves outside the vault's note area`, { path }));
+    async write(root, path, source, options = {}) {
+      const realRoot = await rootReal(root);
+      const located = await locate(realRoot, root, path);
+      if (!located.ok) return located;
+      // A normal write must never create through a dangling symlink (its target could be anywhere).
+      // `createOnly` falls through: the link below fails `EEXIST` on the symlink and so conflicts.
+      if (located.value.dangling && !options.createOnly) {
+        return err(validation(`${path} is a dangling symlink`, { path }));
       }
-      temp = `${target}.${randomBytes(6).toString('hex')}.tmp`;
-      await writeFile(temp, source, 'utf8');
-      if (options.createOnly) {
-        // link() fails with EEXIST if the target exists: an atomic create-if-absent.
-        await link(temp, target);
-        await unlink(temp);
-      } else {
-        await rename(temp, target);
+      // Write through to the canonical real path when the file exists, so an internal symlink is
+      // preserved rather than replaced; create new files at the lexical path.
+      const target =
+        located.value.physicalKey !== undefined
+          ? join(realRoot, ...located.value.physicalKey.split('/'))
+          : located.value.absolute;
+      const version = contentVersion(source);
+
+      if (options.expectedVersion !== undefined) {
+        const current = await this.read(root, path);
+        if (!current.ok) {
+          return current.error.code === 'NOT_FOUND'
+            ? err(conflict(`${path} was deleted since it was read`, { path }))
+            : current;
+        }
+        if (current.value.version !== options.expectedVersion) {
+          return err(
+            conflict(`${path} was modified since it was read`, {
+              path,
+              expectedVersion: options.expectedVersion,
+              currentVersion: current.value.version,
+            }),
+          );
+        }
       }
-      return ok({ version });
-    } catch (cause) {
-      if (temp !== undefined) await unlink(temp).catch(() => undefined);
-      return errno(cause) === 'EEXIST'
-        ? err(conflict(`${path} already exists`, { path }))
-        : err(unavailable(`Cannot write ${path}`, { path, cause: String(cause) }));
-    }
-  },
-});
+
+      let temp: string | undefined;
+      try {
+        await mkdir(dirname(target), { recursive: true });
+        // Re-check the parent after creating it: an ancestor swapped for a symlink during `mkdir`
+        // must not let the write land outside the vault. A residual window remains between this
+        // check and the move below, and directories already created cannot be undone here — both
+        // are accepted platform limitations within the stated threat model.
+        const parentReal = await realpath(dirname(target));
+        if (outside(realRoot, parentReal, true)) {
+          return err(validation(`${path} resolves outside the vault's note area`, { path }));
+        }
+        temp = `${target}.${randomBytes(6).toString('hex')}.tmp`;
+        await writeFile(temp, source, 'utf8');
+        if (options.createOnly) {
+          // link() fails with EEXIST if the target exists: an atomic create-if-absent.
+          await link(temp, target);
+          await unlink(temp);
+        } else {
+          await rename(temp, target);
+        }
+        return ok({ version });
+      } catch (cause) {
+        if (temp !== undefined) await unlink(temp).catch(() => undefined);
+        return errno(cause) === 'EEXIST'
+          ? err(conflict(`${path} already exists`, { path }))
+          : err(unavailable(`Cannot write ${path}`, { path, cause: String(cause) }));
+      }
+    },
+  };
+};
