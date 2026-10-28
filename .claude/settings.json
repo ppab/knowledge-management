@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "allow": ["Bash(gh issue comment *)", "Bash(gh issue edit *)"]
+  }
+}
