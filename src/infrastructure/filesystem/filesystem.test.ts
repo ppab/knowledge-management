@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -126,5 +126,107 @@ describe('note store', () => {
       ok: false,
       error: { code: 'NOT_FOUND' },
     });
+  });
+});
+
+describe('note store symlink containment', () => {
+  const store = createNoteStore();
+  let external: string;
+  beforeEach(async () => {
+    external = await mkdtemp(join(tmpdir(), 'notes-ext-'));
+    await mkdir(join(root, '.notes'), { recursive: true });
+  });
+  afterEach(() => rm(external, { recursive: true, force: true }));
+
+  /** Creates a symlink, or returns false on a platform/filesystem that forbids them (explicit skip). */
+  const linked = async (target: string, path: string): Promise<boolean> => {
+    try {
+      await symlink(target, path);
+      return true;
+    } catch {
+      return false; // e.g. Windows without privilege: the test is skipped, not failed.
+    }
+  };
+
+  it('rejects reads and writes through a symlink that escapes the vault', async () => {
+    await writeFile(join(external, 'secret.md'), 'secret');
+    if (!(await linked(join(external, 'secret.md'), join(root, 'leak.md')))) return;
+    expect(await store.read(root, 'leak.md')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    expect(await store.write(root, 'leak.md', 'hacked')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    expect(await readFile(join(external, 'secret.md'), 'utf8')).toBe('secret'); // untouched
+  });
+
+  it('rejects access through a symlinked ancestor directory', async () => {
+    if (!(await linked(external, join(root, 'out')))) return;
+    await writeFile(join(external, 'x.md'), 'ext');
+    expect(await store.read(root, 'out/x.md')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    expect(await store.write(root, 'out/new.md', 'y')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    expect(await readdir(external)).toEqual(['x.md']); // no file created outside the vault
+  });
+
+  it('follows an internal symlink and writes through to its target, preserving the link', async () => {
+    unwrap(await store.write(root, 'real.md', 'original'));
+    if (!(await linked(join(root, 'real.md'), join(root, 'alias.md')))) return;
+    const doc = unwrap(await store.read(root, 'alias.md'));
+    expect(doc.source).toBe('original');
+    expect(doc.physicalKey).toBe('real.md');
+    unwrap(await store.write(root, 'alias.md', 'updated'));
+    expect(await readFile(join(root, 'real.md'), 'utf8')).toBe('updated');
+    expect((await lstat(join(root, 'alias.md'))).isSymbolicLink()).toBe(true); // link preserved
+  });
+
+  it('rejects a symlink that resolves into the reserved .notes area', async () => {
+    await writeFile(join(root, '.notes', 'config.yaml'), 'x');
+    if (!(await linked(join(root, '.notes', 'config.yaml'), join(root, 'sneak.md')))) return;
+    expect(await store.read(root, 'sneak.md')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+  });
+
+  it('treats a dangling symlink as not found to read, validation to write, conflict to create', async () => {
+    if (!(await linked(join(root, 'nowhere.md'), join(root, 'dangling.md')))) return;
+    expect(await store.read(root, 'dangling.md')).toMatchObject({
+      ok: false,
+      error: { code: 'NOT_FOUND' },
+    });
+    expect(await store.write(root, 'dangling.md', 'x')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    expect(await store.write(root, 'dangling.md', 'x', { createOnly: true })).toMatchObject({
+      ok: false,
+      error: { code: 'CONFLICT' },
+    });
+  });
+
+  it('rejects a symlink loop as validation, never as missing', async () => {
+    if (!(await linked(join(root, 'b.md'), join(root, 'a.md')))) return;
+    if (!(await linked(join(root, 'a.md'), join(root, 'b.md')))) return;
+    expect(await store.read(root, 'a.md')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+  });
+
+  it('reports real-path keys and never lists files from a symlinked directory that escapes', async () => {
+    unwrap(await store.write(root, 'note.md', 'hi'));
+    await writeFile(join(external, 'ext.md'), 'ext');
+    if (!(await linked(external, join(root, 'escape')))) return;
+    const listed = await store.list(root, ['**/*.md'], []);
+    expect(listed.map((f) => f.path)).toEqual(['note.md']); // escape/ext.md filtered out
+    expect(listed[0]!.physicalKey).toBe('note.md');
   });
 });
