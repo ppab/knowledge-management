@@ -25,6 +25,7 @@
     "load": "bun run compile && install -m 755 release/notes-linux-x64 ~/.local/bin/notes"
   },
   "dependencies": {
+    "@inkjs/ui": "^2.0.0",
     "chokidar": "^6.0.0",
     "commander": "^15.0.0",
     "ink": "^8.0.0",
