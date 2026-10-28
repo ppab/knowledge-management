@@ -125,4 +125,10 @@ export default defineConfig([
     files: ['eslint.config.js'],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    // Build scripts run under Bun, outside the TypeScript project.
+    files: ['scripts/**'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: { globals: { Bun: 'readonly' } },
+  },
 ]);

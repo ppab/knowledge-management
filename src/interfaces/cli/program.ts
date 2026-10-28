@@ -1,15 +1,13 @@
 import { Command } from 'commander';
-import { createRequire } from 'node:module';
 import { registerCommands } from './commands.js';
 import type { CliIo } from './context.js';
-
-const { version } = createRequire(import.meta.url)('../../../package.json') as { version: string };
+import { VERSION } from './version.js';
 
 /** The commander program with every command registered; `main.ts` parses it, tests drive it. */
 export const buildProgram = (io: CliIo, exit: (code: number) => void): Command => {
   const program = new Command('notes')
     .description('Local-first, Git-native knowledge management')
-    .version(version)
+    .version(VERSION)
     .option('--json', 'machine-readable output')
     .option('--cwd <dir>', 'run as if started in <dir>')
     .option('--scope <name>', 'operate on a named scope from the user config')

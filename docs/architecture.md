@@ -19,6 +19,19 @@ infrastructure/  filesystem · markdown (remark) · yaml · sqlite (node:sqlite)
                  · identity · editor · config · watcher
 ```
 
+**Toolchain and distribution.** Bun is the package manager (`bun install`, `bun.lock`) and the
+script runner (`bun run <script>`); Node ≥ 24 stays the development and test runtime, since
+`bun run` executes the tools' own `node` shebangs. Two ways to run `notes`:
+
+- As a Node package: `bun run build` compiles to `dist/` with `tsc` and `bin/notes` starts it.
+- As a single executable: `bun run compile` (this machine) or `bun run compile:all` (Linux and
+  macOS, x64 and arm64) bundles the sources, every dependency and Ink's layout engine (yoga, whose
+  wasm is inlined) into `release/notes-<os>-<arch>` with `bun build --compile`. The binary needs
+  no Node: Bun ≥ 1.4 provides `node:sqlite`, so the SQLite index runs unchanged. What stays
+  external is what the app shells out to on purpose: the user's `git` and `$EDITOR`. Because a
+  bundle has no `package.json` beside it, the version is a constant in
+  `src/interfaces/cli/version.ts`, kept equal to the manifest by a test.
+
 Properties:
 
 - **Markdown files are the only authoritative store.** SQLite under `.notes/cache/` is a

@@ -19,7 +19,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run format:check && npm run typecheck && npm test"
+    "check": "bun run lint && bun run format:check && bun run typecheck && bun run test",
+    "compile": "bun scripts/compile.ts --host",
+    "compile:all": "bun scripts/compile.ts"
   },
   "dependencies": {
     "chokidar": "^6.0.0",

@@ -3,7 +3,7 @@
 Companion to [architecture.md](./architecture.md). Each milestone is a vertical slice that is
 independently testable and leaves `main` working. Definition of done applies to every milestone:
 
-- All listed tests pass under `npm test`; lint, format and `tsc --noEmit` are clean.
+- All listed tests pass under `bun run test`; lint, format and `tsc --noEmit` are clean.
 - No layer-boundary violations (ESLint).
 - No placeholder code; every exported symbol has a caller or a test.
 - `notes capabilities --json` reflects the commands that exist.
@@ -29,7 +29,7 @@ two riskiest infrastructure assumptions are verified before anything depends on 
 
 - `package.json` (ESM, `bin/notes`), `tsconfig.json` (strict, `noUncheckedIndexedAccess`,
   `exactOptionalPropertyTypes`), Vitest, ESLint (typescript-eslint + `no-restricted-imports`
-  per layer), Prettier, `npm run check` (lint + format + typecheck + test).
+  per layer), Prettier, `bun run check` (lint + format + typecheck + test).
 - `src/{domain,application,infrastructure,interfaces}` with a smoke module in each to exercise
   the boundary rules.
 - Spike result recorded in `docs/decisions/0001-sqlite.md`: does `node:sqlite` on the target
@@ -42,7 +42,7 @@ two riskiest infrastructure assumptions are verified before anything depends on 
 
 - Importing `infrastructure` from `domain`, or `interfaces` from `application`, fails lint.
 - `node -e "new (require('node:sqlite').DatabaseSync)(':memory:').exec('CREATE VIRTUAL TABLE t USING fts5(x)')"` succeeds (or the fallback decision is documented).
-- `npm run check` is green on a clean clone.
+- `bun run check` is green on a clean clone.
 
 **Tests.** One Vitest test per layer proving the harness runs; a lint test fixture that is
 expected to fail the boundary rule.
@@ -646,6 +646,10 @@ manifest`.
 - Full integration suite running the specified scenarios: initialize a vault, create notes, link
   notes, search and navigate references, export content, verify generated links.
 - README: install, quick start, scope configuration, agent usage with `--json`.
+- Single-file executables that need no Node: `bun run compile:all` builds
+  `release/notes-{linux,darwin}-{x64,arm64}`; `test/binary/compiled.test.ts` runs the host's
+  binary with Node off `PATH` (version, init/create/list/search, save to git, TUI refusal
+  without a terminal) and is skipped when no binary has been built.
 
 **Dependencies.** All.
 
@@ -655,6 +659,12 @@ manifest`.
   object under `--json`.
 - Every command appears in `capabilities --json` with the same flags commander accepts (test
   compares the two).
-- `npm run check` green; no `TODO` left in `src/`.
+- `bun run check` green; no `TODO` left in `src/`.
 
-**Tests.** Integration suite; capabilities/commander consistency test.
+**Tests.** Integration suite; capabilities/commander consistency test; compiled-binary smoke test.
+
+**Status (2026-10-27).** The executables landed early, ahead of the rest of M9: `scripts/compile.ts`
+builds all four targets with `Bun.build` (Bun 1.4.4 pinned in `mise.toml`), the version comes from
+`src/interfaces/cli/version.ts` rather than a `package.json` read, and Bun replaced npm as the
+package manager (`bun.lock`). A first `README.md` covers install, quick start, `--json` use and
+scopes. The other M9 items are not started.
