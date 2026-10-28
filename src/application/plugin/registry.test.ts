@@ -9,7 +9,7 @@ const panel = (id: string, key: string, placement: PanelSpec['placement'] = 'hom
   id,
   title: id,
   placement,
-  key,
+  chord: key,
   load: () => Promise.resolve(ok({ kind: 'text', lines: [] })),
 });
 
@@ -128,14 +128,14 @@ describe('buildRegistry', () => {
     });
   });
 
-  it('rejects panel key and id collisions, naming both sides, including core panels', () => {
+  it('rejects panel chord and id collisions, naming both sides, including core panels', () => {
     const f = fixture({ plugins: { todos: {}, goals: {} } });
     const clash = plugin('goals', { panels: [panel('goals.home', 'T')] });
     expect(buildRegistry([todos, clash], f.scope)).toMatchObject({
       ok: false,
       error: {
         code: 'VALIDATION',
-        message: 'Key "T" (home) is claimed by both todos.home (todos) and goals.home (goals)',
+        message: 'Chord "T" (home) is claimed by both todos.home (todos) and goals.home (goals)',
       },
     });
     expect(
@@ -144,9 +144,9 @@ describe('buildRegistry', () => {
       }),
     ).toMatchObject({
       ok: false,
-      error: { details: { key: 'T', panels: ['core.calendar', 'todos.home'] } },
+      error: { details: { chord: 'T', panels: ['core.calendar', 'todos.home'] } },
     });
-    // The same key on another placement is fine.
+    // The same chord on another placement is fine.
     const noteKey = plugin('goals', { panels: [panel('goals.note', 'T', 'note')] });
     expect(buildRegistry([todos, noteKey], f.scope)).toMatchObject({ ok: true });
     const sameId = plugin('goals', { panels: [panel('todos.home', 'G')] });

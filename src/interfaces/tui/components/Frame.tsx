@@ -1,34 +1,83 @@
-import { Box, Text } from 'ink';
+import { Box, Spacer, Text } from 'ink';
 import type { ReactNode } from 'react';
 import { useTui } from '../context.js';
 
-/** Header line, body, and a footer that shows the last status message or the key hints. */
+/** One key hint: the key (empty for a bare label) and what it does. */
+export type Hint = readonly [key: string, label: string];
+
+/** Hints read as `key label` pairs two spaces apart, the key in the accent colour. */
+export const Hints = ({
+  hints,
+  mode,
+}: {
+  readonly hints: readonly Hint[];
+  readonly mode?: string;
+}) => {
+  const { theme } = useTui();
+  return (
+    <Text wrap="truncate">
+      {mode !== undefined && <Text bold>{mode}: </Text>}
+      {hints.map(([key, label], i) => (
+        <Text key={i}>
+          {i > 0 ? '  ' : ''}
+          {key !== '' && <Text {...theme.paint('accent')}>{key}</Text>}
+          <Text dimColor>
+            {key !== '' ? ' ' : ''}
+            {label}
+          </Text>
+        </Text>
+      ))}
+    </Text>
+  );
+};
+
+/**
+ * Header line (title left, `meta` right), body, and a footer that shows the last status
+ * message or the key hints.
+ */
 export const Frame = ({
   title,
+  meta,
   hints,
+  mode,
+  overlay,
   children,
 }: {
   readonly title: string;
-  readonly hints: string;
+  readonly meta?: string;
+  readonly hints: readonly Hint[];
+  /** A prefix naming the mode the hints belong to (`select`, `panel`). */
+  readonly mode?: string;
+  /** Drawn above the body: the leader's which-key popup. */
+  readonly overlay?: ReactNode;
   readonly children: ReactNode;
 }) => {
-  const { rows, columns, status } = useTui();
+  const { rows, columns, status, theme } = useTui();
   return (
     <Box flexDirection="column" width={columns} height={rows}>
-      <Text bold wrap="truncate">
-        {title}
-      </Text>
+      <Box width={columns}>
+        <Text bold {...theme.paint('accent')} wrap="truncate">
+          {title}
+        </Text>
+        {meta !== undefined && (
+          <>
+            <Spacer />
+            <Text dimColor wrap="truncate">
+              {meta}
+            </Text>
+          </>
+        )}
+      </Box>
       <Box flexDirection="column" height={Math.max(1, rows - 2)} overflow="hidden">
+        {overlay}
         {children}
       </Box>
       {status ? (
-        <Text color={status.level === 'error' ? 'red' : 'green'} wrap="truncate">
+        <Text {...theme.paint(status.level === 'error' ? 'error' : 'ok')} wrap="truncate">
           {status.text}
         </Text>
       ) : (
-        <Text dimColor wrap="truncate">
-          {hints}
-        </Text>
+        <Hints hints={hints} {...(mode !== undefined && { mode })} />
       )}
     </Box>
   );

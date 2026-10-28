@@ -7,7 +7,8 @@ import { ok, type Result } from '../../domain/result.js';
 import { availableVaults, type Scope } from '../../domain/scope/scope.js';
 import { App } from './App.js';
 import type { ChangeFeed } from './context.js';
-import { checkReservedKeys, corePanels } from './core-panels.js';
+import { checkReservedChords, corePanels } from './core-panels.js';
+import { createTheme } from './theme.js';
 
 /*
  * The TUI's composition: the registry with the core panels in it, the watcher adapted to a
@@ -33,7 +34,7 @@ export const buildTuiRegistry = (
   const built = buildRegistry(plugins, scope, { core });
   if (!built.ok) return built;
   holder.registry = built.value;
-  const reserved = checkReservedKeys(built.value);
+  const reserved = checkReservedChords(built.value);
   if (!reserved.ok) return reserved;
   return ok(built.value);
 };
@@ -47,6 +48,8 @@ export interface RunTuiOptions {
   readonly cwd: string;
   readonly stdin: NodeJS.ReadStream;
   readonly stdout: NodeJS.WriteStream;
+  /** For `NO_COLOR`; the process environment in production. */
+  readonly env: Readonly<Record<string, string | undefined>>;
 }
 
 export const runTui = async (options: RunTuiOptions): Promise<Result<void, AppError>> => {
@@ -77,6 +80,7 @@ export const runTui = async (options: RunTuiOptions): Promise<Result<void, AppEr
         registry: registry.value,
         editor: options.editor,
         cwd: options.cwd,
+        theme: createTheme(options.env),
       }}
       changes={changes}
     />,

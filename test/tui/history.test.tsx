@@ -80,7 +80,7 @@ describe('history and save in the TUI', () => {
     const list = await term.waitFor('history · Note · monitor · N1');
     expect(list).toContain('rev      date              author  summary');
     const rows = list.split('\n').filter((line) => line.includes('Seed'));
-    expect(rows.map((r) => r.trim())).toEqual([
+    expect(rows.map((r) => r.replace('▸', '').trim())).toEqual([
       'rev0002  2026-10-27 12:02  Seed    second',
       'rev0001  2026-10-27 12:01  Seed    first',
     ]);

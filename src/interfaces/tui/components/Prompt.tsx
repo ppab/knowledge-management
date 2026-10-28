@@ -1,5 +1,6 @@
 import { Text, useInput } from 'ink';
 import { useState } from 'react';
+import { useTui } from '../context.js';
 
 /** A one-line text input; `Enter` submits, `Esc` cancels. Owns the keyboard while shown. */
 export const Prompt = ({
@@ -11,6 +12,7 @@ export const Prompt = ({
   readonly onSubmit: (value: string) => void;
   readonly onCancel: () => void;
 }) => {
+  const { theme } = useTui();
   const [value, setValue] = useState('');
   useInput((input, key) => {
     if (key.escape) onCancel();
@@ -20,7 +22,10 @@ export const Prompt = ({
   });
   return (
     <Text>
-      <Text bold>{label}</Text> {value}
+      <Text bold {...theme.paint('accent')}>
+        {label}
+      </Text>{' '}
+      {value}
       <Text inverse> </Text>
     </Text>
   );

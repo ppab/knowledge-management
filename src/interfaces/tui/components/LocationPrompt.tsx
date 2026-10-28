@@ -1,9 +1,11 @@
-import { Box, Text, useInput } from 'ink';
+import { Text, useInput } from 'ink';
 import { useState } from 'react';
 import type { Heading } from '../../../domain/note/note.js';
 import { REFERENCES_HEADING, type InsertionLocation } from '../../../domain/text/insertion.js';
 import { isDown, isUp } from '../keys.js';
+import { useTui } from '../context.js';
 import { clamp } from '../model.js';
+import { Dialog, DIALOG_CHROME } from './Dialog.js';
 import { Rows } from './Rows.js';
 
 export interface LocationChoice {
@@ -38,6 +40,7 @@ export const LocationPrompt = ({
   readonly onPick: (at: InsertionLocation) => void;
   readonly onCancel: () => void;
 }) => {
+  const { theme } = useTui();
   const choices = locationChoices(headings);
   const [cursor, setCursor] = useState(0);
   useInput((input, key) => {
@@ -49,16 +52,19 @@ export const LocationPrompt = ({
     else if (isUp(input, key)) setCursor(clamp(cursor - 1, choices.length - 1));
   });
   return (
-    <Box flexDirection="column">
+    <Dialog>
       <Text>
-        <Text bold>insert reference to</Text> {target} <Text dimColor>where?</Text>
+        <Text bold {...theme.paint('accent')}>
+          insert reference to
+        </Text>{' '}
+        {target} <Text dimColor>where?</Text>
       </Text>
       <Rows
         rows={choices.map((c) => [c.label])}
         cursor={cursor}
-        height={height - 1}
+        height={height - 1 - DIALOG_CHROME}
         empty="No locations."
       />
-    </Box>
+    </Dialog>
   );
 };

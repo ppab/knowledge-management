@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { diffRevisions } from '../../../application/history/history.js';
 import { abbreviate } from '../../../domain/revision/revision.js';
+import { screenChords, useLeader } from '../chords.js';
 import { Frame, useBodyHeight } from '../components/Frame.js';
 import { ScrollText, useScrollKeys, type TextLine } from '../components/ScrollText.js';
 import { useLoad, useTui } from '../context.js';
@@ -11,15 +12,17 @@ type DiffScreen = Extract<Screen, { kind: 'diff' }>;
 /** Colours a unified diff line the way `git diff` does. */
 export const diffLine = (text: string): TextLine => {
   if (text.startsWith('+++') || text.startsWith('---')) return { text, dim: true };
-  if (text.startsWith('@@')) return { text, color: 'cyan' };
-  if (text.startsWith('+')) return { text, color: 'green' };
-  if (text.startsWith('-')) return { text, color: 'red' };
+  if (text.startsWith('@@')) return { text, role: 'accent' };
+  if (text.startsWith('+')) return { text, role: 'ok' };
+  if (text.startsWith('-')) return { text, role: 'error' };
   if (text.startsWith('\\')) return { text, dim: true };
   return { text };
 };
 
 /** A recorded revision against the working file. */
 export const DiffView = ({ screen }: { readonly screen: DiffScreen }) => {
+  const tui = useTui();
+  const leader = useLeader(screenChords(tui), true);
   const { deps, scope, revision: tick, navigate } = useTui();
   const height = useBodyHeight();
   const loaded = useLoad(
@@ -43,13 +46,24 @@ export const DiffView = ({ screen }: { readonly screen: DiffScreen }) => {
     () => {
       navigate({ type: 'pop' });
     },
+    { active: !leader.pending },
   );
 
   const title = diff
     ? `diff · ${diff.entry.title} · ${abbreviate(diff.from.id)} → working file`
     : 'diff · loading…';
   return (
-    <Frame title={title} hints="j/k scroll  g/G top/bottom  b back">
+    <Frame
+      title={title}
+      hints={[
+        ['j/k', 'scroll'],
+        ['Ctrl-d/u', 'half page'],
+        ['g/G', 'ends'],
+        ['Space', 'menu'],
+        ['Esc', 'back'],
+      ]}
+      overlay={leader.popup}
+    >
       <ScrollText
         lines={lines}
         scroll={scroll}

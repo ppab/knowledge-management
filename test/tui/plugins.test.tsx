@@ -14,7 +14,7 @@ const todo = (id: string, title: string, extra = '') =>
   `---\nid: ${id}\ntitle: ${title}\ntype: todo\nstatus: open\n${extra}---\n\n# ${title}\n`;
 
 describe('plugin panels', () => {
-  it('opens the todos home panel by its key, opens a row, and runs its action', async () => {
+  it('opens the todos home panel by its chord, opens a row, and runs its action', async () => {
     const h = harness(
       (f) => {
         f.fs.files.set('t1.md', todo('T1', 'Ship it', 'due: 2026-10-20\n'));
@@ -24,8 +24,10 @@ describe('plugin panels', () => {
     );
     term = h.start();
     const list = await term.waitFor('2 notes');
-    expect(list).toContain('T todos');
+    expect(list).not.toContain('T todos'); // panel jumps live under the leader now
 
+    await term.press(' ');
+    await term.waitFor('T  todos');
     await term.press('T');
     const panel = await term.waitFor('d Mark done');
     expect(panel.indexOf('Ship it')).toBeLessThan(panel.indexOf('Later')); // due date order
@@ -35,7 +37,7 @@ describe('plugin panels', () => {
     expect(view).toContain('Todo'); // the automatic note panel for owned types
     expect(view).toContain('status: open');
     expect(view).toContain('due: 2026-10-20');
-    await term.press('b');
+    await term.press(KEYS.ctrlO);
     await term.waitFor('d Mark done');
 
     await term.press('d');
@@ -56,7 +58,7 @@ describe('plugin panels', () => {
     expect(frame).not.toContain('status:');
   });
 
-  it('refuses to start when a plugin key clashes with a core key or a screen key', () => {
+  it('refuses to start when a plugin chord clashes with a core chord or a reserved one', () => {
     const clashing = (key: string): NotePlugin => ({
       name: 'todos',
       description: 'x',
@@ -67,7 +69,7 @@ describe('plugin panels', () => {
           id: 'todos.home',
           title: 'Todos',
           placement: 'home',
-          key,
+          chord: key,
           load: () => Promise.resolve(ok({ kind: 'text', lines: [] })),
         },
       ],
@@ -77,8 +79,8 @@ describe('plugin panels', () => {
     expect(core).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
     if (!core.ok)
       expect(core.error.message).toContain('core.calendar (core) and todos.home (todos)');
-    const reserved = buildTuiRegistry(f.deps, f.scope, [clashing('n')]);
-    if (!reserved.ok) expect(reserved.error.message).toContain('todos.home claims key "n"');
+    const reserved = buildTuiRegistry(f.deps, f.scope, [clashing('b')]);
+    if (!reserved.ok) expect(reserved.error.message).toContain('todos.home claims chord "b"');
     expect(reserved.ok).toBe(false);
   });
 });

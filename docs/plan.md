@@ -550,6 +550,41 @@ because it changes what plugins register.
   in prompts, panel jump falling back to a screen in a one-column layout.
 - registry: chord collisions.
 
+**Status.** Visual pass done 2026-10-27 (workspace and leader pending). `theme.ts` maps roles
+(accent, muted, ok, error, warn, link, unavailable, tag, heading, code) to colours and paints
+nothing under `NO_COLOR`; the runner builds it from the process environment and tests from
+`{}`. `Frame` takes `meta` (right-aligned, the list's note count), structured hints
+(`[key, label]` pairs, key in accent, label dim, an optional `mode:` prefix for `select` and
+`panel`), and paints status lines by level. `Rows` marks the cursor row with `▸` in bold
+accent instead of inverse video, indents the other rows to keep columns aligned, and paints
+columns by role (ids, vaults and dates muted, tags magenta). `Dialog` is a rounded bordered
+box used by the title/search/tag prompts, the template picker, the reference picker, the
+location prompt and the url/save prompts; a dialog costs two rows of chrome, which the rows
+under it give up. Reference, heading and code colours in the note body and the diff colours go
+through the theme. Deviation: the plan's "subtle background" for the cursor row was dropped in
+favour of marker plus bold accent, which reads on light and dark terminals alike.
+
+Keys and leader done 2026-10-27 (same day, from use: "we must make the select mode a first-class
+citizen", "standard vim motions"). The note view and select mode share one motion table:
+`h/j/k/l`, `w/b/e` (vim's small words: punctuation runs are words of their own), `0/^/$`,
+`{/}` paragraphs, `gg/G`, `Ctrl-d/u/f/b`, arrows and page keys; `Space` no longer pages (it is
+the leader). Consequences of `b` and `e` becoming motions: back is `Ctrl-o` (vim's jump back),
+`Backspace` or `Esc` on every screen, and `b` is never "back" anywhere; the editor opens with
+`o`; the external link in select mode is `u` (url). On the list `c` creates a note (`n` is
+kept free for search-next later) since the calendar jump moved under the leader. The leader
+(`chords.tsx`, `useLeader`) is per screen: `Space` opens a which-key `Dialog` listing the
+screen's chords, the next key runs one, `Esc` cancels, an unbound key reports in the status
+line, and modal flows (prompts, pickers, selection) keep `Space` as a space by passing
+`active: false`. Chords today: home panel jumps (`c`, `T`), note panel toggles (`m`, `B`,
+plugin chords), `b` back on pushed screens, `q` quit. `PanelSpec.key` became `chord`;
+`RESERVED_CHORDS` (`b`, `q`) replaced `RESERVED_KEYS`, and `capabilities --json` reports
+`chord`. Also from use: references can be removed in the note view with `x` on the reference
+under the cursor (`removeReference`, a `mutateNote` with `referenceDelta: -1`; a labelled
+reference becomes its label text, a bare one goes with one adjacent space, or with its whole
+line when it stood alone in a `## References` list). Still open from this milestone: the
+column workspace, `UserConfig.tui`, focus moves and
+layout chords, multi-key chords with the prefix rule.
+
 ---
 
 ## M8 — Export

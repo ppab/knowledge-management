@@ -8,9 +8,9 @@ import { memberName, type Scope } from '../../domain/scope/scope.js';
 
 export const isDown = (input: string, key: Key): boolean => input === 'j' || key.downArrow;
 export const isUp = (input: string, key: Key): boolean => input === 'k' || key.upArrow;
-/** `b`, `Backspace` or `Esc` leave a pushed screen, restoring the one below as it was. */
+/** `Ctrl-o` (vim's jump back), `Backspace` or `Esc` leave a pushed screen, restoring the one below. */
 export const isBack = (input: string, key: Key): boolean =>
-  key.backspace || key.delete || key.escape || input === 'b';
+  key.backspace || key.delete || key.escape || (key.ctrl && input === 'o');
 
 export const scopeLabel = (scope: Scope): string =>
   scope.name ?? scope.members.map(memberName).join(' + ');

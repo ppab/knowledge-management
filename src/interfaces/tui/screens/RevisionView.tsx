@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { readRevision } from '../../../application/history/history.js';
 import { isNote } from '../../../domain/note/note.js';
 import { abbreviate } from '../../../domain/revision/revision.js';
+import { screenChords, useLeader } from '../chords.js';
 import { Frame, useBodyHeight } from '../components/Frame.js';
 import { ScrollText, useScrollKeys, type TextLine } from '../components/ScrollText.js';
 import { useLoad, useTui } from '../context.js';
@@ -12,6 +13,8 @@ type RevisionScreen = Extract<Screen, { kind: 'revision' }>;
 
 /** A note as it was at one revision: rendered like the viewer, but read-only. */
 export const RevisionView = ({ screen }: { readonly screen: RevisionScreen }) => {
+  const tui = useTui();
+  const leader = useLeader(screenChords(tui), true);
   const { deps, scope, revision: tick, columns, navigate } = useTui();
   const height = useBodyHeight();
   const loaded = useLoad(
@@ -43,6 +46,7 @@ export const RevisionView = ({ screen }: { readonly screen: RevisionScreen }) =>
     () => {
       navigate({ type: 'pop' });
     },
+    { active: !leader.pending },
   );
 
   const entry = historical?.entry;
@@ -51,7 +55,17 @@ export const RevisionView = ({ screen }: { readonly screen: RevisionScreen }) =>
     ? `${historical.entry.title} · ${historical.vault.config.name} · ${idText} @ ${abbreviate(historical.revision.id)} (${revisionDate(historical.revision)}) ${historical.revision.summary}`
     : 'revision · loading…';
   return (
-    <Frame title={title} hints="j/k scroll  g/G top/bottom  b back">
+    <Frame
+      title={title}
+      hints={[
+        ['j/k', 'scroll'],
+        ['Ctrl-d/u', 'half page'],
+        ['g/G', 'ends'],
+        ['Space', 'menu'],
+        ['Esc', 'back'],
+      ]}
+      overlay={leader.popup}
+    >
       <ScrollText
         lines={lines}
         scroll={scroll}

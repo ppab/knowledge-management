@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { render } from 'ink';
 import type { ReactElement } from 'react';
 import { buildTuiRegistry } from '../../src/interfaces/tui/tui.js';
+import { createTheme } from '../../src/interfaces/tui/theme.js';
 import { App } from '../../src/interfaces/tui/App.js';
 import type { ChangeFeed, TuiServices } from '../../src/interfaces/tui/context.js';
 import type { Screen } from '../../src/interfaces/tui/model.js';
@@ -75,6 +76,11 @@ export const KEYS = {
   left: '\u001B[D',
   pageDown: '\u001B[6~',
   pageUp: '\u001B[5~',
+  ctrlO: '\u000F',
+  ctrlD: '\u0004',
+  ctrlU: '\u0015',
+  ctrlF: '\u0006',
+  ctrlB: '\u0002',
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -212,6 +218,7 @@ export const harness = (
     registry: registry.value,
     editor,
     cwd: '/vault',
+    theme: createTheme({}),
   };
   const changes = fakeChanges();
   return {

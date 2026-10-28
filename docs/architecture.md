@@ -134,18 +134,18 @@ Libraries:
 
 ### Use cases
 
-| Area       | Use cases                                                                                                                                                   |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| vault      | `initVault`, `locateVault`, `loadScope` (named / explicit vault paths / nearest)                                                                            |
-| notes      | `listNotes`, `showNote`, `createNote`, `editNote` (external editor), `adoptNote`, `saveNote`                                                                |
-| references | `resolveTarget`, `addReference(source, target, location, label?)`, `wrapSelectionAsReference`, `wrapSelectionAsExternalLink`, `listReferences`, `backlinks` |
-| search     | `searchNotes(query, scope)`, `lookupByTitleOrAlias`                                                                                                         |
-| calendar   | `bindDate`, `unbindDate`, `notesOnDate`, `datesInRange`                                                                                                     |
-| history    | `listRevisions`, `readRevision`, `diffRevisions`, `revisionStatus` (modified since last revision?)                                                          |
-| templates  | `renderTemplate`, `insertSnippet`                                                                                                                           |
-| export     | `planPublication` (pure) → `executePublication`                                                                                                             |
-| index      | `rebuildIndex`, `refreshIndex(paths)`, `indexStatus`                                                                                                        |
-| doctor     | `diagnose` → duplicate ids, unidentified notes, dangling references, stale index, unavailable vaults                                                        |
+| Area       | Use cases                                                                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| vault      | `initVault`, `locateVault`, `loadScope` (named / explicit vault paths / nearest)                                                                                                              |
+| notes      | `listNotes`, `showNote`, `createNote`, `editNote` (external editor), `adoptNote`, `saveNote`                                                                                                  |
+| references | `resolveTarget`, `addReference(source, target, location, label?)`, `removeReference(source, range)`, `wrapSelectionAsReference`, `wrapSelectionAsExternalLink`, `listReferences`, `backlinks` |
+| search     | `searchNotes(query, scope)`, `lookupByTitleOrAlias`                                                                                                                                           |
+| calendar   | `bindDate`, `unbindDate`, `notesOnDate`, `datesInRange`                                                                                                                                       |
+| history    | `listRevisions`, `readRevision`, `diffRevisions`, `revisionStatus` (modified since last revision?)                                                                                            |
+| templates  | `renderTemplate`, `insertSnippet`                                                                                                                                                             |
+| export     | `planPublication` (pure) → `executePublication`                                                                                                                                               |
+| index      | `rebuildIndex`, `refreshIndex(paths)`, `indexStatus`                                                                                                                                          |
+| doctor     | `diagnose` → duplicate ids, unidentified notes, dangling references, stale index, unavailable vaults                                                                                          |
 
 Use cases return typed results (`Result<T, DomainError>`); expected outcomes are values, not
 exceptions.
@@ -293,15 +293,22 @@ the keys in the table. Everything global sits under a leader (`Space` by default
 and every panel jump that is a bare letter today (`c` calendar, `m` metadata, `B` backlinks,
 `T` todos become `Space c`, `Space m`, `Space B`, `Space T`). A which-key popup after the
 leader lists the continuations. Until M7.5 lands, the tables below describe the shipped keys.
+Its visual pass is in: colours come from `theme.ts` by role and vanish under `NO_COLOR`; the
+footer shows hints as `key label` pairs (key in the accent colour); the cursor row of every
+table is marked `▸`; prompts and pickers are rounded bordered dialogs. The leader is in too
+(`chords.tsx`): `Space` on any screen opens a which-key popup listing that screen's chords
+(home panel jumps, note panel toggles, `b` back, `q` quit); the next key runs one, `Esc` cancels,
+an unbound key says so in the status line, and inside a prompt `Space` is a space. The column
+workspace itself is still to come.
 
-| Screen     | Keys                                                                                                                                                                                                                                                                                                                                        |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NoteList` | `j/k` move · `/` search · `t` tag filter · `c` calendar · `Enter` open · `n` new note (title, then a template, each row showing the path it would write; `default` alone still asks) · `q` quit                                                                                                                                             |
-| `NoteView` | `h/j/k/l`, arrows, `w`, `0/$`, `g/G` move the cursor · `Tab` next reference · `Enter` follow the one under the cursor · `b`/`Backspace`/`Esc` back · `m` metadata · `B` backlinks · `e` edit (nvim) · `s` save revision · `i`/`a` reference before/after the word under the cursor · `I` reference at a location · `v` select · `H` history |
-| selection  | `h/j/k`/arrows, `w`, `0/$` extend · `v` restart here · `r` reference (opens picker) · `l` external link (prompts URL) · `Esc` cancel                                                                                                                                                                                                        |
-| `Calendar` | `h/j/k/l` move · `[`/`]` month · `Enter` notes on day · `Esc` back                                                                                                                                                                                                                                                                          |
-| `Picker`   | type to search (scope-wide, interleaved by vault) · `Enter` select → location prompt (end / heading / references) · `Esc`                                                                                                                                                                                                                   |
-| `History`  | `j/k` · `Enter` view at revision · `d` diff against working                                                                                                                                                                                                                                                                                 |
+| Screen     | Keys                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NoteList` | `j/k` move · `g/G` ends · `/` search · `t` tag filter · `Enter` open · `c` create (title, then a template, each row showing the path it would write; `default` alone still asks) · `Space` menu · `Esc` clear filters · `q` quit                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `NoteView` | vim motions `h/j/k/l`, `w/b/e`, `0/^/$`, `{/}`, `gg/G`, `Ctrl-d/u/f/b`, arrows, page keys · `Tab`/`Shift-Tab` next/previous reference · `Enter` follow the one under the cursor · `Ctrl-o`/`Backspace`/`Esc` back · `o` edit (opens the editor) · `s` save revision · `i`/`a` reference before/after the word under the cursor · `I` reference at a location · `x` remove the reference under the cursor (a labelled one leaves its label as prose; a bare one goes with one adjacent space, or its whole list line) · `v` select · `H` history · `Space` menu (`m` metadata, `B` backlinks, plugin panels, `b` back, home panels, `q` quit) |
+| selection  | the same motions extend · `v` restart here · `r` reference (opens picker) · `u` external link (prompts URL) · `Esc` cancel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `Calendar` | `h/j/k/l` move · `[`/`]` month · `Enter` notes on day · `Esc` back                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `Picker`   | type to search (scope-wide, interleaved by vault) · `Enter` select → location prompt (end / heading / references) · `Esc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `History`  | `j/k` · `Enter` view at revision · `d` diff against working                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 Header shows title, vault, id, and `●` when the file differs from its last revision (or has
 none yet). The watcher refreshes the index on change; the open note reloads and a pending
@@ -309,11 +316,12 @@ selection is invalidated if its version went stale. `s` prompts for a message an
 note (empty message: `Save <title>`); `H` opens the history, whose `Enter` shows the note at a
 revision read-only and `d` shows a unified diff of that revision against the working file.
 
-As built in M5: `Esc` also goes back on every pushed screen; `g`/`G` jump to the top and bottom;
-home panels from the registry (`c` calendar, `T` todos, …) are listed in the `NoteList` hints and
-open as screens. In `NoteView` a side panel (`m`, `b`, plugin keys) takes the keyboard while it
-is open: `j/k` move its cursor, `Enter` opens the row's note, its action keys run, `Esc` closes
-it; a plugin's keyless note panel shows automatically for notes of the types it owns. References
+As built in M5 and reworked in M7.5: `Esc`, `Backspace` and `Ctrl-o` go back on every pushed
+screen (`b` is a motion, never "back"); `g`/`G` jump to the top and bottom; home panels from the
+registry (`c` calendar, `T` todos, …) open as screens through the leader (`Space c`, `Space T`).
+In `NoteView` a side panel (`Space m`, `Space B`, plugin chords) takes the keyboard while it is
+open: `j/k` move its cursor, `Enter` opens the row's note, its action keys run, `Esc` closes it;
+a plugin's chordless note panel shows automatically for notes of the types it owns. References
 render as the label or the target's title, coloured by resolution and marked `[missing]`,
 `[ambiguous]` or `[unavailable]`; `Enter` on one of those explains instead of navigating. The
 TUI runs on the alternate screen and refuses to start without a TTY (exit 2). `notes edit <id>`

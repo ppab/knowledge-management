@@ -24,7 +24,7 @@ describe('NoteList', () => {
     await term.press('j', KEYS.enter);
     await term.waitFor('Beta · monitor · B1');
     expect(term.frame()).toContain('beta body');
-    await term.press('b');
+    await term.press(KEYS.ctrlO);
     await term.waitFor('3 notes');
 
     // Unidentified entries open by path.
@@ -50,11 +50,41 @@ describe('NoteList', () => {
     await exited;
   });
 
+  it('leader: Space lists chords, Esc cancels, an unbound key says so, prompts keep Space', async () => {
+    const h = harness((f) => {
+      f.fs.files.set('a.md', '---\nid: A1\ntitle: Alpha\n---\n\nbody\n');
+    });
+    term = h.start();
+    await term.waitFor('1 notes');
+
+    await term.press(' ');
+    const menu = await term.waitFor('Space …');
+    expect(menu).toContain('c  calendar');
+    expect(menu).toContain('q  quit');
+    expect(menu).not.toContain('b  back'); // nothing to go back to on the start screen
+    await term.press('j'); // swallowed by the pending chord: the cursor does not move
+    await term.waitFor((f) => !f.includes('Space …'));
+    expect(term.frame()).toContain('Space j is not bound');
+    expect(term.frame()).toContain('▸ A1');
+
+    await term.press(' ');
+    await term.waitFor('Space …');
+    await term.press(KEYS.escape);
+    await term.waitFor((f) => !f.includes('Space …'));
+    expect(term.frame()).toContain('▸ A1'); // Esc cancelled the chord, nothing else happened
+
+    // Inside a prompt, Space is a space.
+    await term.press('c', 'a', ' ', 'b', KEYS.enter);
+    await term.waitFor('new note "a b" · choose a template');
+    await term.press(KEYS.escape);
+    await term.waitFor('1 notes');
+  });
+
   it('creates a note from the title prompt, confirming the only template, and opens it', async () => {
     const h = harness(() => undefined);
     term = h.start();
     await term.waitFor('0 notes');
-    await term.press('n', 'N', 'e', 'w', KEYS.enter);
+    await term.press('c', 'N', 'e', 'w', KEYS.enter);
     const choice = await term.waitFor('new note "New" · choose a template');
     expect(choice).toContain('default');
     expect(choice).toContain('new.md');
@@ -72,7 +102,7 @@ describe('NoteList', () => {
     });
     term = h.start();
     await term.waitFor('0 notes');
-    await term.press('n');
+    await term.press('c');
     await term.type('Use git');
     await term.press(KEYS.enter);
     const choice = await term.waitFor('new note "Use git" · choose a template');
@@ -85,7 +115,7 @@ describe('NoteList', () => {
     await term.waitFor('0 notes');
     expect(h.f.fs.writes).toEqual([]);
 
-    await term.press('n');
+    await term.press('c');
     await term.type('Use git');
     await term.press(KEYS.enter);
     await term.waitFor('choose a template');

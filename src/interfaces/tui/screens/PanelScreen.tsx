@@ -1,5 +1,6 @@
 import { Text, useInput } from 'ink';
 import { useState } from 'react';
+import { screenChords, useLeader } from '../chords.js';
 import { Frame, useBodyHeight } from '../components/Frame.js';
 import { actionHints, PanelView } from '../components/PanelView.js';
 import { useLoad, useTui } from '../context.js';
@@ -15,6 +16,7 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
   const { registry, revision, navigate, notify, report } = tui;
   const [local, setLocal] = useState(0);
   const height = useBodyHeight();
+  const leader = useLeader(screenChords(tui), true);
   const spec = registry.panels('home').find((p) => p.id === screen.id);
 
   const loaded = useLoad(
@@ -34,37 +36,52 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
     navigate({ type: 'update', update: (s) => (s.kind === 'panel' ? { ...s, cursor: c } : s) });
   };
 
-  useInput((input, key) => {
-    if (isBack(input, key)) {
-      navigate({ type: 'pop' });
-      return;
-    }
-    if (isDown(input, key)) {
-      update(clamp(cursor + 1, rowCount(data) - 1));
-      return;
-    }
-    if (isUp(input, key)) {
-      update(clamp(cursor - 1, rowCount(data) - 1));
-      return;
-    }
-    if (key.return) {
-      const ref = noteAt(data, cursor);
-      if (ref) navigate({ type: 'push', screen: noteScreen(locatorOf(ref)) });
-      else notify('Nothing to open on this row');
-      return;
-    }
-    const action = spec?.actions?.find((a) => a.key === input);
-    if (!action || !spec) return;
-    void action.run(apiForPanel(tui, spec), { selection: rowAt(data, cursor) }).then((outcome) => {
-      if (outcome.ok) notify(outcomeText(outcome.value));
-      else report(outcome.error);
-      setLocal((n) => n + 1);
-    });
-  });
+  useInput(
+    (input, key) => {
+      if (isBack(input, key)) {
+        navigate({ type: 'pop' });
+        return;
+      }
+      if (isDown(input, key)) {
+        update(clamp(cursor + 1, rowCount(data) - 1));
+        return;
+      }
+      if (isUp(input, key)) {
+        update(clamp(cursor - 1, rowCount(data) - 1));
+        return;
+      }
+      if (key.return) {
+        const ref = noteAt(data, cursor);
+        if (ref) navigate({ type: 'push', screen: noteScreen(locatorOf(ref)) });
+        else notify('Nothing to open on this row');
+        return;
+      }
+      const action = spec?.actions?.find((a) => a.key === input);
+      if (!action || !spec) return;
+      void action
+        .run(apiForPanel(tui, spec), { selection: rowAt(data, cursor) })
+        .then((outcome) => {
+          if (outcome.ok) notify(outcomeText(outcome.value));
+          else report(outcome.error);
+          setLocal((n) => n + 1);
+        });
+    },
+    { isActive: !leader.pending },
+  );
 
-  if (!spec) return <Text color="red">No panel {screen.id}</Text>;
+  if (!spec) return <Text {...tui.theme.paint('error')}>No panel {screen.id}</Text>;
   return (
-    <Frame title={spec.title} hints={`j/k move  Enter open  ${actionHints(spec)}  b back`}>
+    <Frame
+      title={spec.title}
+      hints={[
+        ['j/k', 'move'],
+        ['Enter', 'open'],
+        ...actionHints(spec),
+        ['Space', 'menu'],
+        ['Esc', 'back'],
+      ]}
+      overlay={leader.popup}
+    >
       <PanelView spec={spec} loaded={loaded} cursor={cursor} height={height} />
     </Frame>
   );

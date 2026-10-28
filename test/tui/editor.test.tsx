@@ -21,7 +21,7 @@ describe('editor handoff', () => {
     );
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'E' })]);
     await term.waitFor('old body');
-    await term.press('e');
+    await term.press('o');
     const after = await term.waitFor('new body');
     expect(after).toContain('Edited title · monitor · E');
     expect(editor.calls).toEqual([{ file: '/vault/e.md' }]);
@@ -45,7 +45,7 @@ describe('editor handoff', () => {
     });
     await term.waitFor('body');
     expect(term.stdin.rawMode[term.stdin.rawMode.length - 1]).toBe(true);
-    await term.press('e');
+    await term.press('o');
     await term.waitFor(() => editor.calls.length === 1);
     expect(editor.calls[0]).toEqual({ file: '/vault/e.md', command: 'my-editor --wait' });
     expect(rawDuringEditor).toBe(false);

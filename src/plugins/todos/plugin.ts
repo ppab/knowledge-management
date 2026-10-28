@@ -158,7 +158,7 @@ export const todosPlugin: NotePlugin = {
       id: 'todos.home',
       title: 'Todos',
       placement: 'home',
-      key: 'T',
+      chord: 'T',
       load: openTodosPanel,
       actions: [
         {

@@ -98,7 +98,7 @@ describe('NoteView references (M6)', () => {
     await term.press('i');
     await term.waitFor('find:');
     await term.press(KEYS.escape);
-    await term.waitFor((f) => !f.includes('find:') && f.includes('i/a/I ref  v select'));
+    await term.waitFor((f) => !f.includes('find:') && f.includes('i/a/I ref  x unref  v select'));
     expect(h.f.fs.writes).toHaveLength(0);
   });
 
@@ -113,7 +113,7 @@ describe('NoteView references (M6)', () => {
     await term.waitFor('Origin · monitor · SRC');
 
     await term.press('v');
-    await term.waitFor('select: h/j/k/arrows move');
+    await term.waitFor('select: hjkl/w/b/e move');
     // to "asynchronous", restart the selection there, then to the last letter of "pipeline"
     await term.press('w', 'w', 'w', 'v', 'w', 'w', 'w', 'h', 'h', 'r');
     await term.waitFor('find:');
@@ -130,7 +130,7 @@ describe('NoteView references (M6)', () => {
     );
     // Back to browsing: j scrolls instead of extending.
     await term.press('j');
-    await term.waitFor('i/a/I ref  v select');
+    await term.waitFor('i/a/I ref  x unref  v select');
   });
 
   it('refuses a selection that crosses formatting and keeps it on screen', async () => {
@@ -143,22 +143,22 @@ describe('NoteView references (M6)', () => {
     await term.press('v', 'w', 'r');
     await term.waitFor('validation: Selection crosses formatting');
     expect(term.frame()).not.toContain('find:');
-    await term.press('l');
+    await term.press('u');
     await term.waitFor('validation: Selection crosses formatting');
     expect(term.frame()).not.toContain('url:');
     expect(h.f.fs.files.get('src.md')).toBe(original);
     await term.press('h'); // still selecting
-    await term.waitFor('select: h/j/k/arrows move');
+    await term.waitFor('select: hjkl/w/b/e move');
   });
 
-  it('l: wraps the selection as an external link, which is not a reference', async () => {
+  it('u: wraps the selection as an external link, which is not a reference', async () => {
     const original = '---\nid: SRC\ntitle: Origin\n---\n\nRead the docs now.\n';
     const h = harness((f) => {
       f.fs.files.set('src.md', original);
     });
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
-    await term.press('v', 'w', 'v', 'w', KEYS.right, KEYS.right, KEYS.right, 'l');
+    await term.press('v', 'w', 'v', 'w', 'l', 'l', 'l', 'u');
     await term.waitFor('url:');
     await term.type('https://x.test');
     await term.press(KEYS.enter);
@@ -184,22 +184,22 @@ describe('NoteView references (M6)', () => {
 
     // Changed on disk and noticed by the watcher: the selection goes away at once.
     await term.press('v');
-    await term.waitFor('select: h/j/k/arrows move');
+    await term.waitFor('select: hjkl/w/b/e move');
     h.f.fs.files.set('src.md', original.replace('alpha', 'ALPHA'));
     h.changes.fire();
     await term.waitFor('Selection cleared: the note changed on disk');
     await term.press('j');
-    await term.waitFor('i/a/I ref  v select');
+    await term.waitFor('i/a/I ref  x unref  v select');
 
     // Changed on disk but not yet noticed: the action refuses with a conflict instead.
     await term.press('v');
-    await term.waitFor('select: h/j/k/arrows move');
+    await term.waitFor('select: hjkl/w/b/e move');
     h.f.fs.files.set('src.md', original.replace('alpha', 'omega'));
     await term.press('w', 'r');
     await term.waitFor('conflict: src.md changed on disk since it was read');
     expect(term.frame()).not.toContain('find:');
     await term.press('j');
-    await term.waitFor('i/a/I ref  v select');
+    await term.waitFor('i/a/I ref  x unref  v select');
     expect(h.f.fs.writes).toHaveLength(0);
   });
 

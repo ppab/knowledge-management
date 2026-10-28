@@ -21,7 +21,18 @@ export interface Selection {
   readonly version: string;
 }
 
-export type Motion = 'left' | 'right' | 'up' | 'down' | 'wordForward' | 'lineStart' | 'lineEnd';
+export type Motion =
+  | 'left'
+  | 'right'
+  | 'up'
+  | 'down'
+  | 'wordForward'
+  | 'wordBack'
+  | 'wordEnd'
+  | 'lineStart'
+  | 'lineEnd'
+  | 'paragraphForward'
+  | 'paragraphBack';
 
 const isLowSurrogate = (text: string, column: number): boolean => {
   const code = text.charCodeAt(column);
@@ -71,8 +82,19 @@ export const clampPosition = (lines: readonly RenderedLine[], at: Position): Pos
   return { line, column: isLowSurrogate(text, column) ? column - 1 : column };
 };
 
-const wordStarts = (text: string): number[] =>
-  [...text.matchAll(/\S+/g)].map((match) => match.index);
+/** vim's small words: runs of letters/digits/underscore, or runs of other non-space characters. */
+const WORD = /[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]+/gu;
+const words = (text: string): { start: number; end: number }[] =>
+  [...text.matchAll(WORD)].map((m) => {
+    // `end` is the last character's start column, so an emoji's low surrogate is never a stop.
+    const last = m.index + m[0].length - 1;
+    return { start: m.index, end: isLowSurrogate(text, last) ? last - 1 : last };
+  });
+const wordStarts = (text: string): number[] => words(text).map((w) => w.start);
+const wordEnds = (text: string): number[] => words(text).map((w) => w.end);
+
+const isBlank = (lines: readonly RenderedLine[], line: number): boolean =>
+  textOf(lines, line).trim() === '';
 
 /** Moves the head; motions never leave the rendered lines and keep astral characters whole. */
 export const move = (lines: readonly RenderedLine[], head: Position, motion: Motion): Position => {
@@ -104,12 +126,45 @@ export const move = (lines: readonly RenderedLine[], head: Position, motion: Mot
       }
       return head;
     }
+    case 'wordBack': {
+      const here = wordStarts(text)
+        .filter((start) => start < head.column)
+        .pop();
+      if (here !== undefined) return { ...head, column: here };
+      for (let line = head.line - 1; line >= 0; line -= 1) {
+        const last = wordStarts(textOf(lines, line)).pop();
+        if (last !== undefined) return { line, column: last };
+      }
+      return head;
+    }
+    case 'wordEnd': {
+      const here = wordEnds(text).find((end) => end > head.column);
+      if (here !== undefined) return { ...head, column: here };
+      for (let line = head.line + 1; line < lines.length; line += 1) {
+        const [first] = wordEnds(textOf(lines, line));
+        if (first !== undefined) return { line, column: first };
+      }
+      return head;
+    }
     case 'lineStart': {
       const current = lines[head.line];
       return { ...head, column: (current && firstTextColumn(current)) ?? 0 };
     }
     case 'lineEnd':
       return { ...head, column: lastColumn(text) };
+    case 'paragraphForward': {
+      // vim's `}`: the next blank line after the current paragraph, else the last line.
+      let line = head.line;
+      while (line < lines.length && isBlank(lines, line)) line += 1;
+      while (line < lines.length && !isBlank(lines, line)) line += 1;
+      return clampPosition(lines, { line: Math.min(line, lines.length - 1), column: 0 });
+    }
+    case 'paragraphBack': {
+      let line = head.line;
+      while (line > 0 && isBlank(lines, line)) line -= 1;
+      while (line > 0 && !isBlank(lines, line)) line -= 1;
+      return clampPosition(lines, { line, column: 0 });
+    }
   }
 };
 

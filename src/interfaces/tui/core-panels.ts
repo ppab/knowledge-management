@@ -28,7 +28,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
     id: 'core.metadata',
     title: 'Metadata',
     placement: 'note',
-    key: 'm',
+    chord: 'm',
     appliesTo: 'all',
     load: (_api, context) => {
       const located = context.note;
@@ -63,7 +63,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
     id: 'core.backlinks',
     title: 'Backlinks',
     placement: 'note',
-    key: 'B',
+    chord: 'B',
     appliesTo: 'all',
     load: async (_api, context) => {
       const located = context.note;
@@ -89,7 +89,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
     id: 'core.calendar',
     title: 'Calendar',
     placement: 'home',
-    key: 'c',
+    chord: 'c',
     load: async (api) => {
       const hits = await boundDates(deps, scope, monthRange(yearMonthOf(isoDate(api.clock.now()))));
       if (!hits.ok) return hits;
@@ -107,22 +107,23 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
 ];
 
 /** Keys the screens bind themselves, which no panel may claim (docs/architecture.md §6). */
-export const RESERVED_KEYS: Readonly<Record<Placement, readonly string[]>> = {
-  home: ['j', 'k', 'g', 'G', '/', 't', 'n', 'q'],
-  note: ['h', 'j', 'k', 'l', 'w', 'b', '0', '$', 'g', 'G', 'e', 's', 'i', 'a', 'I', 'v', 'H'],
+/** Chords the screens bind themselves under the leader; a plugin may not claim them. */
+export const RESERVED_CHORDS: Readonly<Record<Placement, readonly string[]>> = {
+  home: ['b', 'q'],
+  note: ['b', 'q'],
   list: [],
 };
 
-/** A plugin panel bound to a screen key is a startup error naming both sides. */
-export const checkReservedKeys = (registry: PluginRegistry): Result<void, AppError> => {
-  for (const placement of Object.keys(RESERVED_KEYS) as Placement[]) {
+/** A plugin panel bound to a reserved chord is a startup error naming both sides. */
+export const checkReservedChords = (registry: PluginRegistry): Result<void, AppError> => {
+  for (const placement of Object.keys(RESERVED_CHORDS) as Placement[]) {
     for (const panel of registry.panels(placement)) {
-      if (panel.id.startsWith('core.') || panel.key === undefined) continue;
-      if (RESERVED_KEYS[placement].includes(panel.key)) {
+      if (panel.id.startsWith('core.') || panel.chord === undefined) continue;
+      if (RESERVED_CHORDS[placement].includes(panel.chord)) {
         return err(
           validation(
-            `Panel ${panel.id} claims key "${panel.key}", which the ${placement} screen binds itself`,
-            { panel: panel.id, key: panel.key, placement },
+            `Panel ${panel.id} claims chord "${panel.chord}", which the ${placement} screen binds itself`,
+            { panel: panel.id, chord: panel.chord, placement },
           ),
         );
       }

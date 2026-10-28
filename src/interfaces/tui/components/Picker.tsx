@@ -1,10 +1,11 @@
-import { Box, Text, useInput } from 'ink';
+import { Text, useInput } from 'ink';
 import { useState } from 'react';
 import { listNotes } from '../../../application/notes/list-notes.js';
 import { searchNotes } from '../../../application/search/search-notes.js';
 import { ok } from '../../../domain/result.js';
 import { useLoad, useTui } from '../context.js';
 import { clamp } from '../model.js';
+import { Dialog, DIALOG_CHROME } from './Dialog.js';
 import { Rows } from './Rows.js';
 
 /** A note the picker can hand back: always identified, since only ids can be referenced. */
@@ -35,7 +36,7 @@ export const Picker = ({
   readonly onPick: (note: Picked) => void;
   readonly onCancel: () => void;
 }) => {
-  const { deps, scope, revision } = useTui();
+  const { deps, scope, revision, theme } = useTui();
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
 
@@ -80,18 +81,22 @@ export const Picker = ({
   });
 
   return (
-    <Box flexDirection="column">
+    <Dialog>
       <Text>
-        <Text bold>find:</Text> {query}
+        <Text bold {...theme.paint('accent')}>
+          find:
+        </Text>{' '}
+        {query}
         <Text inverse> </Text>
       </Text>
       <Rows
         header={['title', 'vault', 'id']}
         rows={candidates.map((c) => [c.title, c.vault, c.id])}
+        roles={[null, 'muted', 'muted']}
         cursor={at}
-        height={height - 1}
+        height={height - 1 - DIALOG_CHROME}
         empty={loaded.state === 'loading' ? 'searching…' : 'No matching notes.'}
       />
-    </Box>
+    </Dialog>
   );
 };

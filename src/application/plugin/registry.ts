@@ -18,7 +18,7 @@ import type {
  */
 
 export interface RegistryOptions {
-  /** Panels the host registers itself (`core.*`); plugin keys must not clash with them. */
+  /** Panels the host registers itself (`core.*`); plugin chords must not clash with them. */
   readonly core?: readonly PanelSpec[];
 }
 
@@ -149,14 +149,14 @@ export const buildRegistry = (
       );
     }
     ids.set(panel.id, owner);
-    if (panel.key === undefined) continue;
-    const slot = `${panel.placement}:${panel.key}`;
+    if (panel.chord === undefined) continue;
+    const slot = `${panel.placement}:${panel.chord}`;
     const previous = keys.get(slot);
     if (previous) {
       return err(
         validation(
-          `Key "${panel.key}" (${panel.placement}) is claimed by both ${previous.panel.id} (${previous.owner}) and ${panel.id} (${owner})`,
-          { key: panel.key, placement: panel.placement, panels: [previous.panel.id, panel.id] },
+          `Chord "${panel.chord}" (${panel.placement}) is claimed by both ${previous.panel.id} (${previous.owner}) and ${panel.id} (${owner})`,
+          { chord: panel.chord, placement: panel.placement, panels: [previous.panel.id, panel.id] },
         ),
       );
     }

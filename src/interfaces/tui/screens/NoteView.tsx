@@ -7,13 +7,19 @@ import {
   wrapSelectionAsExternalLink,
   wrapSelectionAsReference,
 } from '../../../application/mutations/wrap-selection.js';
-import { renderNote, viewNote, type ViewedNote } from '../../../application/notes/view-note.js';
+import {
+  referenceDisplay,
+  renderNote,
+  viewNote,
+  type ViewedNote,
+} from '../../../application/notes/view-note.js';
 import type { PanelData, PanelSpec } from '../../../application/plugin/plugin.js';
 import {
   addReference,
   checkInsertionPoint,
 } from '../../../application/references/add-reference.js';
 import type { Resolution } from '../../../application/references/references.js';
+import { removeReference } from '../../../application/references/remove-reference.js';
 import { isNote } from '../../../domain/note/note.js';
 import type { AppError } from '../../../domain/errors.js';
 import { ok, type Result } from '../../../domain/result.js';
@@ -30,13 +36,16 @@ import {
 } from '../../../domain/text/rendered.js';
 import type { SourceRange } from '../../../domain/text/text-edit.js';
 import { absoluteNotePath } from '../../../domain/vault/paths.js';
-import { Frame, useBodyHeight } from '../components/Frame.js';
+import { screenChords, useLeader, type Chord } from '../chords.js';
+import { Dialog } from '../components/Dialog.js';
+import { Frame, useBodyHeight, type Hint } from '../components/Frame.js';
 import { LocationPrompt } from '../components/LocationPrompt.js';
 import { actionHints, PanelView } from '../components/PanelView.js';
 import { Picker, type Picked } from '../components/Picker.js';
 import { Prompt } from '../components/Prompt.js';
 import { useLoad, useTui, type Loaded } from '../context.js';
 import { isBack, isDown, isUp } from '../keys.js';
+import type { Role } from '../theme.js';
 import { clamp, locatorOf, noteScreen, type Screen } from '../model.js';
 import { apiForPanel, noteAt, outcomeText, panelApplies, rowAt, rowCount } from '../panels.js';
 import {
@@ -82,18 +91,18 @@ const saveText = (path: string, outcome: SaveOutcome): string => {
   }
 };
 
-const referenceColor = (resolution: Resolution | undefined): string => {
+const referenceRole = (resolution: Resolution | undefined): Role | null => {
   switch (resolution?.state) {
     case 'resolved':
-      return 'cyan';
+      return 'link';
     case 'unresolved':
-      return 'red';
+      return 'error';
     case 'ambiguous':
-      return 'yellow';
+      return 'warn';
     case 'unavailable':
-      return 'magenta';
+      return 'unavailable';
     default:
-      return 'white';
+      return null;
   }
 };
 
@@ -112,17 +121,20 @@ const whyNotFollowed = (resolution: Resolution, target: string): string => {
   }
 };
 
-/**
- * Cursor motions. `b` is "back" everywhere in the TUI, so there is no word-back motion; in
- * selection mode `l` is taken by "external link", so right is the arrow there.
- */
+/** vim's motions, identical in normal and select mode; `b` is word back, never "back". */
 const MOTION_KEYS: Readonly<Record<string, Motion>> = {
   h: 'left',
+  l: 'right',
   j: 'down',
   k: 'up',
   w: 'wordForward',
+  b: 'wordBack',
+  e: 'wordEnd',
   '0': 'lineStart',
+  '^': 'lineStart',
   $: 'lineEnd',
+  '{': 'paragraphBack',
+  '}': 'paragraphForward',
 };
 
 const motionOf = (input: string, key: Key): Motion | undefined => {
@@ -145,12 +157,14 @@ const SpanText = ({
   readonly underCursor: number | null;
   readonly selected: boolean;
 }) => {
+  const { theme } = useTui();
   const style = span.style ?? {};
   if (span.reference !== undefined) {
     const resolution = viewed.references[span.reference]?.resolution;
+    const role = referenceRole(resolution);
     return (
       <Text
-        color={referenceColor(resolution)}
+        {...(role === null ? {} : theme.paint(role))}
         underline={resolution?.state === 'resolved'}
         inverse={selected || span.reference === underCursor}
       >
@@ -166,7 +180,11 @@ const SpanText = ({
       dimColor={style.dim === true && !selected}
       underline={style.link === true}
       inverse={selected}
-      {...(style.code ? { color: 'green' } : style.heading !== undefined ? { color: 'blue' } : {})}
+      {...(style.code
+        ? theme.paint('code')
+        : style.heading !== undefined
+          ? theme.paint('heading')
+          : {})}
     >
       {span.text}
     </Text>
@@ -179,7 +197,7 @@ const SpanText = ({
  */
 export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
   const tui = useTui();
-  const { deps, scope, registry, editor, revision, columns, navigate, notify, report } = tui;
+  const { deps, scope, registry, editor, revision, columns, navigate, notify, report, theme } = tui;
   const { suspendTerminal } = useApp();
   const [local, setLocal] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -210,7 +228,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         : [],
     [registry, located],
   );
-  const autoPanel = panels.find((p) => p.key === undefined);
+  const autoPanel = panels.find((p) => p.chord === undefined);
   const panelId = screen.panel === undefined ? autoPanel?.id : screen.panel;
   const panel: PanelSpec | undefined = panels.find((p) => p.id === panelId);
   const panelFocused = panel !== undefined && screen.panel !== undefined;
@@ -224,6 +242,22 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     [panel?.id, located?.note.version, revision, local],
   );
   const panelData = panel ? panelLoaded.value : undefined;
+
+  // Note panels toggle under the leader (`Space m`, `Space B`, plugin chords); home chords too.
+  const panelChords = panels
+    .filter((p) => p.chord !== undefined)
+    .map((p): Chord => ({
+      key: p.chord ?? '',
+      label: p.title.toLowerCase(),
+      run: () => {
+        update({ panel: panelId === p.id ? null : p.id, panelCursor: 0 });
+      },
+    }));
+  const leader = useLeader(
+    screenChords(tui, { back: true, extra: panelChords }),
+    flow === null && !selection,
+  );
+  const half = Math.max(1, Math.floor(height / 2));
 
   const bodyWidth = Math.max(10, columns - (panel ? PANEL_WIDTH + 1 : 0));
   const lines = useMemo(
@@ -304,6 +338,27 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     } else {
       notify(whyNotFollowed(ref.resolution, ref.target), 'error');
     }
+  };
+
+  /** `x`: the reference under the cursor goes; a labelled one leaves its label as prose. */
+  const removeUnderCursor = () => {
+    const ref = underCursor === null ? undefined : viewed?.references[underCursor];
+    if (!ref || !located) {
+      notify('No reference under the cursor');
+      return;
+    }
+    const shown = referenceDisplay(ref);
+    void mutate(
+      removeReference(deps, scope, {
+        source: located.note.id,
+        range: ref.range,
+        expectedVersion: located.note.version,
+      }),
+      ref.label === undefined || ref.label === ''
+        ? `Removed reference to ${shown}`
+        : `Unlinked "${shown}"; the text stays`,
+      undefined,
+    );
   };
 
   const edit = async () => {
@@ -405,7 +460,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     if (key.escape) clearSelection();
     else if (motion) extend(current, motion);
     else if (input === 'v') update({ selection: { ...current, anchor: current.head } });
-    else if (input === 'r' || input === 'l') {
+    else if (input === 'r' || input === 'u') {
       void rangeOf(current).then((range) => {
         if (!range) return;
         setFlow(input === 'r' ? { kind: 'pick', purpose: 'wrap', range } : { kind: 'url', range });
@@ -522,7 +577,11 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         navigate({ type: 'pop' });
         return;
       }
-      if (input === 'e') return void edit();
+      if (input === 'o') return void edit();
+      if (input === 'x') {
+        removeUnderCursor();
+        return;
+      }
       if (input === 's') {
         setFlow({ kind: 'save' });
         return;
@@ -541,11 +600,6 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       }
       if (input === 'v') {
         startSelection();
-        return;
-      }
-      const toggled = panels.find((p) => p.key === input);
-      if (toggled) {
-        update({ panel: panelId === toggled.id ? null : toggled.id, panelCursor: 0 });
         return;
       }
       if (panelFocused) {
@@ -567,10 +621,11 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         void runAction(input);
         return;
       }
-      const motion = motionOf(input, key) ?? (input === 'l' ? 'right' : undefined);
+      const motion = motionOf(input, key);
+      const page = key.ctrl ? { f: height, b: -height, d: half, u: -half }[input] : undefined;
       if (motion) placeCursor(move(lines, cursor, motion));
-      else if (key.pageDown || input === ' ' || key.pageUp) {
-        const delta = key.pageUp ? -height : height;
+      else if (key.pageDown || key.pageUp || page !== undefined) {
+        const delta = page ?? (key.pageUp ? -height : height);
         placeCursor(
           clampPosition(lines, { line: cursor.line + delta, column: cursor.column }),
           clamp(scroll + delta, maxScroll),
@@ -581,7 +636,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       else if (key.tab) moveReference(key.shift ? -1 : 1);
       else if (key.return) followReference();
     },
-    { isActive: flow === null },
+    { isActive: flow === null && !leader.pending },
   );
 
   const idText = entry && isNote(entry) ? entry.id : 'unidentified';
@@ -589,29 +644,56 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
   const title = viewed
     ? `${viewed.entry.title} · ${viewed.vault.config.name} · ${idText}${typeText}${modifiedMarker(status)}`
     : 'loading…';
-  const panelKeys = panels
-    .filter((p) => p.key !== undefined)
-    .map((p) => `${p.key ?? ''} ${p.title.toLowerCase()}`)
-    .join('  ');
-  const hints =
+  const cancel: Hint = ['Esc', 'cancel'];
+  const { hints, mode }: { hints: Hint[]; mode?: string } =
     flow?.kind === 'pick'
-      ? 'type to search  ↑/↓ move  Enter pick  Esc cancel'
+      ? { hints: [['', 'type to search'], ['↑/↓', 'move'], ['Enter', 'pick'], cancel] }
       : flow?.kind === 'locate'
-        ? 'j/k move  Enter insert  Esc cancel'
+        ? { hints: [['j/k', 'move'], ['Enter', 'insert'], cancel] }
         : flow?.kind === 'url'
-          ? 'Enter link  Esc cancel'
+          ? { hints: [['Enter', 'link'], cancel] }
           : flow?.kind === 'save'
-            ? 'Enter save (empty message: "Save <title>")  Esc cancel'
+            ? { hints: [['Enter', 'save (empty message: "Save <title>")'], cancel] }
             : selection
-              ? 'select: h/j/k/arrows move  w word  0/$ line  v restart  r reference  l link  Esc cancel'
+              ? {
+                  mode: 'select',
+                  hints: [
+                    ['hjkl/w/b/e', 'move'],
+                    ['0/$', 'line'],
+                    ['v', 'restart'],
+                    ['r', 'reference'],
+                    ['u', 'url'],
+                    cancel,
+                  ],
+                }
               : focusedPanel
-                ? `panel: j/k move  Enter open  ${actionHints(focusedPanel)}  Esc close  b back`
-                : `hjkl move  i/a/I ref  v select  e edit  s save  H history  ${panelKeys}  b back`;
+                ? {
+                    mode: 'panel',
+                    hints: [
+                      ['j/k', 'move'],
+                      ['Enter', 'open'],
+                      ...actionHints(focusedPanel),
+                      ['Esc', 'close'],
+                    ],
+                  }
+                : {
+                    hints: [
+                      ['hjkl/w/b/e', 'move'],
+                      ['i/a/I', 'ref'],
+                      ['x', 'unref'],
+                      ['v', 'select'],
+                      ['o', 'edit'],
+                      ['s', 'save'],
+                      ['H', 'history'],
+                      ['Space', 'menu'],
+                      ['Esc', 'back'],
+                    ],
+                  };
 
   const visible = lines.slice(scroll, scroll + height);
   const body =
     loaded.state === 'error' && !viewed ? (
-      <Text color="red">error: {loaded.error.message}</Text>
+      <Text {...theme.paint('error')}>error: {loaded.error.message}</Text>
     ) : viewed ? (
       visible.map((line, i) => {
         const pieces = highlight(line, scroll + i, selection ?? { anchor: cursor, head: cursor });
@@ -636,7 +718,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     );
 
   return (
-    <Frame title={title} hints={hints}>
+    <Frame title={title} hints={hints} {...(mode !== undefined && { mode })} overlay={leader.popup}>
       {flow?.kind === 'pick' ? (
         <Picker
           height={height}
@@ -659,7 +741,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         <Box flexDirection="row" height={height}>
           <Box flexDirection="column" width={bodyWidth} overflow="hidden">
             {flow?.kind === 'url' || flow?.kind === 'save' ? (
-              <Box>
+              <Dialog width={60}>
                 <Prompt
                   label={flow.kind === 'url' ? 'url:' : 'save message:'}
                   onSubmit={flow.kind === 'url' ? onUrl : onSave}
@@ -667,7 +749,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
                     setFlow(null);
                   }}
                 />
-              </Box>
+              </Dialog>
             ) : null}
             {body}
           </Box>
@@ -684,7 +766,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
               paddingLeft={1}
               overflow="hidden"
             >
-              <Text bold={panelFocused} dimColor={!panelFocused}>
+              <Text bold={panelFocused} dimColor={!panelFocused} {...theme.paint('accent')}>
                 {panel.title}
               </Text>
               <PanelView

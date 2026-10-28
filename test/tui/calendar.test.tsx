@@ -12,6 +12,9 @@ describe('Calendar', () => {
     });
     term = h.start();
     await term.waitFor('2 notes');
+    await term.press(' ');
+    const menu = await term.waitFor('Space …');
+    expect(menu).toContain('c  calendar');
     await term.press('c');
     const cal = await term.waitFor('calendar · October 2026');
     expect(cal).toContain(' 5*');
@@ -33,7 +36,12 @@ describe('Calendar', () => {
     expect(day).not.toContain('Plain');
     await term.press(KEYS.enter);
     await term.waitFor('Bound · monitor · B');
-    await term.press('b', 'b', KEYS.escape);
+    // Three ways back: the leader chord, vim's Ctrl-o, and Esc.
+    await term.press(' ', 'b');
+    await term.waitFor('notes on 2026-10-05');
+    await term.press(KEYS.ctrlO);
+    await term.waitFor('calendar · October 2026');
+    await term.press(KEYS.escape);
     await term.waitFor('2 notes');
   });
 });

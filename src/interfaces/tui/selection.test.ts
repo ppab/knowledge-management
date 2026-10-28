@@ -49,6 +49,31 @@ describe('selection motions', () => {
     expect(move(lines, { line: 2, column: 2 }, 'lineEnd')).toEqual({ line: 2, column: 11 });
   });
 
+  it('moves back by word, to word ends, and by paragraph, like vim', () => {
+    // Line 2 is "- one 😀 two" (the marker counts as a word, as in vim), line 3 "threeref four".
+    expect(move(lines, { line: 2, column: 6 }, 'wordBack')).toEqual({ line: 2, column: 2 });
+    expect(move(lines, { line: 2, column: 2 }, 'wordBack')).toEqual({ line: 2, column: 0 });
+    expect(move(lines, { line: 2, column: 0 }, 'wordBack')).toEqual({ line: 0, column: 2 }); // "Title"
+    expect(move(lines, { line: 0, column: 0 }, 'wordBack')).toEqual({ line: 0, column: 0 }); // stays
+    expect(move(lines, { line: 2, column: 2 }, 'wordEnd')).toEqual({ line: 2, column: 4 }); // end of "one"
+    expect(move(lines, { line: 2, column: 4 }, 'wordEnd')).toEqual({ line: 2, column: 6 }); // the emoji, whole
+    expect(move(lines, { line: 3, column: 11 }, 'wordEnd')).toEqual({ line: 3, column: 12 }); // "four"
+    expect(move(lines, { line: 3, column: 12 }, 'wordEnd')).toEqual({ line: 3, column: 12 }); // stays
+    expect(move(lines, { line: 0, column: 2 }, 'paragraphForward')).toEqual({ line: 1, column: 0 });
+    expect(move(lines, { line: 1, column: 0 }, 'paragraphForward')).toEqual({ line: 3, column: 0 }); // last line
+    expect(move(lines, { line: 3, column: 5 }, 'paragraphBack')).toEqual({ line: 1, column: 0 });
+    expect(move(lines, { line: 1, column: 0 }, 'paragraphBack')).toEqual({ line: 0, column: 0 });
+  });
+
+  it('treats punctuation as its own word, like vim', () => {
+    const punctuated: RenderedLine[] = [{ spans: [src('foo.bar(baz)', 0)] }];
+    const at = (column: number) => ({ line: 0, column });
+    expect(move(punctuated, at(0), 'wordForward')).toEqual(at(3)); // "."
+    expect(move(punctuated, at(3), 'wordForward')).toEqual(at(4)); // "bar"
+    expect(move(punctuated, at(4), 'wordEnd')).toEqual(at(6));
+    expect(move(punctuated, at(8), 'wordBack')).toEqual(at(7)); // "("
+  });
+
   it('highlights the inclusive range across lines and splits spans at its edges', () => {
     const selection: Selection = {
       anchor: { line: 3, column: 1 },

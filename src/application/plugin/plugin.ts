@@ -161,8 +161,8 @@ export interface PanelSpec {
   readonly id: string;
   readonly title: string;
   readonly placement: Placement;
-  /** Home screens: the key on the start screen. Note panels: the toggle key in NoteView. */
-  readonly key?: string;
+  /** The key after the leader that opens (home) or toggles (note) the panel; absent = unkeyed. */
+  readonly chord?: string;
   /** Note panels: show only for owned types (default) or for every note. */
   readonly appliesTo?: 'owned' | 'all';
   load(api: PluginApi, context: PanelContext): Promise<Result<PanelData, AppError>>;

@@ -55,7 +55,7 @@ const describePlugin = (plugin: NotePlugin, enabled: boolean | undefined) => ({
     id: p.id,
     title: p.title,
     placement: p.placement,
-    ...(p.key !== undefined && { key: p.key }),
+    ...(p.chord !== undefined && { chord: p.chord }),
     actions: (p.actions ?? []).map((a) => ({ key: a.key, label: a.label })),
   })),
 });

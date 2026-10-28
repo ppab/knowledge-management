@@ -5,6 +5,7 @@ import type { AppError } from '../../domain/errors.js';
 import type { Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import type { Navigation } from './model.js';
+import type { Theme } from './theme.js';
 
 /** Everything the screens need, injected once by the runner (or a test). */
 export interface TuiServices {
@@ -13,6 +14,7 @@ export interface TuiServices {
   readonly registry: PluginRegistry;
   readonly editor: ExternalEditor;
   readonly cwd: string;
+  readonly theme: Theme;
 }
 
 /** Fires whenever note files changed on disk; the runner adapts the `FileWatcher` port. */

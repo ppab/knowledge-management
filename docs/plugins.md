@@ -185,7 +185,7 @@ registry exists before any plugin does.
 
 ```ts
 export type Placement =
-  | 'home' // a top-level screen, listed on the start screen and reachable by key
+  | 'home' // a top-level screen, reachable by its chord after the leader
   | 'note' // a side panel inside NoteView, shown for notes the plugin owns (or always)
   | 'list'; // an extra column set / filter in NoteList
 
@@ -193,8 +193,8 @@ export interface PanelSpec {
   readonly id: string; // `<plugin>.<panel>`; core panels are `core.<panel>`
   readonly title: string;
   readonly placement: Placement;
-  /** Home screens: the key on the start screen. Note panels: the toggle key in NoteView. */
-  readonly key?: string;
+  /** The key after the leader (`Space`) that opens (home) or toggles (note) the panel. */
+  readonly chord?: string;
   /** Note panels: show only for owned types (default) or for every note. */
   readonly appliesTo?: 'owned' | 'all';
   load(api: PluginApi, context: PanelContext): Promise<Result<PanelData, AppError>>;
@@ -239,22 +239,22 @@ Rules the TUI enforces for every panel, core or plugin:
 - A `list` or `table` row that carries a `note` can be opened with `Enter` (push `NoteView`).
 - Panel actions run through `PluginApi`, so they inherit conflict detection, dry-run and index
   refresh; the TUI shows the outcome and reloads the panel.
-- Key collisions are resolved at registry build time: a plugin key that clashes with a core key
-  or another plugin's key is a startup error naming both, never a silent override.
-- **Decided for M7.5** ([decision 0003](./decisions/0003-workspace-layout-and-leader-key.md)):
-  `key` becomes `chord`, one or more keys typed after the leader (`Space` by default), so a
-  plugin's `T` is reached as `Space T`. The registry rejects equal chords and a chord that is a
-  prefix of another, naming both. Single letters stay with the focused panel's own actions
-  (`actions[].key`), which keep colliding only with that panel. Panels also become placeable in
-  the user's workspace columns by id (`todos.open` in a `layouts:` entry); nothing in a plugin
-  changes for that.
+- Chord collisions are resolved at registry build time: a plugin chord that clashes with a
+  core chord or another plugin's chord on the same placement is a startup error naming both,
+  never a silent override ([decision 0003](./decisions/0003-workspace-layout-and-leader-key.md)).
+  A chord is the key typed after the leader (`Space`), so the todos plugin's `T` is reached as
+  `Space T`; single letters stay with the focused panel's own actions (`actions[].key`), which
+  only ever collide within that panel. Chords are single keys today; multi-key chords and the
+  prefix rule arrive with the workspace. Panels will also be placeable in the user's workspace
+  columns by id (`todos.open` in a `layouts:` entry); nothing in a plugin changes for that.
 - Panels are loaded lazily when shown and reloaded on the watcher tick that touches a note they
   displayed.
-- Keys the screens bind themselves (`j`, `k`, `/`, `t`, `n`, `q`, `e`, `s`, `H`, the note
-  cursor's motions, `i`/`a`/`I`, `v`, …) are reserved; a plugin panel claiming one is a startup
-  error too.
-- A note panel without a key shows automatically for notes of the plugin's own types; a keyed
-  one toggles. While a side panel is open it has the keyboard (`j/k`, `Enter`, its actions,
+- The chords the screens bind themselves (`b` back, `q` quit) are reserved; a plugin panel
+  claiming one is a startup error too. Screen keys outside the leader (`j`, `k`, `/`, `t`,
+  `c`, `q`, `o`, `s`, `H`, the note cursor's vim motions, `i`/`a`/`I`, `v`, …) never collide
+  with a chord.
+- A note panel without a chord shows automatically for notes of the plugin's own types; one
+  with a chord toggles. While a side panel is open it has the keyboard (`j/k`, `Enter`, its actions,
   `Esc` closes). The `list` placement is reserved and not rendered yet (M5).
 
 The registry itself:
@@ -314,11 +314,11 @@ not import `plugins`. The layer-boundary test gains both cases.
 
 Illustrative, not a commitment; each one is a separate milestone with its own acceptance.
 
-| Plugin     | Owned type | Fields                                                      | Commands                                      | Panels                                          |
-| ---------- | ---------- | ----------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------- |
-| `todos`    | `todo`     | `status: enum(open, done)`, `due: date`, `priority: number` | `todos list [--due today]`, `todos done <id>` | home `Todos` (`T`), note panel for linked todos |
-| `goals`    | `goal`     | `target: date`, `progress: number`, `status: enum`          | `goals list`, `goals progress <id> <n>`       | home `Goals` (`G`)                              |
-| `expenses` | `expense`  | `amount: number`, `category: string`, `account: string`     | `expenses list [--month]`, `expenses total`   | home `Expenses` (`E`), monthly table            |
+| Plugin     | Owned type | Fields                                                      | Commands                                      | Panels                                                |
+| ---------- | ---------- | ----------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
+| `todos`    | `todo`     | `status: enum(open, done)`, `due: date`, `priority: number` | `todos list [--due today]`, `todos done <id>` | home `Todos` (`Space T`), note panel for linked todos |
+| `goals`    | `goal`     | `target: date`, `progress: number`, `status: enum`          | `goals list`, `goals progress <id> <n>`       | home `Goals` (`G`)                                    |
+| `expenses` | `expense`  | `amount: number`, `category: string`, `account: string`     | `expenses list [--month]`, `expenses total`   | home `Expenses` (`E`), monthly table                  |
 
 All three use `dates:` for their calendar date, so they appear in the core calendar for free.
 

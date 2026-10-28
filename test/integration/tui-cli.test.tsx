@@ -10,6 +10,7 @@ import { createDeps } from '../../src/infrastructure/deps.js';
 import { App } from '../../src/interfaces/tui/App.js';
 import type { TuiServices } from '../../src/interfaces/tui/context.js';
 import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { createTheme } from '../../src/interfaces/tui/theme.js';
 import { buildTuiRegistry } from '../../src/interfaces/tui/tui.js';
 import { firstPartyPlugins } from '../../src/plugins/index.js';
 import { fakeChanges, fakeEditor, KEYS, renderTerminal } from '../tui/harness.js';
@@ -111,7 +112,14 @@ describe('reference add --label and the TUI selection path agree', () => {
       const deps = createDeps();
       const scope = unwrap(await loadScope(deps, { vaults: [b], cwd: b }));
       const registry = unwrap(buildTuiRegistry(deps, scope, firstPartyPlugins));
-      const services: TuiServices = { deps, scope, registry, editor: fakeEditor(), cwd: b };
+      const services: TuiServices = {
+        deps,
+        scope,
+        registry,
+        editor: fakeEditor(),
+        cwd: b,
+        theme: createTheme({}),
+      };
       const term = renderTerminal(
         <App
           services={services}

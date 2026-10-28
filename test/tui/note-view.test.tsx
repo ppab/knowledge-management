@@ -32,11 +32,36 @@ describe('NoteView', () => {
     await term.waitFor('Destination · monitor · DST');
     expect(term.frame()).toContain('destination body');
 
-    await term.press('b');
+    await term.press(KEYS.ctrlO);
     const back = await term.waitFor('Source · monitor · SRC');
     expect(back).toBe(atRef); // same scroll, same reference cursor
     await term.press(KEYS.backspace);
     await term.waitFor('notes · monitor');
+  });
+
+  it('x removes the reference under the cursor: labelled ones keep their text', async () => {
+    const h = harness((f) => {
+      f.fs.files.set(
+        'src.md',
+        '---\nid: SRC\ntitle: Source\n---\n\nSee [[DST|the target]] and [[DST]] here.\n',
+      );
+      f.fs.files.set('dst.md', '---\nid: DST\ntitle: Destination\n---\n\nbody\n');
+    });
+    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    await term.waitFor('Source · monitor · SRC');
+
+    await term.press('x'); // the cursor rests on "See", not on a reference
+    await term.waitFor('No reference under the cursor');
+    expect(h.f.fs.writes).toEqual([]);
+
+    await term.press(KEYS.tab, 'x');
+    await term.waitFor('Unlinked "the target"; the text stays');
+    expect(h.f.fs.files.get('src.md')).toContain('See the target and [[DST]] here.');
+
+    await term.press(KEYS.tab, 'x');
+    await term.waitFor('Removed reference to Destination');
+    expect(h.f.fs.files.get('src.md')).toContain('See the target and here.');
+    await term.waitFor((f) => !f.includes('Destination') || f.includes('and here.'));
   });
 
   it('marks unresolved and ambiguous references and explains instead of navigating', async () => {
@@ -81,15 +106,19 @@ describe('NoteView', () => {
     });
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'T' })], { columns: 100 });
     await term.waitFor('Target · monitor · T');
-    expect(term.frame()).toContain('m metadata  B backlinks');
+    expect(term.frame()).toContain('Space menu');
 
+    await term.press(' ');
+    const menu = await term.waitFor('Space …');
+    expect(menu).toContain('m  metadata');
+    expect(menu).toContain('B  backlinks');
     await term.press('m');
     const meta = await term.waitFor('Metadata');
     expect(meta).toContain('tags: x, y');
     expect(meta).toContain('dates: 2026-10-27');
     expect(meta).toContain('panel: j/k move');
 
-    await term.press('B');
+    await term.press(' ', 'B');
     const links = await term.waitFor('Backlinks');
     expect(links).not.toContain('Metadata');
     expect(links).toContain('Linker');
@@ -98,7 +127,7 @@ describe('NoteView', () => {
     // Enter on the backlink opens the linking note; back restores the panel.
     await term.press(KEYS.enter);
     await term.waitFor('Linker · monitor · L');
-    await term.press('b');
+    await term.press(' ', 'b');
     await term.waitFor('Backlinks');
     await term.press(KEYS.escape);
     await term.waitFor((f) => !f.includes('Backlinks'));

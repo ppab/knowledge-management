@@ -24,6 +24,7 @@ const tui: TuiLauncher = (scope, cwd) =>
     cwd,
     stdin: process.stdin,
     stdout: process.stdout,
+    env: process.env,
   });
 
 const interactive = process.stdout.isTTY && process.stdin.isTTY;

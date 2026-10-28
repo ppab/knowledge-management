@@ -1,4 +1,4 @@
-import { Box, Text, useInput } from 'ink';
+import { Text, useInput } from 'ink';
 import { useState } from 'react';
 import {
   createNote,
@@ -7,10 +7,11 @@ import {
 } from '../../../application/notes/create-note.js';
 import { listNotes, type ScopedEntry } from '../../../application/notes/list-notes.js';
 import { searchNotes } from '../../../application/search/search-notes.js';
-import { isoDate } from '../../../application/notes/create-note.js';
+import { screenChords, useLeader } from '../chords.js';
 import { ok } from '../../../domain/result.js';
 import { isComposite, resolveWriteTarget } from '../../../domain/scope/scope.js';
-import { Frame, useBodyHeight } from '../components/Frame.js';
+import { Dialog, DIALOG_CHROME } from '../components/Dialog.js';
+import { Frame, useBodyHeight, type Hint } from '../components/Frame.js';
 import { Prompt } from '../components/Prompt.js';
 import { Rows } from '../components/Rows.js';
 import { useLoad, useTui } from '../context.js';
@@ -30,10 +31,11 @@ interface TemplateChoice {
 /** The start screen: browse, search, filter by tag, open; home panels by their keys. */
 export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
   const tui = useTui();
-  const { deps, scope, registry, revision, navigate, notify, report, quit, cwd } = tui;
+  const { deps, scope, registry, revision, navigate, notify, report, quit, cwd, theme } = tui;
   const [prompt, setPrompt] = useState<PromptKind | null>(null);
   const [choice, setChoice] = useState<TemplateChoice | null>(null);
   const height = useBodyHeight();
+  const leader = useLeader(screenChords(tui, { back: false }), prompt === null && choice === null);
   const composite = isComposite(scope);
 
   const loaded = useLoad(async () => {
@@ -46,7 +48,6 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
   }, [screen.search, screen.tag, revision]);
   const entries = loaded.value ?? [];
   const cursor = clamp(screen.cursor, entries.length - 1);
-  const homePanels = registry.panels('home');
 
   const update = (patch: Partial<ListScreen>) => {
     navigate({ type: 'update', update: (s) => (s.kind === 'list' ? { ...s, ...patch } : s) });
@@ -126,24 +127,12 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
         if (entry) navigate({ type: 'push', screen: noteScreen(locatorOfEntry(entry)) });
       } else if (input === '/') setPrompt('search');
       else if (input === 't') setPrompt('tag');
-      else if (input === 'n') setPrompt('title');
+      else if (input === 'c') setPrompt('title');
       else if (key.escape)
         navigate({ type: 'update', update: () => ({ kind: 'list', cursor: 0 }) });
       else if (input === 'q') quit();
-      else {
-        const panel = homePanels.find((p) => p.key === input);
-        if (!panel) return;
-        if (panel.id === 'core.calendar') {
-          navigate({
-            type: 'push',
-            screen: { kind: 'calendar', cursor: isoDate(deps.clock.now()) },
-          });
-        } else {
-          navigate({ type: 'push', screen: { kind: 'panel', id: panel.id, cursor: 0 } });
-        }
-      }
     },
-    { isActive: prompt === null && choice === null },
+    { isActive: prompt === null && choice === null && !leader.pending },
   );
 
   const filters = [
@@ -152,11 +141,24 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
   ].join('');
   const title = choice
     ? `new note "${choice.title}" · choose a template`
-    : `notes · ${scopeLabel(scope)}${filters} · ${String(entries.length)} notes`;
-  const panelHints = homePanels.map((p) => `${p.key ?? '?'} ${p.title.toLowerCase()}`).join('  ');
-  const hints = choice
-    ? 'j/k move  Enter create  Esc cancel'
-    : `j/k move  Enter open  / search  t tag  ${panelHints}  n new  Esc clear  q quit`;
+    : `notes · ${scopeLabel(scope)}${filters}`;
+  const meta = `${String(entries.length)} notes`;
+  const hints: Hint[] = choice
+    ? [
+        ['j/k', 'move'],
+        ['Enter', 'create'],
+        ['Esc', 'cancel'],
+      ]
+    : [
+        ['j/k', 'move'],
+        ['Enter', 'open'],
+        ['/', 'search'],
+        ['t', 'tag'],
+        ['c', 'create'],
+        ['Space', 'menu'],
+        ['Esc', 'clear'],
+        ['q', 'quit'],
+      ];
 
   const rows = entries.map((e) => [
     e.kind === 'note' ? e.id : '-',
@@ -167,28 +169,9 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
   const header = ['id', 'title', ...(composite ? ['vault'] : []), 'tags'];
 
   return (
-    <Frame title={title} hints={hints}>
-      {choice ? (
-        <Rows
-          header={['template', 'path']}
-          rows={choice.templates.map((t) => [t.name, t.path])}
-          cursor={choice.cursor}
-          height={height}
-          empty="No templates"
-        />
-      ) : loaded.state === 'error' && loaded.value === undefined ? (
-        <Text color="red">error: {loaded.error.message}</Text>
-      ) : (
-        <Rows
-          header={header}
-          rows={rows}
-          cursor={cursor}
-          height={height - (prompt ? 1 : 0)}
-          empty={loaded.state === 'loading' ? 'loading…' : 'No notes.'}
-        />
-      )}
+    <Frame title={title} meta={meta} hints={hints} overlay={leader.popup}>
       {prompt && (
-        <Box>
+        <Dialog width={60}>
           <Prompt
             label={prompt === 'search' ? 'search:' : prompt === 'tag' ? 'tag:' : 'title:'}
             onCancel={() => {
@@ -201,7 +184,30 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
               else if (text !== '') void startCreate(text);
             }}
           />
-        </Box>
+        </Dialog>
+      )}
+      {choice ? (
+        <Dialog>
+          <Rows
+            header={['template', 'path']}
+            rows={choice.templates.map((t) => [t.name, t.path])}
+            roles={[null, 'muted']}
+            cursor={choice.cursor}
+            height={height - DIALOG_CHROME}
+            empty="No templates"
+          />
+        </Dialog>
+      ) : loaded.state === 'error' && loaded.value === undefined ? (
+        <Text {...theme.paint('error')}>error: {loaded.error.message}</Text>
+      ) : (
+        <Rows
+          header={header}
+          rows={rows}
+          roles={['muted', null, ...(composite ? ['muted' as const] : []), 'tag']}
+          cursor={cursor}
+          height={height - (prompt ? 1 + DIALOG_CHROME : 0)}
+          empty={loaded.state === 'loading' ? 'loading…' : 'No notes.'}
+        />
       )}
     </Frame>
   );
