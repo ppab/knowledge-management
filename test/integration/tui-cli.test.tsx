@@ -13,7 +13,7 @@ import { noteScreen } from '../../src/interfaces/tui/model.js';
 import { createTheme } from '../../src/interfaces/tui/theme.js';
 import { buildTuiRegistry } from '../../src/interfaces/tui/tui.js';
 import { firstPartyPlugins } from '../../src/plugins/index.js';
-import { fakeChanges, fakeEditor, KEYS, renderTerminal } from '../tui/harness.js';
+import { fakeChanges, KEYS, renderTerminal } from '../tui/harness.js';
 
 /** M5 through the real CLI: `notes` without a terminal, and `notes edit` with a fake editor. */
 const run = promisify(execFile);
@@ -116,7 +116,7 @@ describe('reference add --label and the TUI selection path agree', () => {
         deps,
         scope,
         registry,
-        editor: fakeEditor(),
+        requestEdit: () => undefined,
         cwd: b,
         theme: createTheme({}),
       };

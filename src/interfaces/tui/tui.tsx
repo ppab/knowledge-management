@@ -6,8 +6,10 @@ import type { AppError } from '../../domain/errors.js';
 import { ok, type Result } from '../../domain/result.js';
 import { availableVaults, type Scope } from '../../domain/scope/scope.js';
 import { App } from './App.js';
-import type { ChangeFeed } from './context.js';
+import { createChangeDispatcher } from './change-feed.js';
+import type { StatusMessage } from './context.js';
 import { checkReservedChords, corePanels } from './core-panels.js';
+import type { Screen } from './model.js';
 import { createTheme } from './theme.js';
 
 /*
@@ -57,45 +59,85 @@ export const runTui = async (options: RunTuiOptions): Promise<Result<void, AppEr
   const registry = buildTuiRegistry(deps, scope, options.plugins);
   if (!registry.ok) return registry;
 
-  const listeners = new Set<() => void>();
-  const changes: ChangeFeed = {
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+  const dispatcher = createChangeDispatcher();
+  const roots = availableVaults(scope).map((v) => v.root);
+  const theme = createTheme(options.env);
+
+  // State that must outlive a single render: the screen stack (so the cursor, scroll and
+  // selection survive an editor handoff) and a status to surface once the TUI is back.
+  let stack: readonly Screen[] | undefined;
+  let pendingStatus: StatusMessage | null = null;
+
+  // An edit request parks here while the TUI tears itself down; `control.unmount` is the live
+  // instance's unmount, swapped in after each render. `takeEdit` both reads and clears it, so the
+  // request survives the `await` below with its type intact rather than narrowing to the clear.
+  interface EditRequest {
+    readonly file: string;
+    readonly command?: string;
+  }
+  let editRequest: EditRequest | null = null;
+  const control: { unmount: (() => void) | null } = { unmount: null };
+  const requestEdit = (file: string, command?: string): void => {
+    editRequest = { file, ...(command !== undefined && { command }) };
+    control.unmount?.();
   };
-  const stop = await options.watcher.watch(
-    availableVaults(scope).map((v) => v.root),
-    () => {
-      listeners.forEach((l) => {
-        l();
-      });
-    },
-  );
-  const instance = render(
-    <App
-      services={{
-        deps,
-        scope,
-        registry: registry.value,
-        editor: options.editor,
-        cwd: options.cwd,
-        theme: createTheme(options.env),
-      }}
-      changes={changes}
-    />,
-    {
-      stdin: options.stdin,
-      stdout: options.stdout,
-      alternateScreen: true,
-      exitOnCtrlC: true,
-      patchConsole: false,
-    },
-  );
-  try {
+  const takeEdit = (): EditRequest | null => {
+    const request = editRequest;
+    editRequest = null;
+    return request;
+  };
+
+  /*
+   * Each pass renders the TUI, then — if the user asked to edit rather than quit — hands the
+   * terminal wholly to the editor. We stop the watcher and release stdin so the parent process
+   * stays dormant for the duration (no reindexing, no Git, no input contention), which is what
+   * keeps a heavy editor session smooth. The next pass re-renders from the preserved stack and
+   * reloads from disk.
+   */
+  for (;;) {
+    const stop = await options.watcher.watch(roots, () => {
+      dispatcher.notify();
+    });
+    const instance = render(
+      <App
+        services={{ deps, scope, registry: registry.value, requestEdit, cwd: options.cwd, theme }}
+        changes={dispatcher.feed}
+        {...(stack !== undefined && { initial: stack })}
+        initialStatus={pendingStatus}
+        onStackChange={(next) => {
+          stack = next;
+        }}
+      />,
+      {
+        stdin: options.stdin,
+        stdout: options.stdout,
+        alternateScreen: true,
+        exitOnCtrlC: true,
+        patchConsole: false,
+      },
+    );
+    control.unmount = instance.unmount;
+    pendingStatus = null;
     await instance.waitUntilExit();
-  } finally {
     await stop();
+
+    const request = takeEdit();
+    if (request === null) break; // the user quit
+
+    // Ink's teardown drops raw mode but does not stop libuv reading the tty, so the editor would
+    // lose its first keystroke to this process. Pausing it ourselves hands input over cleanly;
+    // the next render reclaims it. (Verified against a plain-spawn baseline.)
+    options.stdin.pause();
+    const result = await options.editor.open(
+      request.file,
+      request.command === undefined ? {} : { command: request.command },
+    );
+    if (!result.ok) {
+      pendingStatus = {
+        text: `${result.error.code.toLowerCase()}: ${result.error.message}`,
+        level: 'error',
+      };
+    }
   }
   return ok(undefined);
 };
