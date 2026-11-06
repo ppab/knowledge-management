@@ -293,12 +293,7 @@ describe('notes CLI (M1)', () => {
     // The real relabel rewrites the label to the target's current title.
     expect((await notes(root, 'reference', 'relabel', source.id)).code).toBe(0);
     expect(await readFile(sfile, 'utf8')).toContain(`[[${target.id}|Relabel Target]]`);
-
-    // Scope-wide pass is now a no-op; neither a query nor --all is a usage error (exit 2).
-    expect((await notes(root, 'reference', 'relabel', '--all')).stdout).toContain(
-      'No links needed relabelling',
-    );
-    expect((await notes(root, 'reference', 'relabel')).code).toBe(2);
+    // (--all and the no-argument usage error are covered by relabel.test.ts without spawning.)
   });
 
   it('deletes a note, refusing while something links to it unless forced', async () => {
