@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import { buildTuiRegistry } from '../../src/interfaces/tui/tui.js';
 import { createTheme } from '../../src/interfaces/tui/theme.js';
 import { App } from '../../src/interfaces/tui/App.js';
-import type { ChangeFeed, TuiServices } from '../../src/interfaces/tui/context.js';
+import type { ChangeFeed, StatusMessage, TuiServices } from '../../src/interfaces/tui/context.js';
 import type { Screen } from '../../src/interfaces/tui/model.js';
 import type { NotePlugin } from '../../src/application/plugin/plugin.js';
 import type { ExternalEditor } from '../../src/application/ports.js';
@@ -107,23 +107,34 @@ export interface TerminalOptions {
   readonly interactive?: boolean;
 }
 
-export const renderTerminal = (element: ReactElement, options: TerminalOptions = {}): Terminal => {
-  const stdout = new FakeStdout(options.columns ?? 80, options.rows ?? 20);
-  const stdin = new FakeStdin();
-  if (options.interactive) stdout.isTTY = true;
-  const stderr = new FakeStdout(80, 20);
-  const instance = render(element, {
+type InkInstance = ReturnType<typeof render>;
+
+const mountInk = (
+  element: ReactElement,
+  stdout: FakeStdout,
+  stdin: FakeStdin,
+  interactive: boolean,
+): InkInstance =>
+  render(element, {
     stdout: stdout as unknown as NodeJS.WriteStream,
     stdin: stdin as unknown as NodeJS.ReadStream,
-    stderr: stderr as unknown as NodeJS.WriteStream,
-    debug: !options.interactive,
+    stderr: new FakeStdout(80, 20) as unknown as NodeJS.WriteStream,
+    debug: !interactive,
     exitOnCtrlC: false,
     patchConsole: false,
-    ...(options.interactive !== undefined && { interactive: options.interactive }),
+    interactive,
   });
+
+/** Builds the Terminal façade over persistent streams; `box.instance` may be swapped (remount). */
+const makeTerminal = (
+  stdout: FakeStdout,
+  stdin: FakeStdin,
+  interactive: boolean,
+  box: { instance: InkInstance },
+): Terminal => {
   // Interactive mode writes incremental updates, so only the whole output is meaningful there.
   const frame = () =>
-    options.interactive ? stripAnsi(stdout.frames.join('')) : stripAnsi(stdout.lastFrame());
+    interactive ? stripAnsi(stdout.frames.join('')) : stripAnsi(stdout.lastFrame());
   const press = async (...keys: string[]) => {
     for (const key of keys) {
       stdin.write(key);
@@ -147,11 +158,20 @@ export const renderTerminal = (element: ReactElement, options: TerminalOptions =
         `Timed out waiting for ${typeof what === 'string' ? JSON.stringify(what) : 'predicate'}.\nLast frame:\n${frame()}`,
       );
     },
-    waitUntilExit: () => instance.waitUntilExit().then(() => undefined),
+    waitUntilExit: () => box.instance.waitUntilExit().then(() => undefined),
     unmount: () => {
-      instance.unmount();
+      box.instance.unmount();
     },
   };
+};
+
+export const renderTerminal = (element: ReactElement, options: TerminalOptions = {}): Terminal => {
+  const stdout = new FakeStdout(options.columns ?? 80, options.rows ?? 20);
+  const stdin = new FakeStdin();
+  const interactive = options.interactive ?? false;
+  if (interactive) stdout.isTTY = true;
+  const box = { instance: mountInk(element, stdout, stdin, interactive) };
+  return makeTerminal(stdout, stdin, interactive, box);
 };
 
 export interface FakeEditor extends ExternalEditor {
@@ -212,11 +232,18 @@ export const harness = (
   const registry = buildTuiRegistry(f.deps, scope, options.plugins ?? []);
   if (!registry.ok) throw new Error(registry.error.message);
   const editor = options.editor ?? fakeEditor();
+  // `requestEdit` delegates to the live session's handoff, wired by `start`; before then it is a
+  // no-op (tests that never render cannot edit).
+  const editControl: { request: (file: string, command?: string) => void } = {
+    request: () => undefined,
+  };
   const services: TuiServices = {
     deps: f.deps,
     scope,
     registry: registry.value,
-    editor,
+    requestEdit: (file, command) => {
+      editControl.request(file, command);
+    },
     cwd: '/vault',
     theme: createTheme({}),
   };
@@ -226,10 +253,43 @@ export const harness = (
     services,
     changes,
     editor,
-    start: (initial, terminal) =>
-      renderTerminal(
-        <App services={services} changes={changes} {...(initial && { initial })} />,
-        terminal,
-      ),
+    start: (initial, terminal = {}) => {
+      // Mirror `runTui`: the TUI unmounts for the editor handoff and re-renders on return, so the
+      // session tracks the screen stack and remounts on the same streams instead of suspending.
+      const stdout = new FakeStdout(terminal.columns ?? 80, terminal.rows ?? 20);
+      const stdin = new FakeStdin();
+      const interactive = terminal.interactive ?? false;
+      if (interactive) stdout.isTTY = true;
+      let stack = initial;
+      let status: StatusMessage | null = null;
+      const element = () => (
+        <App
+          services={services}
+          changes={changes}
+          {...(stack && { initial: stack })}
+          initialStatus={status}
+          onStackChange={(next) => {
+            stack = next;
+          }}
+        />
+      );
+      const box = { instance: mountInk(element(), stdout, stdin, interactive) };
+      editControl.request = (file, command) => {
+        void (async () => {
+          box.instance.unmount();
+          await box.instance.waitUntilExit();
+          stdin.pause();
+          const result = await editor.open(file, command === undefined ? {} : { command });
+          status = result.ok
+            ? null
+            : {
+                text: `${result.error.code.toLowerCase()}: ${result.error.message}`,
+                level: 'error',
+              };
+          box.instance = mountInk(element(), stdout, stdin, interactive);
+        })();
+      };
+      return makeTerminal(stdout, stdin, interactive, box);
+    },
   };
 };

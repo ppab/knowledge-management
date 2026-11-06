@@ -16,6 +16,10 @@ export interface AppProps {
   readonly services: TuiServices;
   readonly changes: ChangeFeed;
   readonly initial?: readonly Screen[];
+  /** A status to show on mount (e.g. an error from the editor handoff that just finished). */
+  readonly initialStatus?: StatusMessage | null;
+  /** Reports the screen stack upward so the runner can restore it across an editor handoff. */
+  readonly onStackChange?: (stack: readonly Screen[]) => void;
 }
 
 const Top = ({ screen }: { readonly screen: Screen }) => {
@@ -40,10 +44,10 @@ const Top = ({ screen }: { readonly screen: Screen }) => {
 };
 
 /** The shell: screen stack, watcher-driven revision, status line, terminal size. */
-export const App = ({ services, changes, initial }: AppProps) => {
+export const App = ({ services, changes, initial, initialStatus, onStackChange }: AppProps) => {
   const [stack, dispatch] = useReducer(reduce, initial ? [...initial] : initialStack());
   const [revision, setRevision] = useState(0);
-  const [status, setStatus] = useState<StatusMessage | null>(null);
+  const [status, setStatus] = useState<StatusMessage | null>(initialStatus ?? null);
   const { exit } = useApp();
   const { rows, columns } = useWindowSize();
 
@@ -54,6 +58,12 @@ export const App = ({ services, changes, initial }: AppProps) => {
       }),
     [changes],
   );
+
+  // Keep the runner's copy of the stack current so it can re-seed a fresh render after an editor
+  // handoff with the cursor, scroll and selection the user left behind (they live on the screens).
+  useEffect(() => {
+    onStackChange?.(stack);
+  }, [stack, onStackChange]);
 
   const notify = useCallback((text: string, level: 'info' | 'error' = 'info') => {
     setStatus({ text, level });

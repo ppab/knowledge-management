@@ -1,4 +1,4 @@
-import { Box, Text, useApp, useInput, type Key } from 'ink';
+import { Box, Text, useInput, type Key } from 'ink';
 import { useEffect, useMemo, useState } from 'react';
 import { revisionStatus } from '../../../application/history/history.js';
 import { saveNote, type SaveOutcome } from '../../../application/history/save-note.js';
@@ -204,10 +204,9 @@ const SpanText = ({
  */
 export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
   const tui = useTui();
-  const { deps, scope, registry, editor, revision, columns, navigate, notify, report, theme } = tui;
-  const { suspendTerminal } = useApp();
+  const { deps, scope, registry, requestEdit, revision, columns, navigate, notify, report, theme } =
+    tui;
   const [local, setLocal] = useState(0);
-  const [editing, setEditing] = useState(false);
   const [flow, setFlow] = useState<Flow | null>(null);
   const height = useBodyHeight();
 
@@ -389,22 +388,11 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     );
   };
 
-  const edit = async () => {
-    if (!viewed || editing) return;
-    setEditing(true);
-    const file = absoluteNotePath(viewed.vault.root, viewed.entry.path);
-    const command = viewed.vault.config.editor;
-    let result: Result<void, AppError> = ok(undefined);
-    try {
-      await suspendTerminal(async () => {
-        result = await editor.open(file, command === undefined ? {} : { command });
-      });
-    } catch (cause: unknown) {
-      notify(`Editor handoff failed: ${String(cause)}`, 'error');
-    }
-    setEditing(false);
-    if (!result.ok) report(result.error);
-    reload();
+  // The runner tears the TUI down, runs the editor with the terminal to itself, and re-renders
+  // this screen on return — so there is nothing to await, suspend or reload here.
+  const edit = () => {
+    if (!viewed) return;
+    requestEdit(absoluteNotePath(viewed.vault.root, viewed.entry.path), viewed.vault.config.editor);
   };
 
   const runAction = async (key: string) => {
@@ -618,7 +606,10 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         navigate({ type: 'pop' });
         return;
       }
-      if (input === 'o') return void edit();
+      if (input === 'o') {
+        edit();
+        return;
+      }
       if (input === 'x') {
         removeUnderCursor();
         return;
