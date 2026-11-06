@@ -7,6 +7,7 @@ import {
   wrapSelectionAsExternalLink,
   wrapSelectionAsReference,
 } from '../../../application/mutations/wrap-selection.js';
+import { previewDelete } from '../../../application/notes/delete-note.js';
 import {
   referenceDisplay,
   renderNote,
@@ -42,6 +43,7 @@ import {
 import type { SourceRange } from '../../../domain/text/text-edit.js';
 import { absoluteNotePath } from '../../../domain/vault/paths.js';
 import { screenChords, useLeader, type Chord } from '../chords.js';
+import { Confirm } from '../components/Confirm.js';
 import { Dialog } from '../components/Dialog.js';
 import { Frame, useBodyHeight, type Hint } from '../components/Frame.js';
 import { LocationPrompt } from '../components/LocationPrompt.js';
@@ -49,6 +51,7 @@ import { actionHints, PanelView } from '../components/PanelView.js';
 import { Picker, type Picked } from '../components/Picker.js';
 import { Prompt } from '../components/Prompt.js';
 import { useLoad, useTui, type Loaded } from '../context.js';
+import { deleteWarnings, runDelete } from '../delete-actions.js';
 import { isBack, isDown, isUp } from '../keys.js';
 import type { Role } from '../theme.js';
 import { clamp, locatorOf, noteScreen, type Screen } from '../model.js';
@@ -79,7 +82,9 @@ type Flow =
   | { readonly kind: 'url'; readonly range: SourceRange }
   | { readonly kind: 'save' }
   /** `Space d`: a date to add under `dates:`. */
-  | { readonly kind: 'date' };
+  | { readonly kind: 'date' }
+  /** `D`: confirm removing the note, listing the links the deletion would orphan. */
+  | { readonly kind: 'delete'; readonly title: string; readonly warnings: readonly string[] };
 
 const PANEL_WIDTH = 36;
 
@@ -573,6 +578,31 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     });
   };
 
+  /** `D`: preview what deletion would orphan, then open the confirmation. */
+  const startDelete = () => {
+    if (!viewed) return;
+    void previewDelete(deps, scope, screen.locator).then((preview) => {
+      if (!preview.ok) {
+        report(preview.error);
+        return;
+      }
+      setFlow({
+        kind: 'delete',
+        title: preview.value.entry.title,
+        warnings: deleteWarnings(preview.value.referrers),
+      });
+    });
+  };
+
+  const onDelete = () => {
+    if (flow?.kind !== 'delete') return;
+    const { title } = flow;
+    setFlow(null);
+    void runDelete(tui, screen.locator, title).then((deleted) => {
+      if (deleted) navigate({ type: 'pop' });
+    });
+  };
+
   const onUrl = (url: string) => {
     if (flow?.kind !== 'url' || !located) return;
     const trimmed = url.trim();
@@ -616,6 +646,10 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       }
       if (input === 's') {
         setFlow({ kind: 'save' });
+        return;
+      }
+      if (input === 'D') {
+        startDelete();
         return;
       }
       if (input === 'H') {
@@ -686,41 +720,49 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
           ? { hints: [['Enter', 'link'], cancel] }
           : flow?.kind === 'save'
             ? { hints: [['Enter', 'save (empty message: "save <title>")'], cancel] }
-            : selection
+            : flow?.kind === 'delete'
               ? {
-                  mode: 'select',
                   hints: [
-                    ['hjkl/w/b/e', 'move'],
-                    ['0/$', 'line'],
-                    ['v', 'restart'],
-                    ['r', 'reference'],
-                    ['u', 'url'],
-                    cancel,
+                    ['y', 'delete'],
+                    ['n/Esc', 'cancel'],
                   ],
                 }
-              : focusedPanel
+              : selection
                 ? {
-                    mode: 'panel',
-                    hints: [
-                      ['j/k', 'move'],
-                      ['Enter', 'open'],
-                      ...actionHints(focusedPanel),
-                      ['Esc', 'close'],
-                    ],
-                  }
-                : {
+                    mode: 'select',
                     hints: [
                       ['hjkl/w/b/e', 'move'],
-                      ['i/a/I', 'ref'],
-                      ['x', 'unref'],
-                      ['v', 'select'],
-                      ['o', 'edit'],
-                      ['s', 'save'],
-                      ['H', 'history'],
-                      ['Space', 'menu'],
-                      ['Esc', 'back'],
+                      ['0/$', 'line'],
+                      ['v', 'restart'],
+                      ['r', 'reference'],
+                      ['u', 'url'],
+                      cancel,
                     ],
-                  };
+                  }
+                : focusedPanel
+                  ? {
+                      mode: 'panel',
+                      hints: [
+                        ['j/k', 'move'],
+                        ['Enter', 'open'],
+                        ...actionHints(focusedPanel),
+                        ['Esc', 'close'],
+                      ],
+                    }
+                  : {
+                      hints: [
+                        ['hjkl/w/b/e', 'move'],
+                        ['i/a/I', 'ref'],
+                        ['x', 'unref'],
+                        ['v', 'select'],
+                        ['o', 'edit'],
+                        ['s', 'save'],
+                        ['D', 'delete'],
+                        ['H', 'history'],
+                        ['Space', 'menu'],
+                        ['Esc', 'back'],
+                      ],
+                    };
 
   const visible = lines.slice(scroll, scroll + height);
   const body =
@@ -792,6 +834,17 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
                         : 'bind to date (YYYY-MM-DD):'
                   }
                   onSubmit={flow.kind === 'url' ? onUrl : flow.kind === 'save' ? onSave : onDate}
+                  onCancel={() => {
+                    setFlow(null);
+                  }}
+                />
+              </Dialog>
+            ) : flow?.kind === 'delete' ? (
+              <Dialog width={60}>
+                <Confirm
+                  prompt={`Delete "${flow.title}"?`}
+                  warnings={flow.warnings}
+                  onConfirm={onDelete}
                   onCancel={() => {
                     setFlow(null);
                   }}

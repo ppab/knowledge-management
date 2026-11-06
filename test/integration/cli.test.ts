@@ -254,6 +254,36 @@ describe('notes CLI (M1)', () => {
     ).toBe(2);
   });
 
+  it('deletes a note, refusing while something links to it unless forced', async () => {
+    const create = async (title: string) => {
+      const r = await notes(root, 'create', '--title', title, '--json');
+      expect(r.code).toBe(0);
+      return JSON.parse(r.stdout) as { id: string; path: string };
+    };
+    const target = await create('Delete Target');
+    const source = await create('Delete Source');
+    expect(
+      (await notes(root, 'reference', 'add', '--source', source.id, '--target', target.id)).code,
+    ).toBe(0);
+
+    // A note something links to is kept unless --force; the error points the way.
+    const blocked = await notes(root, 'delete', target.id);
+    expect(blocked.code).toBe(5);
+    expect(blocked.stderr).toContain('--force');
+    expect((await stat(join(root, target.path))).isFile()).toBe(true);
+
+    // Forced, the file goes; an unversioned vault records nothing.
+    const forced = await notes(root, 'delete', target.id, '--force', '--json');
+    expect(forced.code).toBe(0);
+    const out = JSON.parse(forced.stdout) as { record: { kind: string }; path: string };
+    expect(out.record.kind).toBe('unversioned');
+    await expect(stat(join(root, target.path))).rejects.toThrow();
+
+    // A note with nothing pointing at it needs no --force.
+    expect((await notes(root, 'delete', source.id)).code).toBe(0);
+    expect((await notes(root, 'show', source.id)).code).toBe(3);
+  });
+
   it('runs from a nested directory and fails clearly outside a vault', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'notes-outside-'));
     try {

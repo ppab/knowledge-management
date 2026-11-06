@@ -17,7 +17,7 @@ describe('history and save in the TUI', () => {
     });
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })]);
     await term.waitFor('Note · monitor · N1 ●');
-    expect(term.frame()).toContain('s save  H history');
+    expect(term.frame()).toContain('s save  D delete');
 
     await term.press('s');
     await term.waitFor('save message:');
