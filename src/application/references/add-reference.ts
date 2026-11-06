@@ -84,7 +84,7 @@ export const addReference = (
       deps,
       note,
       input.at,
-      formatReference(target.value.summary.id, input.label),
+      formatReference(target.value.summary.id, input.label ?? target.value.summary.title),
       input.expectedVersion,
     );
     if (!plan.ok) return plan;

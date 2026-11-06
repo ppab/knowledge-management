@@ -1,4 +1,5 @@
 import type { MutationOutcome } from '../../application/mutations/mutate.js';
+import type { RelabelAllResult } from '../../application/references/relabel.js';
 import type { AppError, ErrorCode } from '../../domain/errors.js';
 import type { NoteEntry } from '../../domain/note/note.js';
 import type { EntrySummary } from '../../domain/note/summary.js';
@@ -52,6 +53,17 @@ export const noteToJson = (entry: NoteEntry): Record<string, unknown> => {
 export const mutationText = (outcome: MutationOutcome): string => {
   if (outcome.dryRun) return outcome.diff ?? `No change to ${outcome.path}`;
   return outcome.written ? `Updated ${outcome.path}` : `No change to ${outcome.path}`;
+};
+
+/** Text for a scope-wide `relabel --all`: the diffs for a dry run, else what changed. */
+export const relabelAllText = (result: RelabelAllResult): string => {
+  const scanned = `scanned ${String(result.scanned)} note${result.scanned === 1 ? '' : 's'}`;
+  if (result.outcomes.length === 0) return `No links needed relabelling (${scanned})`;
+  if (result.outcomes.every((o) => o.dryRun)) {
+    return result.outcomes.map((o) => o.diff ?? `Would update ${o.path}`).join('\n');
+  }
+  const updated = result.outcomes.map((o) => `Updated ${o.path}`).join('\n');
+  return `${updated}\n(${scanned}, ${String(result.outcomes.length)} changed)`;
 };
 
 export const summaryRow = (entry: EntrySummary): string[] => [

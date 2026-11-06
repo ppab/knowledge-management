@@ -19,15 +19,16 @@ describe('addReference at a cursor', () => {
         target: 'dd',
         at: { kind: 'at', offset: A.indexOf(needle), side },
       });
+    // With no explicit label, a reference defaults to the target's current title.
     unwrap(await at('text', 'before'));
-    expect(f.fs.files.get('a.md')).toBe(A.replace('*em* text', '*em* [[D]] text'));
+    expect(f.fs.files.get('a.md')).toBe(A.replace('*em* text', '*em* [[D|Design doc]] text'));
     f.fs.files.set('a.md', A);
     unwrap(await at('intro', 'after'));
-    expect(f.fs.files.get('a.md')).toBe(A.replace('intro *em*', 'intro [[D]] *em*'));
+    expect(f.fs.files.get('a.md')).toBe(A.replace('intro *em*', 'intro [[D|Design doc]] *em*'));
     f.fs.files.set('a.md', A);
     // Emphasis text is a prose run of its own; the markers and headings are not prose.
     unwrap(await at('em*', 'before'));
-    expect(f.fs.files.get('a.md')).toBe(A.replace('*em*', '*[[D]] em*'));
+    expect(f.fs.files.get('a.md')).toBe(A.replace('*em*', '*[[D|Design doc]] em*'));
     f.fs.files.set('a.md', A);
     const check = (needle: string, side: 'before' | 'after', expectedVersion?: string) =>
       checkInsertionPoint(f.deps, f.scope, {
@@ -75,28 +76,28 @@ describe('addReference', () => {
     ]);
   });
 
-  it('creates a References section once, then appends to it', async () => {
+  it('creates a References section once, then appends to it, labelled with each target title', async () => {
     const f = fixture();
     f.fs.files.set('a.md', A);
-    f.fs.files.set('b.md', '---\nid: B\n---\n');
-    f.fs.files.set('c.md', '---\nid: C\n---\n');
+    f.fs.files.set('b.md', '---\nid: B\ntitle: Beta\n---\n');
+    f.fs.files.set('c.md', '---\nid: C\ntitle: Gamma\n---\n');
     unwrap(
       await addReference(f.deps, f.scope, { source: 'A', target: 'B', at: { kind: 'references' } }),
     );
     unwrap(
       await addReference(f.deps, f.scope, { source: 'A', target: 'C', at: { kind: 'references' } }),
     );
-    expect(f.fs.files.get('a.md')).toBe(A + '\n## References\n\n[[B]]\n\n[[C]]\n');
+    expect(f.fs.files.get('a.md')).toBe(A + '\n## References\n\n[[B|Beta]]\n\n[[C|Gamma]]\n');
   });
 
   it('previews with --dry-run and fails cleanly on unknown notes or headings', async () => {
     const f = fixture();
     f.fs.files.set('a.md', A);
-    f.fs.files.set('b.md', '---\nid: B\n---\n');
+    f.fs.files.set('b.md', '---\nid: B\ntitle: Beta\n---\n');
     const preview = unwrap(
       await addReference(f.deps, f.scope, { source: 'A', target: 'B', dryRun: true }),
     );
-    expect(preview.diff).toContain('+[[B]]');
+    expect(preview.diff).toContain('+[[B|Beta]]');
     expect(f.fs.writes).toEqual([]);
     expect(await addReference(f.deps, f.scope, { source: 'A', target: 'nope' })).toMatchObject({
       ok: false,

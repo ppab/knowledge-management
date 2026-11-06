@@ -15,8 +15,24 @@ describe('createNote', () => {
     expect(note.created).toBe(created);
     expect(note.dates).toEqual(['2026-10-27']); // bound to its creation day
     expect(f.fs.files.get(note.path)).toBe(
-      `---\nid: "ID1"\ntitle: "Event Ingestion"\ndates: ["2026-10-27"]\ncreated: ${created}\n---\n\n# Event Ingestion\n\n`,
+      `---\nid: "ID1"\ntitle: "Event Ingestion"\ndates: ["2026-10-27"]\ncreated: ${created}\naliases:\n  - ID1\n---\n\n# Event Ingestion\n\n`,
     );
+    expect(note.aliases).toContain('ID1'); // the id is an alias so `[[ID1]]` resolves in Obsidian
+  });
+
+  it('keeps a template alias and adds the id first', async () => {
+    const f = fixture();
+    f.templates.set('aka', '---\nid: "{{id}}"\naliases: [nickname]\n---\n# {{title}}\n');
+    const note = unwrap(await createNote(f.deps, f.vault, { title: 'T', template: 'aka' }));
+    expect(note.aliases).toEqual(['ID1', 'nickname']);
+  });
+
+  it('does not duplicate an id a template already lists as an alias', async () => {
+    const f = fixture();
+    f.templates.set('aka', '---\nid: "{{id}}"\naliases: ["{{id}}", nickname]\n---\n# {{title}}\n');
+    const note = unwrap(await createNote(f.deps, f.vault, { title: 'T', template: 'aka' }));
+    expect(note.aliases).toEqual(['ID1', 'nickname']);
+    expect(f.fs.files.get(note.path)).not.toContain('aliases:\n  - ID1'); // left as the template wrote it
   });
 
   it('renders a vault template: variables, template.path, defaults, stripped template block', async () => {
@@ -150,7 +166,7 @@ describe('createNote', () => {
     const note = unwrap(await createNote(f.deps, f.vault, { title: 'X', template: 'adr' }));
     expect(note.id).toBe('monitor-adr-20261027-ID1');
     expect(f.fs.files.get(note.path)).toBe(
-      `---\nid: monitor-adr-20261027-ID1\ntitle: X\ncreated: ${f.deps.clock.now().toISOString()}\n---\n# X\n`,
+      `---\nid: monitor-adr-20261027-ID1\ntitle: X\ncreated: ${f.deps.clock.now().toISOString()}\naliases:\n  - monitor-adr-20261027-ID1\n---\n# X\n`,
     );
   });
 

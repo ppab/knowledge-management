@@ -236,6 +236,31 @@ stale, then refreshes it before running its checks.
 - Display: without a label the target's current title is shown; with a label the label is shown.
   The source file is never rewritten for display.
 
+### Using the vault in Obsidian
+
+The vault is plain Markdown and opens in Obsidian unchanged. Two things make our `[[…]]` links
+work there, since Obsidian resolves a wikilink against a note's **filename** or frontmatter
+**`aliases:`** — never against our `id:` field:
+
+- **Resolution.** `createNote` records each new note's id in its `aliases:` (id first, deduped),
+  so `[[<id>]]` resolves to that note in Obsidian. This is new-notes-only; pre-existing notes
+  stay unresolved until re-created or a future backfill. `adopt` is deliberately left untouched
+  (its contract is to add nothing but the id).
+- **Readable display.** A label-less reference is written `[[<id>|<current title>]]` (the TUI
+  `i`/`a`/`I` flows and `reference add` without `--label`), so Obsidian shows the title, not the
+  raw id. Explicit labels and selection-wrapped prose (`r` on a selection) are kept verbatim.
+
+Titles drift, so `reference relabel <query>` (and `reference relabel --all`) refreshes the label
+of a note's **standalone** links to each target's current title; `--dry-run` previews. `save`
+stays a pure recorder (decision A4) and never relabels. "Standalone" is a position heuristic
+(`isStandaloneReference`, shared with `removeReference`): a link alone on its line — optionally
+behind a `-`/`*`/`1.` bullet — is treated as a managed title-copy and refreshed; a link woven
+into a sentence is intentional prose and left alone. Two accepted mis-guesses: an inline link
+inserted next to a word is not refreshed, and a standalone link hand-labelled on purpose is
+overwritten with the title.
+
+Obsidian setting: keep "Use \[\[Wikilinks\]\]" on (the default).
+
 ### Safe mutation strategy
 
 Every mutation: read (version) → parse → compute `TextEdit[]` → apply → re-parse and assert
@@ -273,6 +298,7 @@ notes save <id> [-m <message>]
 notes bind <id> --date <d> [--remove]
 notes reference add --source <id> --target <id|alias> [--at end|heading:<text>|references] [--label <l>]
 notes reference list <id>
+notes reference relabel [<id>] [--all] [--dry-run]   # refresh standalone [[links]] to targets' current titles (Obsidian)
 notes backlinks <id>
 notes snippet insert <id> --snippet <name> [--at ...] [--var k=v]...
 notes history <id>

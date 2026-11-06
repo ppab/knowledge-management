@@ -48,11 +48,30 @@ describe('NoteView references (M6)', () => {
     await term.press('j', 'j', KEYS.enter);
     await term.waitFor('Added reference to Pipeline notes');
     expect(h.f.fs.files.get('src.md')).toBe(
-      original.replace('design text\n', 'design text\n\n[[PIPE]]\n'),
+      original.replace('design text\n', 'design text\n\n[[PIPE|Pipeline notes]]\n'),
     );
     // The view reloaded and shows the target's title where the id was written.
     const reloaded = await term.waitFor((f) => /design text\n\s*Pipeline notes/.test(rowsOf(f)));
     expect(reloaded).not.toContain('[[PIPE]]');
+  });
+
+  it('Space r relabels standalone links to the target current title', async () => {
+    const original = '---\nid: SRC\ntitle: Origin\n---\n\n## References\n\n- [[PIPE|old name]]\n';
+    const h = harness((f) => {
+      f.fs.files.set('src.md', original);
+      f.fs.files.set('pipe.md', TARGET);
+    });
+    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    await term.waitFor('Origin · monitor · SRC');
+
+    await term.press(' ');
+    const menu = await term.waitFor('Space …');
+    expect(menu).toContain('r  relabel links');
+    await term.press('r');
+    await term.waitFor('Links now show');
+    expect(h.f.fs.files.get('src.md')).toBe(
+      original.replace('[[PIPE|old name]]', '[[PIPE|Pipeline notes]]'),
+    );
   });
 
   it('i and a: insert next to the word under the cursor', async () => {
@@ -73,7 +92,7 @@ describe('NoteView references (M6)', () => {
     await term.press(KEYS.enter);
     await term.waitFor('Added reference to Pipeline notes');
     expect(h.f.fs.files.get('src.md')).toBe(
-      original.replace('intro text here', 'intro [[PIPE]] text here'),
+      original.replace('intro text here', 'intro [[PIPE|Pipeline notes]] text here'),
     );
     // After the word under the cursor: the cursor still sits on the (moved) text.
     await term.waitFor((f) => rowsOf(f).includes('intro Pipeline notes text here'));
@@ -82,7 +101,10 @@ describe('NoteView references (M6)', () => {
     await term.press(KEYS.enter);
     await term.waitFor((f) => rowsOf(f).includes('intro Pipeline notes text here Pipeline notes'));
     expect(h.f.fs.files.get('src.md')).toBe(
-      original.replace('intro text here', 'intro [[PIPE]] text here [[PIPE]]'),
+      original.replace(
+        'intro text here',
+        'intro [[PIPE|Pipeline notes]] text here [[PIPE|Pipeline notes]]',
+      ),
     );
     // Enter on the reference under the cursor follows it; Tab moves between them.
     await term.press(KEYS.tab, KEYS.enter);

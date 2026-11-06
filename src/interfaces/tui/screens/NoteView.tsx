@@ -20,6 +20,7 @@ import {
   checkInsertionPoint,
 } from '../../../application/references/add-reference.js';
 import type { Resolution } from '../../../application/references/references.js';
+import { relabelReferences } from '../../../application/references/relabel.js';
 import { removeReference } from '../../../application/references/remove-reference.js';
 import { readRevision } from '../../../application/history/history.js';
 import { changedLines, lineNumberAt } from '../../../domain/text/diff.js';
@@ -271,8 +272,24 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       if (identified()) setFlow({ kind: 'date' });
     },
   };
+  // `Space r`: rewrite this note's standalone links so each shows its target's current title.
+  const relabelChord: Chord = {
+    key: 'r',
+    label: 'relabel links',
+    run: () => {
+      if (!identified() || !located) return;
+      void mutate(
+        relabelReferences(deps, scope, {
+          source: located.note.id,
+          expectedVersion: located.note.version,
+        }),
+        'Links now show their targets’ current titles',
+        undefined,
+      );
+    },
+  };
   const leader = useLeader(
-    screenChords(tui, { back: true, extra: [...panelChords, dateChord] }),
+    screenChords(tui, { back: true, extra: [...panelChords, dateChord, relabelChord] }),
     flow === null && !selection,
   );
   const half = Math.max(1, Math.floor(height / 2));
