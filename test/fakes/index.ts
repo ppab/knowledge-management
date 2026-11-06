@@ -97,6 +97,19 @@ export const createFakeNoteStore = (roots: Map<string, FakeFs>): NoteStore => {
       fs.writes.push({ path, source });
       return Promise.resolve(ok({ version: version(source) }));
     },
+    delete: (root, path, options = {}) => {
+      const fs = fsOf(root);
+      const canonical = canonicalOf(fs, path);
+      const current = fs.files.get(canonical);
+      if (current === undefined) {
+        return Promise.resolve(err(notFound(`No file at ${path}`, { path })));
+      }
+      if (options.expectedVersion !== undefined && version(current) !== options.expectedVersion) {
+        return Promise.resolve(err(conflict(`${path} modified`, { path })));
+      }
+      fs.files.delete(canonical);
+      return Promise.resolve(ok(undefined));
+    },
   };
 };
 
@@ -222,7 +235,15 @@ export const createFakeRevisions = (roots: Map<string, FakeFs>): FakeRevisions =
         );
       }
       const source = roots.get(root)?.files.get(path);
-      if (source === undefined) return Promise.resolve(err(notFound(`No file at ${path}`)));
+      if (source === undefined) {
+        // The working file is gone: record the deletion, as `git rm` + commit does. That needs
+        // the path to have been tracked; an untracked missing path has nothing to record.
+        if (historyOf(root, path).length === 0) {
+          return Promise.resolve(err(notFound(`No file at ${path}`)));
+        }
+        recorded.push({ root, path, message });
+        return Promise.resolve(ok(strip(add(root, path, '', message, 'Tester'))));
+      }
       recorded.push({ root, path, message });
       return Promise.resolve(ok(strip(add(root, path, source, message, 'Tester'))));
     },

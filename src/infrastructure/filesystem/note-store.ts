@@ -251,5 +251,38 @@ export const createNoteStore = (): NoteStore => {
           : err(unavailable(`Cannot write ${path}`, { path, cause: String(cause) }));
       }
     },
+
+    async delete(root, path, options = {}) {
+      const realRoot = await rootReal(root);
+      const located = await locate(realRoot, root, path);
+      if (!located.ok) return located;
+      if (options.expectedVersion !== undefined) {
+        const current = await this.read(root, path);
+        if (!current.ok) {
+          return current.error.code === 'NOT_FOUND'
+            ? err(conflict(`${path} was deleted since it was read`, { path }))
+            : current;
+        }
+        if (current.value.version !== options.expectedVersion) {
+          return err(
+            conflict(`${path} was modified since it was read`, {
+              path,
+              expectedVersion: options.expectedVersion,
+              currentVersion: current.value.version,
+            }),
+          );
+        }
+      }
+      // Remove the entry at the path the caller named: for an internal symlink that drops the
+      // link and leaves its target, mirroring how `create` writes a real file at that path.
+      try {
+        await unlink(located.value.absolute);
+        return ok(undefined);
+      } catch (cause) {
+        return errno(cause) === 'ENOENT'
+          ? err(notFound(`No file at ${path}`, { path }))
+          : err(unavailable(`Cannot delete ${path}`, { path, cause: String(cause) }));
+      }
+    },
   };
 };

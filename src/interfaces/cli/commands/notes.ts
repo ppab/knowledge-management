@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import { readRevision } from '../../../application/history/history.js';
 import { adoptNote, type AdoptedNote } from '../../../application/notes/adopt-note.js';
 import { createNote } from '../../../application/notes/create-note.js';
+import { deleteNote, type DeletedNote } from '../../../application/notes/delete-note.js';
 import { listNotes } from '../../../application/notes/list-notes.js';
 import { showNote } from '../../../application/notes/show-note.js';
 import type { PluginRegistry } from '../../../application/plugin/plugin.js';
@@ -79,6 +80,18 @@ const showText = (
     lines.push(`references: ${entry.references.map((r) => r.target).join(', ')}`);
   }
   return `${lines.join('\n')}\n\n${entry.source.slice(entry.body.start)}`;
+};
+
+const deleteText = (deleted: DeletedNote): string => {
+  const path = deleted.entry.path;
+  switch (deleted.record.kind) {
+    case 'recorded':
+      return `Deleted ${path} and recorded revision ${abbreviate(deleted.record.revision.id)}: ${deleted.record.revision.summary}`;
+    case 'unrecorded':
+      return `Deleted ${path} (it had no recorded revision)`;
+    case 'unversioned':
+      return `Deleted ${path} (not under version control)`;
+  }
 };
 
 /** What `show` prints: the working file, or the note as it was at `revision`. */
@@ -272,6 +285,46 @@ export const registerNoteCommands = (program: Command, io: CliIo, exit: Exit): v
             return ok({ vault: vault.value.config.name, adopted });
           }),
           ({ adopted }) => adopted.map((a) => `Adopted ${a.path} -> ${a.id}`).join('\n'),
+        ),
+      );
+    });
+
+  program
+    .command('delete')
+    .description('delete a note, recording the removal in a versioned vault')
+    .argument('<query>', 'note id, title or alias')
+    .option('--force', 'delete even when other notes link to it, leaving those links dangling')
+    .option(
+      '-m, --message <message>',
+      'revision message, recorded as "note: <message>" (default: "note: delete <title>")',
+    )
+    .action(async (query: string, opts: { force?: boolean; message?: string }, cmd: Command) => {
+      const ctx = contextFor(io, cmd);
+      exit(
+        await emit(
+          ctx,
+          inScope(ctx, (scope) =>
+            deleteNote(
+              ctx.deps,
+              scope,
+              { query },
+              {
+                ...(opts.force !== undefined && { force: opts.force }),
+                ...(opts.message !== undefined && { message: opts.message }),
+              },
+            ),
+          ),
+          deleteText,
+          (deleted) => ({
+            vault: deleted.vault.config.name,
+            path: deleted.entry.path,
+            ...(isNote(deleted.entry) && { id: deleted.entry.id }),
+            record:
+              deleted.record.kind === 'recorded'
+                ? { kind: 'recorded', revision: deleted.record.revision }
+                : deleted.record,
+            referrers: deleted.referrers,
+          }),
         ),
       );
     });

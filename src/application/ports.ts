@@ -56,6 +56,11 @@ export interface WriteOptions {
   readonly createOnly?: boolean;
 }
 
+export interface DeleteOptions {
+  /** Refuse with `CONFLICT` if the file's current version differs (it changed since it was read). */
+  readonly expectedVersion?: string;
+}
+
 export interface NoteStore {
   list(root: string, include: readonly string[], exclude: readonly string[]): Promise<NoteFile[]>;
   read(root: string, path: string): Promise<Result<NoteDocument, AppError>>;
@@ -65,6 +70,8 @@ export interface NoteStore {
     source: string,
     options?: WriteOptions,
   ): Promise<Result<{ version: string }, AppError>>;
+  /** Removes the file at `path`; `NOT_FOUND` when it is already gone. */
+  delete(root: string, path: string, options?: DeleteOptions): Promise<Result<void, AppError>>;
 }
 
 export interface ParsedMarkdown {

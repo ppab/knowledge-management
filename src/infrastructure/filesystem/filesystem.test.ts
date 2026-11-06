@@ -113,8 +113,28 @@ describe('note store', () => {
     expect(await readFile(join(root, 'n.md'), 'utf8')).toBe('from 1');
   });
 
+  it('deletes a file, reports it missing afterwards, and guards on the expected version', async () => {
+    const written = unwrap(await store.write(root, 'n.md', 'v1'));
+    await writeFile(join(root, 'n.md'), 'changed');
+    const stale = await store.delete(root, 'n.md', { expectedVersion: written.version });
+    expect(stale).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+    expect(await readFile(join(root, 'n.md'), 'utf8')).toBe('changed');
+
+    const fresh = unwrap(await store.read(root, 'n.md'));
+    unwrap(await store.delete(root, 'n.md', { expectedVersion: fresh.version }));
+    expect(await readdir(root)).toEqual([]);
+    expect(await store.delete(root, 'n.md')).toMatchObject({
+      ok: false,
+      error: { code: 'NOT_FOUND' },
+    });
+  });
+
   it('refuses paths outside the note area even if a caller bypassed normalization', async () => {
     expect(await store.write(root, '../escape.md', 'x')).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    expect(await store.delete(root, '../escape.md')).toMatchObject({
       ok: false,
       error: { code: 'VALIDATION' },
     });
