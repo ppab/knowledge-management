@@ -33,7 +33,14 @@ describe('plugin panels', () => {
     expect(panel.indexOf('Ship it')).toBeLessThan(panel.indexOf('Later')); // due date order
 
     await term.press(KEYS.enter);
-    const view = await term.waitFor('Ship it · monitor · T1 · todo');
+    // The title line renders as the note view mounts; its automatic Todo panel loads a tick
+    // later, so wait for the panel content itself rather than asserting on the first frame.
+    const view = await term.waitFor(
+      (f) =>
+        f.includes('Ship it · monitor · T1 · todo') &&
+        f.includes('status: open') &&
+        f.includes('due: 2026-10-20'),
+    );
     expect(view).toContain('Todo'); // the automatic note panel for owned types
     expect(view).toContain('status: open');
     expect(view).toContain('due: 2026-10-20');

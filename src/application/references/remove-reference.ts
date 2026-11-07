@@ -1,5 +1,6 @@
 import { validation, type AppError } from '../../domain/errors.js';
 import type { Note } from '../../domain/note/note.js';
+import { isStandaloneReference } from '../../domain/reference/reference.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import { replaceRange, type SourceRange, type TextEdit } from '../../domain/text/text-edit.js';
@@ -26,8 +27,6 @@ export interface RemoveReferencePlan {
   readonly kind: RemovalKind;
   readonly edit: TextEdit;
 }
-
-const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+$/;
 
 /**
  * What removing a reference does to the text, computed on the source alone so the TUI and a
@@ -57,8 +56,7 @@ export const planRemoval = (
   const lineStart = source.lastIndexOf('\n', range.start - 1) + 1;
   const lineEndIndex = source.indexOf('\n', range.end);
   const lineEnd = lineEndIndex === -1 ? source.length : lineEndIndex;
-  const rest = source.slice(lineStart, range.start) + source.slice(range.end, lineEnd);
-  if (rest.trim() === '' || LIST_ITEM.test(rest)) {
+  if (isStandaloneReference(source, range)) {
     // Alone on its line (possibly behind a list marker): drop the line and its newline.
     const end = lineEndIndex === -1 ? lineEnd : lineEnd + 1;
     return ok({ kind: 'deleted', edit: replaceRange({ start: lineStart, end }, '') });

@@ -1,11 +1,13 @@
 import { InvalidArgumentError, type Command } from 'commander';
 import { bindDate } from '../../../application/calendar/bind-date.js';
 import { addReference } from '../../../application/references/add-reference.js';
+import { relabelAll, relabelReferences } from '../../../application/references/relabel.js';
 import { insertSnippet } from '../../../application/snippets/insert-snippet.js';
+import { usage } from '../../../domain/errors.js';
 import { parseInsertionLocation, type InsertionLocation } from '../../../domain/text/insertion.js';
 import type { Exit } from '../commands.js';
 import { contextFor, inScope, type CliIo } from '../context.js';
-import { emit, mutationText } from '../output.js';
+import { emit, mutationText, relabelAllText, reportError } from '../output.js';
 
 const parseAt = (value: string): InsertionLocation => {
   const location = parseInsertionLocation(value);
@@ -58,6 +60,50 @@ export const registerMutationCommands = (
                 ...(opts.at !== undefined && { at: opts.at }),
                 ...(opts.label !== undefined && { label: opts.label }),
                 ...(opts.dryRun !== undefined && { dryRun: opts.dryRun }),
+              }),
+            ),
+            mutationText,
+          ),
+        );
+      },
+    );
+
+  reference
+    .command('relabel')
+    .description("refresh standalone [[links]] to show each target's current title")
+    .argument('[query]', 'note to relabel: id, title or alias (omit with --all)')
+    .option('--all', 'relabel every note in the scope')
+    .option('--dry-run', 'print the change as a diff and write nothing')
+    .action(
+      async (
+        query: string | undefined,
+        opts: { all?: boolean; dryRun?: boolean },
+        cmd: Command,
+      ) => {
+        const ctx = contextFor(io, cmd);
+        if (opts.all) {
+          exit(
+            await emit(
+              ctx,
+              inScope(ctx, (scope) =>
+                relabelAll(ctx.deps, scope, { ...(opts.dryRun !== undefined && { dryRun: true }) }),
+              ),
+              relabelAllText,
+            ),
+          );
+          return;
+        }
+        if (query === undefined) {
+          exit(reportError(ctx, usage('Provide a note query, or --all to relabel the scope')));
+          return;
+        }
+        exit(
+          await emit(
+            ctx,
+            inScope(ctx, (scope) =>
+              relabelReferences(ctx.deps, scope, {
+                source: query,
+                ...(opts.dryRun !== undefined && { dryRun: true }),
               }),
             ),
             mutationText,

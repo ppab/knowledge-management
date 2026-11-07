@@ -117,7 +117,7 @@ describe('scopes (M4)', () => {
     );
     expect(byId.code).toBe(0);
     expect((await notes(base, '--scope', 'both', 'reference', 'list', 'A')).stdout).toContain(
-      '[[B]] -> Beta (two:b.md)',
+      '[[B|Beta]] -> Beta (two:b.md)',
     );
   });
 

@@ -185,8 +185,28 @@ export const createNote = async (
     setIfMissing: { id: id.value, title: input.title, created: now.toISOString() },
   });
   if (!yaml.ok) return yaml;
+  // Obsidian resolves `[[id]]` only against a note's filename or its frontmatter `aliases:`,
+  // never against our `id:` field. Carry the id as an alias (id first, deduped) so links the
+  // app writes to this note resolve in Obsidian too. This covers the built-in and any user
+  // template in one place, rather than editing template text.
+  const parsed = deps.frontmatter.parse(yaml.value);
+  if (!parsed.ok) return parsed;
+  const rawAliases: unknown = parsed.value.aliases;
+  const existingAliases: string[] = Array.isArray(rawAliases)
+    ? rawAliases.filter((a): a is string => typeof a === 'string')
+    : typeof rawAliases === 'string'
+      ? [rawAliases]
+      : [];
+  let yamlText = yaml.value;
+  if (!existingAliases.includes(id.value)) {
+    const withAlias = deps.frontmatter.update(yaml.value, {
+      set: { aliases: [id.value, ...existingAliases] },
+    });
+    if (!withAlias.ok) return withAlias;
+    yamlText = withAlias.value;
+  }
   const body = substitute(template.value.body);
-  const content = wrapFrontmatter(yaml.value) + body;
+  const content = wrapFrontmatter(yamlText) + body;
 
   // A template's path is relative to the notes directory (`/` anchors it at the vault root);
   // `--path` is vault-relative as documented. Either way the note must land where the vault

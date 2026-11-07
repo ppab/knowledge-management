@@ -192,8 +192,9 @@ describe('notes CLI (M1)', () => {
       ).code,
     ).toBe(0);
     // The template ends with a blank line; the section is appended after the content, before it.
+    // With no --label, the link defaults to the target's current title.
     expect(await readFile(file, 'utf8')).toBe(
-      `${original.trimEnd()}\n\n## References\n\n[[${alphaId}]]\n\n`,
+      `${original.trimEnd()}\n\n## References\n\n[[${alphaId}|Alpha]]\n\n`,
     );
     const back = await notes(root, 'backlinks', alphaId, '--json');
     const { backlinks } = JSON.parse(back.stdout) as { backlinks: { source: { id: string } }[] };
@@ -252,6 +253,47 @@ describe('notes CLI (M1)', () => {
       (await notes(root, 'reference', 'add', '--source', id, '--target', alphaId, '--at', 'middle'))
         .code,
     ).toBe(2);
+  });
+
+  it('relabels standalone links to show each target current title', async () => {
+    const create = async (title: string) => {
+      const r = await notes(root, 'create', '--title', title, '--json');
+      expect(r.code).toBe(0);
+      return JSON.parse(r.stdout) as { id: string; path: string };
+    };
+    const target = await create('Relabel Target');
+    const source = await create('Relabel Source');
+    // A hand-labelled standalone link, so relabel has something to rewrite.
+    expect(
+      (
+        await notes(
+          root,
+          'reference',
+          'add',
+          '--source',
+          source.id,
+          '--target',
+          target.id,
+          '--at',
+          'references',
+          '--label',
+          'OldLabel',
+        )
+      ).code,
+    ).toBe(0);
+    const sfile = join(root, source.path);
+    expect(await readFile(sfile, 'utf8')).toContain(`[[${target.id}|OldLabel]]`);
+
+    // Dry run previews the new title and writes nothing.
+    const dry = await notes(root, 'reference', 'relabel', source.id, '--dry-run');
+    expect(dry.code).toBe(0);
+    expect(dry.stdout).toContain(`+[[${target.id}|Relabel Target]]`);
+    expect(await readFile(sfile, 'utf8')).toContain('OldLabel');
+
+    // The real relabel rewrites the label to the target's current title.
+    expect((await notes(root, 'reference', 'relabel', source.id)).code).toBe(0);
+    expect(await readFile(sfile, 'utf8')).toContain(`[[${target.id}|Relabel Target]]`);
+    // (--all and the no-argument usage error are covered by relabel.test.ts without spawning.)
   });
 
   it('deletes a note, refusing while something links to it unless forced', async () => {
