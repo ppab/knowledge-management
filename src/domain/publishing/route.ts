@@ -28,7 +28,8 @@ export interface RouteVariables {
 
 /** The slug is the frontmatter `slug` when set, else the title slugified. */
 export const routeVariables = (input: RouteInput): RouteVariables => {
-  const slug = input.slug !== undefined && input.slug.trim() !== '' ? input.slug : slugify(input.title);
+  const slug =
+    input.slug !== undefined && input.slug.trim() !== '' ? input.slug : slugify(input.title);
   const parts = input.path.split('/').filter((segment) => segment !== '');
   const file = parts[parts.length - 1] ?? input.path;
   const dir = parts.slice(0, -1).join('/');
@@ -38,13 +39,11 @@ export const routeVariables = (input: RouteInput): RouteVariables => {
     : { slug, id: input.id, dir, stem };
 };
 
-/** Characters that may appear in a route segment unencoded (RFC 3986 unreserved). */
-const UNRESERVED = /[A-Za-z0-9\-._~]/;
-
 /**
  * Canonicalizes a route: a single leading `/`, collapsed slashes, a preserved trailing `/`, and
- * every character outside the unreserved set percent-encoded. A `.` or `..` segment is rejected —
- * a route is a URL path, not a filesystem path, and those would let a hostile `slug` escape.
+ * every character outside the RFC 3986 unreserved set percent-encoded. A `.` or `..` segment is
+ * rejected — a route is a URL path, not a filesystem path, and those would let a hostile `slug`
+ * escape.
  */
 export const normalizeRoute = (route: string): Result<string, AppError> => {
   const text = route.replace(/\\/g, '/');
@@ -55,10 +54,10 @@ export const normalizeRoute = (route: string): Result<string, AppError> => {
     }
   }
   const encoded = segments.map((segment) =>
-    [...segment].map((char) => (UNRESERVED.test(char) ? char : encodeURIComponent(char))).join(''),
+    segment.replace(/[^A-Za-z0-9\-._~]/gu, (char) => encodeURIComponent(char)),
   );
   if (encoded.length === 0) return ok('/');
-  const trailing = /\/$/.test(text) ? '/' : '';
+  const trailing = text.endsWith('/') ? '/' : '';
   return ok(`/${encoded.join('/')}${trailing}`);
 };
 

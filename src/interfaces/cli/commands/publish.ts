@@ -3,7 +3,11 @@ import { isPublishable } from '../../../domain/publishing/plan.js';
 import type { ExclusionReason } from '../../../domain/publishing/select.js';
 import { ok } from '../../../domain/result.js';
 import type { ResolvedPublication } from '../../../application/publishing/destination.js';
-import { listPublications, publish, type PublishOutcome } from '../../../application/publishing/publish.js';
+import {
+  listPublications,
+  publish,
+  type PublishOutcome,
+} from '../../../application/publishing/publish.js';
 import type { Exit } from '../commands.js';
 import { contextFor, inScopeWithPlugins, type CliIo } from '../context.js';
 import { emit, EXIT_CODES, table } from '../output.js';
@@ -35,11 +39,13 @@ const publishText = (outcome: PublishOutcome): string => {
   const { destination, options } = resolved;
   const lines = [header(resolved, plan.outputDir)];
   if (outcome.kind === 'published') {
-    lines.push(`Wrote ${outcome.report.files.length} file(s) to ${outcome.report.outputDir}:`);
+    lines.push(
+      `Wrote ${String(outcome.report.files.length)} file(s) to ${outcome.report.outputDir}:`,
+    );
     lines.push(...outcome.report.files.map((f) => `  ${f}`));
     return lines.join('\n');
   }
-  lines.push(`included (${plan.entries.length}):`);
+  lines.push(`included (${String(plan.entries.length)}):`);
   lines.push(
     table(
       plan.entries.map((e) => [
@@ -52,16 +58,19 @@ const publishText = (outcome: PublishOutcome): string => {
     ),
   );
   if (plan.excluded.length > 0) {
-    lines.push(`excluded (${plan.excluded.length}):`);
+    lines.push(`excluded (${String(plan.excluded.length)}):`);
     lines.push(
-      table(plan.excluded.map((x) => [`  ${x.candidate.id}`, x.candidate.path, reasonText(x.reason)])),
+      table(
+        plan.excluded.map((x) => [`  ${x.candidate.id}`, x.candidate.path, reasonText(x.reason)]),
+      ),
     );
   }
   if (plan.violations.length > 0) {
-    lines.push(`violations (${plan.violations.length}):`);
+    lines.push(`violations (${String(plan.violations.length)}):`);
     lines.push(
       ...plan.violations.map(
-        (v) => `  ${v.source.path} [[${v.target}]] → ${v.target} (${v.state}; policy ${plan.publication.references})`,
+        (v) =>
+          `  ${v.source.path} [[${v.target}]] → ${v.target} (${v.state}; policy ${plan.publication.references})`,
       ),
     );
   }
@@ -87,7 +96,11 @@ const publishJson = (outcome: PublishOutcome): unknown => {
       route: e.route,
       path: resolved.destination.pathFor(e, resolved.options),
     })),
-    excluded: plan.excluded.map((x) => ({ id: x.candidate.id, path: x.candidate.path, reason: x.reason })),
+    excluded: plan.excluded.map((x) => ({
+      id: x.candidate.id,
+      path: x.candidate.path,
+      reason: x.reason,
+    })),
     violations: plan.violations,
     collisions: plan.collisions,
     publishable: isPublishable(plan),
@@ -121,7 +134,9 @@ export const registerPublishCommand = (program: Command, io: CliIo, exit: Exit):
         exit(
           await emit(
             ctx,
-            inScopeWithPlugins(ctx, (_scope, registry) => Promise.resolve(ok(listPublications(registry)))),
+            inScopeWithPlugins(ctx, (_scope, registry) =>
+              Promise.resolve(ok(listPublications(registry))),
+            ),
             listText,
             (publications) =>
               publications.map((p) => ({
@@ -135,18 +150,19 @@ export const registerPublishCommand = (program: Command, io: CliIo, exit: Exit):
         );
         return;
       }
-      let unpublishableDryRun = false;
+      const state = { unpublishable: false };
       const code = await emit(
         ctx,
         inScopeWithPlugins(ctx, (scope, registry) =>
           publish(ctx.deps, scope, registry, { name, dryRun: options.dryRun ?? false }),
         ),
         (outcome) => {
-          if (outcome.kind === 'planned' && !isPublishable(outcome.plan)) unpublishableDryRun = true;
+          if (outcome.kind === 'planned' && !isPublishable(outcome.plan))
+            state.unpublishable = true;
           return publishText(outcome);
         },
         publishJson,
       );
-      exit(code === 0 && unpublishableDryRun ? EXIT_CODES.VALIDATION : code);
+      exit(code === 0 && state.unpublishable ? EXIT_CODES.VALIDATION : code);
     });
 };

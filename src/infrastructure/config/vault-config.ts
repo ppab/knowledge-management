@@ -16,10 +16,7 @@ import {
  * the destination itself validates (`destination: { kind: astro, theme: modular }`). Unknown
  * keys are kept — they are the options.
  */
-const destinationSchema = z.union([
-  z.string().min(1),
-  z.looseObject({ kind: z.string().min(1) }),
-]);
+const destinationSchema = z.union([z.string().min(1), z.looseObject({ kind: z.string().min(1) })]);
 
 const publicationSchema = z.object({
   destination: destinationSchema,
@@ -31,9 +28,13 @@ const publicationSchema = z.object({
   references: z
     .string()
     .default('fail')
-    .refine((value): value is ReferencePolicy => (REFERENCE_POLICIES as readonly string[]).includes(value), {
-      message: `references must be one of: ${REFERENCE_POLICIES.join(', ')}`,
-    }),
+    .refine(
+      (value): value is ReferencePolicy =>
+        (REFERENCE_POLICIES as readonly string[]).includes(value),
+      {
+        message: `references must be one of: ${REFERENCE_POLICIES.join(', ')}`,
+      },
+    ),
 });
 
 /** On-disk shape of `.notes/config.yaml`. */

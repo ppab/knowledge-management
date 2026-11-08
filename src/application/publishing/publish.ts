@@ -1,4 +1,11 @@
-import { ambiguous, notFound, unavailable, usage, validation, type AppError } from '../../domain/errors.js';
+import {
+  ambiguous,
+  notFound,
+  unavailable,
+  usage,
+  validation,
+  type AppError,
+} from '../../domain/errors.js';
 import { isPublishable, type PublicationPlan } from '../../domain/publishing/plan.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
@@ -22,7 +29,11 @@ export interface PublishInput {
 }
 
 export type PublishOutcome =
-  | { readonly kind: 'planned'; readonly resolved: ResolvedPublication; readonly plan: PublicationPlan }
+  | {
+      readonly kind: 'planned';
+      readonly resolved: ResolvedPublication;
+      readonly plan: PublicationPlan;
+    }
   | {
       readonly kind: 'published';
       readonly resolved: ResolvedPublication;
@@ -44,16 +55,21 @@ const findPublication = (
     const names = registry.publications().map((p) => p.publication.name);
     const message = `No publication "${name}"${names.length > 0 ? `; defined: ${names.join(', ')}` : ' is defined'}`;
     // A missing match while vaults are unavailable might only be a vault we could not open (A6).
-    return err(session.unavailable.length > 0 ? unavailable(message, { names }) : notFound(message, { names }));
+    return err(
+      session.unavailable.length > 0
+        ? unavailable(message, { names })
+        : notFound(message, { names }),
+    );
   }
   if (matches.length > 1) {
     return err(
-      ambiguous(`Publication "${name}" is defined in ${matches.length} vaults`, {
+      ambiguous(`Publication "${name}" is defined in ${String(matches.length)} vaults`, {
         vaults: matches.map((m) => m.vault.config.name),
       }),
     );
   }
-  const resolved = matches[0] as ResolvedPublication;
+  const [resolved] = matches;
+  if (!resolved) return err(notFound(`No publication "${name}"`, {}));
   if (resolved.publication.vaults) {
     const names = new Set(session.opened.map((o) => o.vault.config.name));
     const missing = resolved.publication.vaults.filter((v) => !names.has(v));

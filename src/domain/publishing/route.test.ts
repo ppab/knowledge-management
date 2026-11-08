@@ -4,9 +4,9 @@ import { normalizeRoute, renderRoute, routeToPath, routeVariables } from './rout
 
 describe('routeVariables', () => {
   it('prefers an explicit slug over the title', () => {
-    expect(routeVariables({ path: 'docs/a.md', title: 'My Note', slug: 'custom', id: 'ID1' })).toEqual(
-      { slug: 'custom', id: 'ID1', dir: 'docs', stem: 'a' },
-    );
+    expect(
+      routeVariables({ path: 'docs/a.md', title: 'My Note', slug: 'custom', id: 'ID1' }),
+    ).toEqual({ slug: 'custom', id: 'ID1', dir: 'docs', stem: 'a' });
   });
 
   it('slugifies the title when no slug is set, and splits the path', () => {
@@ -53,7 +53,10 @@ describe('renderRoute', () => {
 
   it('reports a placeholder the candidate cannot supply', () => {
     const out = renderRoute('/{{type}}/{{slug}}/', { slug: 'hi', id: 'ID1', dir: '', stem: 'hi' });
-    expect(out).toMatchObject({ ok: false, error: { code: 'VALIDATION', details: { missing: ['type'] } } });
+    expect(out).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION', details: { missing: ['type'] } },
+    });
   });
 });
 

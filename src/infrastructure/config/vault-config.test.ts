@@ -40,7 +40,9 @@ describe('vault config publications key', () => {
   });
 
   it('applies defaults and the string destination shorthand', () => {
-    const config = unwrap(withPublications('  content:\n    destination: markdown\n    output: ./dist\n'));
+    const config = unwrap(
+      withPublications('  content:\n    destination: markdown\n    output: ./dist\n'),
+    );
     expect(config.publications?.content).toEqual({
       name: 'content',
       destination: { kind: 'markdown', options: {} },
@@ -74,8 +76,8 @@ describe('vault config publications key', () => {
   });
 
   it('rejects an unknown reference policy', () => {
-    expect(withPublications('  x:\n    destination: markdown\n    output: ./d\n    references: bogus\n')).toMatchObject(
-      { ok: false, error: { code: 'VALIDATION' } },
-    );
+    expect(
+      withPublications('  x:\n    destination: markdown\n    output: ./d\n    references: bogus\n'),
+    ).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
   });
 });

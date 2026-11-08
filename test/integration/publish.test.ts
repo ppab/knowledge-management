@@ -28,12 +28,17 @@ const notes = async (cwd: string, ...args: string[]): Promise<Outcome> => {
 };
 
 const sha = async (path: string): Promise<string> =>
-  createHash('sha256').update(await readFile(path)).digest('hex');
+  createHash('sha256')
+    .update(await readFile(path))
+    .digest('hex');
 
 const missing = async (path: string): Promise<boolean> =>
-  stat(path).then(() => false).catch(() => true);
+  stat(path)
+    .then(() => false)
+    .catch(() => true);
 
-const alpha = '---\nid: AAA\nvisibility: public\ntitle: Alpha\n---\n\nSee [[BBB]], [[SEC]] and [[GONE]].\n';
+const alpha =
+  '---\nid: AAA\nvisibility: public\ntitle: Alpha\n---\n\nSee [[BBB]], [[SEC]] and [[GONE]].\n';
 const beta = '---\nid: BBB\nvisibility: public\ntitle: Beta\n---\n\nBeta body.\n';
 const secret = '---\nid: SEC\nvisibility: private\ntitle: Secret\n---\n\nhidden\n';
 
@@ -115,7 +120,10 @@ describe('notes publish', () => {
       );
       const out = await notes(v, 'publish', 'blog');
       expect(out.code).toBe(0);
-      const post = await readFile(join(v, 'site', 'src', 'content', 'posts', 'first-post.md'), 'utf8');
+      const post = await readFile(
+        join(v, 'site', 'src', 'content', 'posts', 'first-post.md'),
+        'utf8',
+      );
       expect(post).toContain('title: First Post');
       expect(post).toContain('date: 2026-01-02');
       expect(post).toContain('description: A first post');
@@ -132,8 +140,14 @@ describe('notes publish', () => {
       await notes(v, 'init', '--name', 'x', '--dir', 'notes');
       const cfg = join(v, '.notes', 'config.yaml');
       await writeFile(cfg, config(await readFile(cfg, 'utf8'), 'strip-to-label'));
-      await writeFile(join(v, 'notes', 'one.md'), '---\nid: ONE\nvisibility: public\ntitle: T\nslug: same\n---\n');
-      await writeFile(join(v, 'notes', 'two.md'), '---\nid: TWO\nvisibility: public\ntitle: U\nslug: same\n---\n');
+      await writeFile(
+        join(v, 'notes', 'one.md'),
+        '---\nid: ONE\nvisibility: public\ntitle: T\nslug: same\n---\n',
+      );
+      await writeFile(
+        join(v, 'notes', 'two.md'),
+        '---\nid: TWO\nvisibility: public\ntitle: U\nslug: same\n---\n',
+      );
 
       const collide = await notes(v, 'publish', 'content');
       expect(collide.code).toBe(6);

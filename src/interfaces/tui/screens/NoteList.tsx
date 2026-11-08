@@ -188,7 +188,13 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
             <Rows
               header={header}
               rows={rows}
-              roles={['muted', visibilityRole, null, ...(composite ? ['muted' as const] : []), 'tag']}
+              roles={[
+                'muted',
+                visibilityRole,
+                null,
+                ...(composite ? ['muted' as const] : []),
+                'tag',
+              ]}
               cursor={cursor}
               height={
                 height -

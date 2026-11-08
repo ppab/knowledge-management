@@ -47,7 +47,9 @@ export const executePublication = async (
   const collisions = findPathCollisions(pathEntries);
   if (collisions.length > 0) {
     return err(
-      validation(`Output paths collide: ${collisions.map((c) => c.key).join(', ')}`, { collisions }),
+      validation(`Output paths collide: ${collisions.map((c) => c.key).join(', ')}`, {
+        collisions,
+      }),
     );
   }
 
@@ -60,11 +62,16 @@ export const executePublication = async (
   const files: { path: string; content: string }[] = [];
   for (const entry of plan.entries) {
     const opened = openedByName.get(entry.vault);
-    if (!opened) return err(unavailable(`Vault ${entry.vault} is not open`, { vault: entry.vault }));
+    if (!opened)
+      return err(unavailable(`Vault ${entry.vault} is not open`, { vault: entry.vault }));
     const doc = await deps.notes.read(opened.vault.root, entry.path);
     if (!doc.ok) return doc;
     if (doc.value.version !== entry.version) {
-      return err(conflict(`${entry.path} changed since it was indexed; refresh and retry`, { path: entry.path }));
+      return err(
+        conflict(`${entry.path} changed since it was indexed; refresh and retry`, {
+          path: entry.path,
+        }),
+      );
     }
     const note = loadNoteEntry(deps, doc.value);
     if (note.kind !== 'note' || note.id !== entry.id) {

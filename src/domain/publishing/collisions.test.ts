@@ -14,7 +14,12 @@ describe('findRouteCollisions', () => {
   });
 
   it('reports nothing when every route is distinct', () => {
-    expect(findRouteCollisions([{ id: 'A', route: '/a/' }, { id: 'B', route: '/b/' }])).toEqual([]);
+    expect(
+      findRouteCollisions([
+        { id: 'A', route: '/a/' },
+        { id: 'B', route: '/b/' },
+      ]),
+    ).toEqual([]);
   });
 });
 

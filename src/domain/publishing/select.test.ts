@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { Visibility } from '../note/note.js';
 import type { Publication } from './publication.js';
 import { selectCandidates, type PublicationCandidate } from './select.js';
 
@@ -8,7 +7,7 @@ const candidate = (
 ): PublicationCandidate => ({
   vault: 'main',
   title: overrides.id,
-  visibility: 'public' as Visibility,
+  visibility: 'public',
   tags: [],
   dates: [],
   fields: {},
@@ -37,9 +36,7 @@ describe('selectCandidates', () => {
     ];
     const result = selectCandidates(pub, notes, 'main');
     expect(result.included.map((n) => n.id)).toEqual(['PUB']);
-    expect(result.excluded).toEqual([
-      { candidate: notes[1], reason: { kind: 'private' } },
-    ]);
+    expect(result.excluded).toEqual([{ candidate: notes[1], reason: { kind: 'private' } }]);
   });
 
   it('a glob never admits a private note (visibility is checked first)', () => {

@@ -59,7 +59,10 @@ const describePlugin = (plugin: NotePlugin, enabled: boolean | undefined) => ({
     ...(p.chord !== undefined && { chord: p.chord }),
     actions: (p.actions ?? []).map((a) => ({ key: a.key, label: a.label })),
   })),
-  destinations: (plugin.destinations ?? []).map((d) => ({ kind: d.kind, description: d.description })),
+  destinations: (plugin.destinations ?? []).map((d) => ({
+    kind: d.kind,
+    description: d.description,
+  })),
 });
 
 export const registerCapabilitiesCommand = (program: Command, io: CliIo, exit: Exit): void => {

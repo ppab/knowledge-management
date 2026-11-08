@@ -6,7 +6,10 @@ import type { Publication } from './publication.js';
 import { buildPlan, isPublishable } from './plan.js';
 import type { PublicationCandidate } from './select.js';
 
-const ref = (target: string): Reference => ({ target: asNoteId(target), range: { start: 0, end: 0 } });
+const ref = (target: string): Reference => ({
+  target: asNoteId(target),
+  range: { start: 0, end: 0 },
+});
 
 const candidate = (
   overrides: Partial<PublicationCandidate> & Pick<PublicationCandidate, 'id' | 'path' | 'title'>,
@@ -39,7 +42,10 @@ describe('buildPlan', () => {
       candidate({ id: 'A', path: 'a.md', title: 'Alpha' }),
       candidate({ id: 'P', path: 'p.md', title: 'Priv', visibility: 'private' }),
     ];
-    const existing = new Map([['A', { title: 'Alpha' }], ['B', { title: 'Beta' }]]);
+    const existing = new Map([
+      ['A', { title: 'Alpha' }],
+      ['B', { title: 'Beta' }],
+    ]);
     const plan = unwrap(buildPlan(publication({}), 'main', '/vault/dist', notes, existing));
     expect(plan.entries.map((e) => e.route)).toEqual(['/alpha/', '/beta/']);
     expect(plan.excluded.map((e) => e.candidate.id)).toEqual(['P']);
@@ -67,6 +73,9 @@ describe('buildPlan', () => {
   it('errors, naming the entry, when a route template cannot render', () => {
     const notes = [candidate({ id: 'A', path: 'a.md', title: 'Alpha' })];
     const result = buildPlan(publication({ route: '/{{type}}/' }), 'main', '/d', notes, new Map());
-    expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION', details: { id: 'A' } } });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION', details: { id: 'A' } },
+    });
   });
 });

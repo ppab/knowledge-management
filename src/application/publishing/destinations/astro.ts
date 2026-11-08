@@ -36,19 +36,21 @@ const isObject = (raw: unknown): raw is Record<string, unknown> =>
   typeof raw === 'object' && raw !== null && !Array.isArray(raw);
 
 const parse = (raw: unknown): Result<AstroOptions, AppError> => {
-  const source = raw === undefined || raw === null ? {} : raw;
+  const source = raw ?? {};
   if (!isObject(source)) return err(validation('destination options must be a mapping'));
   const { theme: themeName = 'modular', collection = 'posts', ...rest } = source;
   const unknown = Object.keys(rest);
   if (unknown.length > 0) {
     return err(validation(`unknown destination option(s): ${unknown.join(', ')}`, { unknown }));
   }
-  if (typeof themeName !== 'string' || !(themeName in THEMES)) {
+  const theme = typeof themeName === 'string' ? THEMES[themeName] : undefined;
+  if (theme === undefined) {
     return err(
-      validation(`unknown astro theme ${JSON.stringify(themeName)}`, { known: Object.keys(THEMES) }),
+      validation(`unknown astro theme ${JSON.stringify(themeName)}`, {
+        known: Object.keys(THEMES),
+      }),
     );
   }
-  const theme = THEMES[themeName] as AstroTheme;
   if (typeof collection !== 'string' || !(collection in theme.collections)) {
     return err(
       validation(`theme ${theme.name} has no collection ${JSON.stringify(collection)}`, {

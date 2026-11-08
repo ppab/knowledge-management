@@ -51,7 +51,8 @@ export const classifyReferences = (
         : existing.has(target)
           ? 'excluded'
           : 'unresolved';
-      if (!targets.has(target)) targets.set(target, title !== undefined ? { state, title } : { state });
+      if (!targets.has(target))
+        targets.set(target, title !== undefined ? { state, title } : { state });
       if (policy === 'fail' && state !== 'published') {
         violations.push({
           source: { vault: note.vault, path: note.path, id: note.id },

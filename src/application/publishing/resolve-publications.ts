@@ -25,7 +25,12 @@ export const resolvePublications = (
         return err(
           validation(
             `Publication "${publication.name}" in ${vault.config.name} uses unknown destination "${kind}"`,
-            { vault: vault.config.name, publication: publication.name, kind, known: destinations.map((d) => d.kind) },
+            {
+              vault: vault.config.name,
+              publication: publication.name,
+              kind,
+              known: destinations.map((d) => d.kind),
+            },
           ),
         );
       }
@@ -44,7 +49,8 @@ export const resolvePublications = (
       if (!route.ok) return route;
       resolved.push({
         vault,
-        publication: route.value === publication.route ? publication : { ...publication, route: route.value },
+        publication:
+          route.value === publication.route ? publication : { ...publication, route: route.value },
         destination,
         options: options.value,
       });

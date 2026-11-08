@@ -186,19 +186,25 @@ export const buildRegistry = (
     for (const destination of plugin.destinations ?? []) {
       if (baseKinds.has(destination.kind)) {
         return err(
-          validation(`Destination kind "${destination.kind}" of "${plugin.name}" shadows a built-in`, {
-            kind: destination.kind,
-            plugin: plugin.name,
-          }),
+          validation(
+            `Destination kind "${destination.kind}" of "${plugin.name}" shadows a built-in`,
+            {
+              kind: destination.kind,
+              plugin: plugin.name,
+            },
+          ),
         );
       }
       const other = destinationOwners.get(destination.kind);
       if (other !== undefined) {
         return err(
-          validation(`Destination kind "${destination.kind}" is declared by both "${other}" and "${plugin.name}"`, {
-            kind: destination.kind,
-            plugins: [other, plugin.name],
-          }),
+          validation(
+            `Destination kind "${destination.kind}" is declared by both "${other}" and "${plugin.name}"`,
+            {
+              kind: destination.kind,
+              plugins: [other, plugin.name],
+            },
+          ),
         );
       }
       destinationOwners.set(destination.kind, plugin.name);
