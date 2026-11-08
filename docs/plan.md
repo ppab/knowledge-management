@@ -655,15 +655,17 @@ Decisions recorded in the issue body under "Decisiones acordadas". B is next.
 
 ---
 
-## M8 — Publish
+## M8 — Publish ✅
 
-**Objective.** Publish selected notes through named publications and pluggable *destinations*
+**Objective.** Publish selected notes through named publications and pluggable _destinations_
 (`markdown`, `html`, `astro`) with transformed references and fail-safe boundaries; the TUI shows
 each note's visibility.
 
-Full implementation plan, decisions and test matrix: [plans/publish.md](./plans/publish.md)
-(approved 2026-11-07; supersedes the earlier `export` sketch — verb renamed per ADR 0005,
-two-layer visibility rule, destinations as plugin-like modules).
+**Status.** Shipped 2026-11-07. `notes publish [<name>] [--dry-run]`; `publications:` in
+`.notes/config.yaml`; markdown / html / astro (modular theme) destinations; two-layer visibility
+with a TUI badge; `doctor` publication pre-flight. Design recorded in
+[0006](./decisions/0006-publishing-destinations.md); the implementation plan and test matrix are in
+[plans/publish.md](./plans/publish.md).
 
 **Dependencies.** M4.
 

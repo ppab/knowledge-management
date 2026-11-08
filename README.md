@@ -64,6 +64,34 @@ notes save "first note" -m "first words"
 Several vaults can be read together: pass `--vault <path>` more than once, or define named scopes
 in `$XDG_CONFIG_HOME/notes/config.yaml` and select one with `--scope <name>`.
 
+## Publishing
+
+Only notes marked `visibility: public` are ever eligible to publish (the default is `private`).
+Declare named **publications** in `.notes/config.yaml`, each pointing at a **destination**:
+
+```yaml
+publications:
+  site:
+    destination: { kind: html, layout: directory } # or: destination: markdown
+    output: ./dist
+    include: ['docs/**']
+    references: fail # fail | strip-to-label | keep-id
+  blog:
+    destination: { kind: astro, theme: modular } # Markdown into an Astro content collection
+    output: ../my-site
+    include: ['posts/**']
+    references: strip-to-label
+```
+
+```bash
+notes publish                 # list the configured publications
+notes publish site --dry-run  # print the plan (routes, exclusions, reference violations); write nothing
+notes publish site            # write it; source notes are never modified
+```
+
+References between published notes become real links; a reference to an excluded or missing note is
+handled by the publication's `references` policy. Every publication also emits a `manifest.json`.
+
 ## Build from source
 
 Requirements: Node ≥ 24 and Bun ≥ 1.4 (both pinned in `mise.toml`; `mise install` provides them).

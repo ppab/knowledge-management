@@ -97,10 +97,20 @@ export interface NotePlugin {
   readonly commands?: readonly PluginCommand[];
   readonly checks?: readonly PluginCheck[];
   readonly panels?: readonly PanelSpec[];
+  /** Publication destination kinds this plugin adds; a kind belongs to one plugin or the core. */
+  readonly destinations?: readonly Destination[];
   /** Validates `plugins.<name>` from `.notes/config.yaml`; `{}` when the key is bare. */
   readonly settings?: (raw: unknown) => Result<unknown, AppError>;
 }
 ```
+
+A **destination** (see [architecture.md §7](./architecture.md) and
+[0006](./decisions/0006-publishing-destinations.md)) is the publishing analogue of a plugin: a code
+contract that decides how a publication's entries render and where their files go. Built-in kinds
+(`markdown`, `html`, `astro`) live in the registry; a plugin may add more (a kind belongs to the
+core or exactly one plugin). Like a plugin, a destination declares `FieldSpec`s — frontmatter it
+reads from the _source_ note — which `doctor` validates on the notes a publication selects,
+dropping `undeclared` (a note of any type may carry fields a destination does not know).
 
 ### Plugin API
 
