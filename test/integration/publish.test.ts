@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -110,14 +110,30 @@ describe('notes publish', () => {
       await notes(v, 'init', '--name', 'blog', '--dir', 'notes');
       const cfg = join(v, '.notes', 'config.yaml');
       const base = await readFile(cfg, 'utf8');
+      // Two publications into one Astro project: posts and pages, each its own collection,
+      // selecting disjoint folders both under the indexed `notes/` directory.
       await writeFile(
         cfg,
-        `${base}\npublications:\n  blog:\n    destination: { kind: astro, theme: modular }\n    output: ./site\n    include: [notes/**]\n    references: strip-to-label\n`,
+        `${base}\npublications:\n` +
+          `  blog:\n    destination: { kind: astro, theme: modular }\n    output: ./site\n    include: [notes/blog/**]\n    references: strip-to-label\n` +
+          `  pages:\n    destination: { kind: astro, theme: modular, collection: pages }\n    output: ./site\n    include: [notes/pages/**]\n    references: strip-to-label\n`,
       );
+      await mkdir(join(v, 'notes', 'blog'), { recursive: true });
+      await mkdir(join(v, 'notes', 'pages'), { recursive: true });
       await writeFile(
-        join(v, 'notes', 'post.md'),
+        join(v, 'notes', 'blog', 'post.md'),
         '---\nid: PST\nvisibility: public\ntitle: First Post\ncreated: 2026-01-02T09:00:00.000Z\ndescription: A first post\ntags: [intro]\n---\n\nHello.\n',
       );
+      await writeFile(
+        join(v, 'notes', 'pages', 'about.md'),
+        '---\nid: ABT\nvisibility: public\ntitle: About\ncreated: 2026-01-02T09:00:00.000Z\ndescription: who we are\n---\n\nAbout us.\n',
+      );
+
+      const list = await notes(v, 'publish');
+      expect(list.code).toBe(0);
+      expect(list.stdout).toContain('blog');
+      expect(list.stdout).toContain('pages');
+
       const out = await notes(v, 'publish', 'blog');
       expect(out.code).toBe(0);
       const post = await readFile(
@@ -129,6 +145,13 @@ describe('notes publish', () => {
       expect(post).toContain('description: A first post');
       expect(post).not.toContain('visibility:');
       expect(await missing(join(v, 'site', '.capture', 'manifest.json'))).toBe(false);
+
+      const pagesOut = await notes(v, 'publish', 'pages');
+      expect(pagesOut.code).toBe(0);
+      const about = await readFile(join(v, 'site', 'src', 'content', 'pages', 'about.md'), 'utf8');
+      expect(about).toContain('title: About');
+      expect(about).toContain('lastModified: 2026-01-02');
+      expect(about).not.toContain('date: 2026');
     } finally {
       await rm(v, { recursive: true, force: true });
     }

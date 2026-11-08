@@ -1,6 +1,6 @@
 # Plan — Declared destination options & multi-collection themes
 
-Status: proposed (2026-11-08) · follows [0006](../decisions/0006-publishing-destinations.md) · post-M8 enhancement
+Status: implemented (2026-11-08) · [ADR 0007](../decisions/0007-destination-options.md) · follows [0006](../decisions/0006-publishing-destinations.md) · post-M8 enhancement
 
 ## Context
 
@@ -30,7 +30,7 @@ plugin-like modules" line of ADR 0006.
 ## Guiding principle
 
 **The publisher declares the schema; the core only knows the contract.** The core never
-enumerates collections, options or theme fields — it defines the *shapes* (`OptionSpec`,
+enumerates collections, options or theme fields — it defines the _shapes_ (`OptionSpec`,
 `AstroTheme`/`AstroCollection`, the existing `FieldSpec`) and consumes whatever a destination or
 theme declares: it validates config against the declaration, lists it in `capabilities`, and
 checks it in `doctor`. A destination author (including a plugin) picks their own options; a theme
@@ -74,9 +74,9 @@ author picks their own collections, routes and frontmatter mappings — without 
 export interface OptionSpec {
   readonly name: string;
   readonly type: 'string' | 'boolean' | 'enum';
-  readonly values?: readonly string[];        // enum members
+  readonly values?: readonly string[]; // enum members
   readonly default?: string | boolean;
-  readonly required?: boolean;                 // no default and must be set
+  readonly required?: boolean; // no default and must be set
   readonly description?: string;
 }
 
@@ -108,7 +108,7 @@ enum. The built-in export is `createAstroDestination([modularTheme])`.
 
 **Plugin slot.** `NotePlugin` gains `astroThemes?: readonly AstroTheme[]` (narrow and typed —
 astro is a first-party built-in, so the core already knows it; this only lets a third party
-*extend* it). A theme publisher ships a plugin that declares a theme; nothing else in the plugin
+_extend_ it). A theme publisher ships a plugin that declares a theme; nothing else in the plugin
 contract changes.
 
 ### 2. Generic validation — `application/publishing/validate-options.ts` (new)
@@ -200,15 +200,19 @@ own `collections` map — the destination code is unchanged.
 - **`doctor`**: no new finding kind; the better config errors come free from `validateOptions`
   at registry build (a broken `collection` blocks vault open with a listing, as today).
 
-### 7. Registry — aggregate destinations *and* astro themes
+### 7. Registry — aggregate destinations _and_ astro themes
 
 `buildRegistry` already validates destination-kind ownership and calls `resolvePublications`; it
 gains the parallel for themes. In `destinationsFor(root)`:
 
 ```ts
-const themes = [modularTheme, ...enabledHere(root).flatMap(p => p.astroThemes ?? [])];
-return [markdownDestination, htmlDestination, createAstroDestination(themes),
-        ...enabledHere(root).flatMap(p => p.destinations ?? [])];
+const themes = [modularTheme, ...enabledHere(root).flatMap((p) => p.astroThemes ?? [])];
+return [
+  markdownDestination,
+  htmlDestination,
+  createAstroDestination(themes),
+  ...enabledHere(root).flatMap((p) => p.destinations ?? []),
+];
 ```
 
 At build time, validate once (like the destination-kind and chord clashes): a theme name declared

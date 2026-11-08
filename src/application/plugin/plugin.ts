@@ -13,6 +13,7 @@ import type { LocatedNote } from '../scope/session.js';
 import type { SearchOptions, SearchResult } from '../search/search-notes.js';
 import type { InsertSnippetInput } from '../snippets/insert-snippet.js';
 import type { Destination, ResolvedPublication } from '../publishing/destination.js';
+import type { AstroTheme } from '../publishing/destinations/astro.js';
 
 /*
  * The plugin contract (docs/plugins.md). A plugin gives meaning to a kind of note: it owns
@@ -194,6 +195,8 @@ export interface NotePlugin {
   readonly panels?: readonly PanelSpec[];
   /** Publication destination kinds this plugin adds; a kind belongs to one plugin or the core. */
   readonly destinations?: readonly Destination[];
+  /** Astro theme profiles this plugin adds to the built-in `astro` kind; a name belongs to one. */
+  readonly astroThemes?: readonly AstroTheme[];
   /** Validates `plugins.<name>` from `.notes/config.yaml`; `{}` when the key is bare. */
   readonly settings?: (raw: unknown) => Result<unknown, AppError>;
 }

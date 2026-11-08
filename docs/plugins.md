@@ -99,18 +99,34 @@ export interface NotePlugin {
   readonly panels?: readonly PanelSpec[];
   /** Publication destination kinds this plugin adds; a kind belongs to one plugin or the core. */
   readonly destinations?: readonly Destination[];
+  /** Astro theme profiles this plugin adds to the built-in `astro` kind; a name belongs to one. */
+  readonly astroThemes?: readonly AstroTheme[];
   /** Validates `plugins.<name>` from `.notes/config.yaml`; `{}` when the key is bare. */
   readonly settings?: (raw: unknown) => Result<unknown, AppError>;
 }
 ```
 
-A **destination** (see [architecture.md §7](./architecture.md) and
-[0006](./decisions/0006-publishing-destinations.md)) is the publishing analogue of a plugin: a code
+A **destination** (see [architecture.md §7](./architecture.md),
+[0006](./decisions/0006-publishing-destinations.md) and
+[0007](./decisions/0007-destination-options.md)) is the publishing analogue of a plugin: a code
 contract that decides how a publication's entries render and where their files go. Built-in kinds
 (`markdown`, `html`, `astro`) live in the registry; a plugin may add more (a kind belongs to the
 core or exactly one plugin). Like a plugin, a destination declares `FieldSpec`s — frontmatter it
 reads from the _source_ note — which `doctor` validates on the notes a publication selects,
 dropping `undeclared` (a note of any type may carry fields a destination does not know).
+
+A destination also **declares its config options as data** — `options(chosen?)` returns an
+`OptionSpec[]` (a `string`/`boolean`/`enum` schema), the same shape-not-values principle as fields.
+The core validates a publication's `options` against that declaration generically, applies defaults,
+and lists them under `capabilities`; no destination hand-parses config. A dependent enum resolves
+from the options chosen so far (astro's `collection` values follow the chosen `theme`).
+
+The **`astro` kind is itself extensible**: a `theme` profile (`AstroTheme`) owns the content
+directory and, per collection, that collection's URL route, source `FieldSpec`s and core→theme
+frontmatter mapping. A plugin contributes a theme through `astroThemes`, and
+`{ kind: astro, theme: <name>, collection: <name> }` works with no change to core. Theme names are
+single-owner just like destination kinds and panel chords: a plugin shadowing the built-in
+`modular`, or two plugins declaring one name, are rejected at registry build.
 
 ### Plugin API
 

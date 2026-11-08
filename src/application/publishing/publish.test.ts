@@ -108,6 +108,32 @@ describe('publish — astro (modular)', () => {
     expect(f.outputs.files.has('/out/site/.capture/manifest.json')).toBe(true);
   });
 
+  it('writes a different collection with its own path, route and frontmatter', async () => {
+    const page =
+      '---\nid: A\nvisibility: public\ntitle: About\ncreated: 2026-01-02T10:00:00.000Z\ndescription: who\n---\nHi.\n';
+    const f = setup(
+      {
+        site: publication({
+          destination: { kind: 'astro', options: { theme: 'modular', collection: 'pages' } },
+          include: ['pages/**'],
+        }),
+      },
+      { 'pages/about.md': page },
+    );
+    unwrap(await run(f, 'site'));
+    const file = f.outputs.files.get('/out/site/src/content/pages/about.md');
+    expect(file).toBeDefined();
+    expect(file).toContain('title: About');
+    expect(file).toContain('description: who');
+    expect(file).toContain('lastModified: 2026-01-02');
+    // Pages carry no date/tags (that is the posts schema).
+    expect(file).not.toContain('date: 2026');
+    const manifest = JSON.parse(
+      f.outputs.files.get('/out/site/.capture/manifest.json') ?? '{}',
+    ) as { entries: { route: string }[] };
+    expect(manifest.entries[0]?.route).toBe('/about/');
+  });
+
   it('rejects an unknown theme at registry build', () => {
     const f = setup(
       {

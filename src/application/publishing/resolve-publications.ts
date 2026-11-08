@@ -3,6 +3,7 @@ import { DEFAULT_ROUTE, type Publication } from '../../domain/publishing/publica
 import { err, ok, type Result } from '../../domain/result.js';
 import { availableVaults, type Scope } from '../../domain/scope/scope.js';
 import type { Destination, ResolvedPublication } from './destination.js';
+import { validateOptions } from './validate-options.js';
 
 /*
  * Turns every available vault's declared publications into resolved ones: the destination kind
@@ -34,9 +35,7 @@ export const resolvePublications = (
           ),
         );
       }
-      const options = destination.settings
-        ? destination.settings(publication.destination.options)
-        : ok(publication.destination.options);
+      const options = validateOptions(destination, publication.destination.options);
       if (!options.ok) {
         return err(
           validation(

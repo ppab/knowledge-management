@@ -42,11 +42,33 @@ export interface RenderInput {
   readonly body: string;
 }
 
+/*
+ * A destination declares its configuration schema as data — the publishing analogue of how a
+ * plugin declares `FieldSpec`s. The core validates the publication's `options` against this
+ * declaration generically (`validateOptions`), lists it in `capabilities`, and never hand-parses
+ * a destination's options. A flat scalar/enum spec is the whole surface; a destination that needs
+ * more is a reason to revisit the spec, not to add bespoke validation back.
+ */
+export interface OptionSpec {
+  readonly name: string;
+  readonly type: 'string' | 'boolean' | 'enum';
+  /** Allowed values when `type` is `enum`. */
+  readonly values?: readonly string[];
+  readonly default?: string | boolean;
+  /** No default and must be set. */
+  readonly required?: boolean;
+  readonly description?: string;
+}
+
 export interface Destination {
   readonly kind: string;
   readonly description: string;
-  /** Validates and normalizes the publication's `options`; `{}` stands in when it has none. */
-  readonly settings?: (raw: unknown) => Result<unknown, AppError>;
+  /**
+   * The options this kind accepts, as data for the generic validator. `chosen` carries the
+   * options given so far, so a dependent enum can resolve (astro's `collection` values depend on
+   * the chosen `theme`).
+   */
+  options(chosen?: Readonly<Record<string, unknown>>): readonly OptionSpec[];
   /** Frontmatter fields read from source notes; doctor-validated on selected notes. */
   fields(options: unknown): readonly FieldSpec[];
   /** A route the layout dictates; a publication `route` that differs is a config error. */

@@ -414,20 +414,27 @@ everything **in memory, then writes** (so a path collision or a render failure a
 first file). Every publication also emits `manifest.json` (`id, title, route, path, dates, tags,
 source`). Source notes are only ever read, never written.
 
-**Destinations** are plugin-like modules (a code contract; built-in kinds parameterised by
-declarative options; plugins may add kinds). Like a plugin, a destination declares `FieldSpec`s —
-frontmatter fields it reads from the source note — which `doctor` validates on the selected notes.
-Built-ins:
+**Destinations** are plugin-like modules (a code contract; plugins may add kinds). Each declares
+its config **options as data** (`options(chosen?) → OptionSpec[]`, a string/boolean/enum schema),
+which the core validates generically and lists under `capabilities` — no destination hand-parses
+config. Like a plugin, a destination also declares `FieldSpec`s — frontmatter fields it reads from
+the source note — which `doctor` validates on the selected notes. Built-ins:
 
 - **markdown** — a full Markdown file per entry, frontmatter kept verbatim, references → relative
-  links. The portable, tool-agnostic output.
+  links. The portable, tool-agnostic output. Option: `layout` (`flat` | `directory`).
 - **html** — body fragments (layout belongs to the SSG, A7), references → route `<a>` links.
-- **astro** — Markdown in an Astro content collection; a `theme` option selects a profile that
-  owns the real contract (content dir, collection URL shape, frontmatter schema). Ships `modular`
-  ([astro-modular](https://github.com/davidvkimball/astro-modular)), chosen because it is SEO-ready
-  (sitemap, RSS, OG images, `noIndex`, meta description).
+  Option: `layout`.
+- **astro** — Markdown in an Astro content collection. Options: `theme` (a profile) and
+  `collection` (one of that theme's collections, a dependent enum). A theme owns the content dir
+  and, per collection, its URL route, source fields and frontmatter mapping. Ships `modular`
+  ([astro-modular](https://github.com/davidvkimball/astro-modular)) exposing `posts`, `pages`,
+  `projects`, `docs`, chosen because it is SEO-ready (sitemap, RSS, OG images, `noIndex`, meta
+  description). Themes are pluggable: a plugin contributes one via `astroThemes` and
+  `{ kind: astro, theme: <name> }` just works. One publication writes one collection; a second
+  collection is a second publication.
 
-See [0006](./decisions/0006-publishing-destinations.md) for the design rationale.
+See [0006](./decisions/0006-publishing-destinations.md) and
+[0007](./decisions/0007-destination-options.md) for the design rationale.
 
 ## 8. Testing boundaries
 

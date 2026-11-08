@@ -2,7 +2,14 @@ import { validation, type AppError } from '../../domain/errors.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope, ScopeMember } from '../../domain/scope/scope.js';
 import type { Destination } from '../publishing/destination.js';
-import { builtinDestinations } from '../publishing/destinations/index.js';
+import type { AstroTheme } from '../publishing/destinations/astro.js';
+import {
+  builtinDestinations,
+  createAstroDestination,
+  htmlDestination,
+  markdownDestination,
+  modularTheme,
+} from '../publishing/destinations/index.js';
 import { resolvePublications } from '../publishing/resolve-publications.js';
 import type {
   EnabledPlugin,
@@ -210,8 +217,53 @@ export const buildRegistry = (
       destinationOwners.set(destination.kind, plugin.name);
     }
   }
+
+  // Astro themes: the built-in `modular` plus themes enabled plugins contribute to the `astro`
+  // kind. A theme name belongs to the core or exactly one plugin — the same single-owner rule as
+  // destination kinds and panel chords. The built-in astro is thus extended, not replaced.
+  const themeOwners = new Map<string, string>([['modular', 'core']]);
+  for (const { plugin } of enabled) {
+    for (const theme of plugin.astroThemes ?? []) {
+      const other = themeOwners.get(theme.name);
+      if (other === 'core') {
+        return err(
+          validation(`Astro theme "${theme.name}" of "${plugin.name}" shadows the built-in`, {
+            theme: theme.name,
+            plugin: plugin.name,
+          }),
+        );
+      }
+      if (other !== undefined) {
+        return err(
+          validation(
+            `Astro theme "${theme.name}" is declared by both "${other}" and "${plugin.name}"`,
+            { theme: theme.name, plugins: [other, plugin.name] },
+          ),
+        );
+      }
+      themeOwners.set(theme.name, plugin.name);
+    }
+  }
+  const themesFor = (root: string): AstroTheme[] => {
+    const themes: AstroTheme[] = [modularTheme];
+    for (const { plugin, scope: pluginScope } of enabled) {
+      if (!plugin.astroThemes) continue;
+      if (pluginScope.members.some((m) => m.available && m.root === root)) {
+        themes.push(...plugin.astroThemes);
+      }
+    }
+    return themes;
+  };
+
   const destinationsFor = (root: string): readonly Destination[] => {
-    const result = [...baseDestinations];
+    // A test override replaces the whole base set; otherwise the astro kind is built per vault from
+    // that vault's available themes, so its `theme` enum is exactly what the vault can use.
+    const base = options.destinations ?? [
+      markdownDestination,
+      htmlDestination,
+      createAstroDestination(themesFor(root)),
+    ];
+    const result = [...base];
     for (const { plugin, scope: pluginScope } of enabled) {
       if (!plugin.destinations) continue;
       if (pluginScope.members.some((m) => m.available && m.root === root)) {
