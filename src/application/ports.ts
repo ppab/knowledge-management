@@ -96,6 +96,17 @@ export interface MarkdownParser {
    * `source`; references are numbered in the order `parse` reports them.
    */
   render(source: string, bodyStart: number, options: RenderOptions): RenderedLine[];
+  /** GFM Markdown → an HTML fragment (no document wrapper); raw HTML passes through verbatim. */
+  toHtml(markdown: string): string;
+}
+
+/**
+ * Writes files a publication produces. `dir` is an absolute output directory; `path` is a
+ * relative POSIX path the domain has already validated as inside it. Creates parent directories
+ * and writes atomically; it never reads, lists or deletes.
+ */
+export interface OutputStore {
+  write(dir: string, path: string, content: string): Promise<Result<void, AppError>>;
 }
 
 /*
@@ -270,4 +281,5 @@ export interface AppDeps {
   readonly revisions: RevisionProvider;
   readonly indexes: NoteIndexProvider;
   readonly userConfig: UserConfigRepository;
+  readonly outputs: OutputStore;
 }
