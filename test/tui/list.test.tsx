@@ -17,8 +17,9 @@ describe('NoteList', () => {
     });
     term = h.start();
     const frame = await term.waitFor('3 notes');
-    expect(frame).toContain('A1  Alpha');
-    expect(frame).toContain('-   Gamma'); // unidentified files are listed too
+    expect(frame).toContain('A1  private');
+    expect(frame).toContain('Alpha');
+    expect(frame).toContain('Gamma'); // unidentified files are listed too
     expect(frame).toContain('j/k move');
 
     await term.press('j', KEYS.enter);
@@ -48,6 +49,25 @@ describe('NoteList', () => {
     const exited = term.waitUntilExit();
     await term.press(KEYS.escape, 'q');
     await exited;
+  });
+
+  it('shows a visibility badge in the list and the note header', async () => {
+    const h = harness((f) => {
+      f.fs.files.set('pub.md', '---\nid: PUB\ntitle: Open\nvisibility: public\n---\n\nbody\n');
+      f.fs.files.set('priv.md', '---\nid: PRIV\ntitle: Closed\n---\n\nbody\n');
+    });
+    term = h.start();
+    const frame = await term.waitFor('2 notes');
+    expect(frame).toContain('visibility');
+    expect(frame).toContain('public');
+    expect(frame).toContain('private');
+
+    // The note header shows the badge for the opened note.
+    await term.press('/', 'O', 'p', 'e', 'n', KEYS.enter);
+    await term.waitFor('search: Open');
+    await term.press(KEYS.enter);
+    const header = await term.waitFor('Open · monitor · PUB');
+    expect(header).toContain('public');
   });
 
   it('leader: Space lists chords, Esc cancels, an unbound key says so, prompts keep Space', async () => {

@@ -35,8 +35,11 @@ export const Rows = ({
 }: {
   readonly header?: readonly string[];
   readonly rows: readonly (readonly string[])[];
-  /** A role per column (`null` for plain text); columns past the end are plain. */
-  readonly roles?: readonly (Role | null)[];
+  /**
+   * A role per column (`null` for plain text), or a resolver that paints a cell by its value;
+   * columns past the end are plain.
+   */
+  readonly roles?: readonly (Role | null | ((cell: string) => Role | null))[];
   readonly cursor: number;
   readonly height: number;
   readonly empty: string;
@@ -69,7 +72,8 @@ export const Rows = ({
             <Text key={start + i} wrap="truncate">
               {NO_MARK}
               {cells.map((cell, c) => {
-                const role = roles[c] ?? null;
+                const spec = roles[c] ?? null;
+                const role = typeof spec === 'function' ? spec(cell.trimEnd()) : spec;
                 return (
                   <Text key={c} {...(role === null ? {} : theme.paint(role))}>
                     {c > 0 ? '  ' : ''}
