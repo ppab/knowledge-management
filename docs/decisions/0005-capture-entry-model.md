@@ -97,6 +97,7 @@ about its type, and the set is *closed*: a new type never widens or forks a Tier
 | `adopt` | same | bring an untracked file under identity; pairs with `capture` as import-vs-create |
 | `snapshot` | `save` | records a revision; "save" misdescribed an always-persisted file |
 | `history` / `diff` / `backlinks` | same | the time + graph layer |
+| `publish` | `export` | write a selected scope of entries to Markdown/HTML + manifest, SSG-agnostic; originals untouched |
 
 **Tier 2 — type verbs (plugin-contributed).** Each type names its own actions, scoped to that
 type: todo → `done` / `reopen`, a time record → `start` / `stop`, an expense → `categorize`.
@@ -105,6 +106,30 @@ A new type adds its own verbs; it never special-cases a Tier-1 verb.
 **Left as-is for now:** `snippet insert` (a text op, genuinely distinct — keep `insert`) and
 `bind` (attach a calendar date — jargon, but kept as a calendar verb; a later change may fold
 it into a general field-set).
+
+### Publishing is a Tier-1 verb, entry-based
+
+`publish` (the CLI's `export` today) takes a selected scope of entries and writes a portable
+copy, leaving the originals untouched. The design already exists — `architecture.md` §7 (the
+`planPublication` → `executePublication` pipeline) and `plan.md` M8 — and only needs restating
+in entry language:
+
+- Selection is by vault globs and **`visibility`** (`public` / `private`; absent ⇒ private,
+  default-deny) — the same field on an entry.
+- `planPublication` is pure: assign routes (from `slug` or slugified title), detect route
+  collisions, and classify every reference as `published` / `excluded` / `unresolved` with
+  policy `fail` (default) | `strip-to-label` | `keep-id`. Only a zero-violation plan proceeds.
+- `executePublication` writes Markdown (reference → relative link) or **HTML body fragments**
+  plus `manifest.json` (`id, title, route, path, dates, tags`), and never opens a source entry
+  for writing.
+- **SSG-agnostic by design** (assumption A7: *"body fragments + manifest.json; layout belongs
+  to the static site generator"*): the export feeds Astro / Eleventy / any generator rather
+  than coupling to one, and it transforms id-based `[[…]]` links into portable links/routes —
+  the problem a "the vault *is* the content folder" approach sidesteps by avoiding wikilinks.
+
+Naming note: the verb is `publish` (fits the Capture voice); the concept/noun stays
+*publication*. Not scheduled beyond M8's existing plan; this only records that `publish` is part
+of the spine and entry-based.
 
 ### Shortcuts — configurable front doors per type (deferred; documented here, implemented later)
 
@@ -167,8 +192,9 @@ never widens `capture`, it only aliases it.
   synopsis), `plugins.md` (restate the contract in terms of *entries* and *types*, and add the
   type-shipped default shortcut), and the goals/plan docs for sequencing.
 - **CLI surface:** `create → capture`, `save → snapshot`, `reference add/remove → link/unlink`,
-  new `classify`; `relabel`, `delete`, `adopt`, `show`, `list`, `search`, `edit`, `history`,
-  `diff`, `backlinks` keep their names. `bind` and `snippet insert` are untouched for now.
+  `export → publish`, new `classify`; `relabel`, `delete`, `adopt`, `show`, `list`, `search`,
+  `edit`, `history`, `diff`, `backlinks` keep their names. `bind` and `snippet insert` are
+  untouched for now.
 - **Config:** `.notes/config.yaml` gains an optional `shortcuts` map (inverse `verb: type`),
   validated like the other config sections, with load-time collision rejection. Not built yet.
 - **Binary name** (`notes`) is intentionally not decided here.
