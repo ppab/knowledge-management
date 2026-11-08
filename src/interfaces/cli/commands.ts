@@ -8,6 +8,7 @@ import { registerMaintenanceCommands } from './commands/maintenance.js';
 import { registerMutationCommands } from './commands/mutations.js';
 import { registerNoteCommands } from './commands/notes.js';
 import { registerPluginCommands } from './commands/plugins.js';
+import { registerPublishCommand } from './commands/publish.js';
 import { registerQueryCommands } from './commands/query.js';
 import { contextFor, inScope, type CliIo } from './context.js';
 import { emit } from './output.js';
@@ -40,6 +41,7 @@ export const registerCommands = (program: Command, io: CliIo, exit: Exit): void 
   registerMutationCommands(program, reference, io, exit);
   registerHistoryCommands(program, io, exit);
   registerMaintenanceCommands(program, io, exit);
+  registerPublishCommand(program, io, exit);
   registerPluginCommands(program, io, exit);
   registerCapabilitiesCommand(program, io, exit);
 };
