@@ -7,10 +7,11 @@ import { ok, type Result } from '../../domain/result.js';
 import { availableVaults, type Scope } from '../../domain/scope/scope.js';
 import { App } from './App.js';
 import { createChangeDispatcher } from './change-feed.js';
+import { Splash } from './components/Splash.js';
 import type { StatusMessage } from './context.js';
 import { checkReservedChords, corePanels } from './core-panels.js';
 import type { Screen } from './model.js';
-import { createTheme } from './theme.js';
+import { createTheme, type Theme } from './theme.js';
 
 /*
  * The TUI's composition: the registry with the core panels in it, the watcher adapted to a
@@ -54,6 +55,28 @@ export interface RunTuiOptions {
   readonly env: Readonly<Record<string, string | undefined>>;
 }
 
+/**
+ * The boot wordmark, played once on the alternate screen before the TUI. It resolves when the
+ * splash finishes on its own or the user presses a key to skip it; with `NO_COLOR` or no tty there
+ * is nothing to animate, so `Splash` paints the mark once and resolves straight away. `OFL_NO_SPLASH`
+ * opts out entirely (scripts, demos). Kept separate from the main loop so it never replays across an
+ * editor handoff.
+ */
+const playSplash = async (options: RunTuiOptions, theme: Theme): Promise<void> => {
+  if ((options.env.OFL_NO_SPLASH ?? '') !== '') return;
+  const animate = theme.colors && options.stdout.isTTY;
+  await new Promise<void>((resolve) => {
+    const instance = render(<Splash theme={theme} animate={animate} onDone={resolve} />, {
+      stdin: options.stdin,
+      stdout: options.stdout,
+      alternateScreen: true,
+      exitOnCtrlC: true,
+      patchConsole: false,
+    });
+    void instance.waitUntilExit();
+  });
+};
+
 export const runTui = async (options: RunTuiOptions): Promise<Result<void, AppError>> => {
   const { deps, scope } = options;
   const registry = buildTuiRegistry(deps, scope, options.plugins);
@@ -62,6 +85,8 @@ export const runTui = async (options: RunTuiOptions): Promise<Result<void, AppEr
   const dispatcher = createChangeDispatcher();
   const roots = availableVaults(scope).map((v) => v.root);
   const theme = createTheme(options.env);
+
+  await playSplash(options, theme);
 
   // State that must outlive a single render: the screen stack (so the cursor, scroll and
   // selection survive an editor handoff) and a status to surface once the TUI is back.
