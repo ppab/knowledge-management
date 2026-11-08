@@ -187,4 +187,46 @@ describe('buildRegistry', () => {
       error: { code: 'VALIDATION', details: { plugin: 'todos' } },
     });
   });
+
+  describe('destinations', () => {
+    const dest = (kind: string) => ({
+      kind,
+      description: kind,
+      fields: () => [],
+      pathFor: () => 'x.md',
+      linkTo: () => 'x.md',
+      render: () => ok(''),
+    });
+
+    it('exposes the built-in kinds for a vault and lets plugins add more', () => {
+      const f = fixture({ plugins: { pub: {} } });
+      const withDest = plugin('pub', { types: ['pub'], destinations: [dest('zola')] });
+      const registry = unwrap(buildRegistry([withDest], f.scope));
+      expect(registry.destinationsFor('/vault').map((d) => d.kind)).toEqual([
+        'markdown',
+        'html',
+        'astro',
+        'zola',
+      ]);
+    });
+
+    it('rejects a plugin destination that shadows a built-in', () => {
+      const f = fixture({ plugins: { pub: {} } });
+      const shadow = plugin('pub', { types: ['pub'], destinations: [dest('markdown')] });
+      expect(buildRegistry([shadow], f.scope)).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', details: { kind: 'markdown' } },
+      });
+    });
+
+    it('rejects two plugins that declare the same destination kind', () => {
+      const f = fixture({ plugins: { pub: {}, pub2: {} } });
+      const a = plugin('pub', { types: ['pub'], destinations: [dest('zola')] });
+      const b = plugin('pub2', { types: ['pub2'], destinations: [dest('zola')] });
+      expect(buildRegistry([a, b], f.scope)).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', details: { kind: 'zola', plugins: ['pub', 'pub2'] } },
+      });
+    });
+  });
 });

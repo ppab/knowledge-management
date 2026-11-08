@@ -6,6 +6,7 @@ import { applyPlan, isStale, planRefresh, staleOf } from '../index/refresh-index
 import { createPluginApi } from '../plugin/api.js';
 import type { PluginRegistry } from '../plugin/plugin.js';
 import { validateFields } from '../plugin/validate-fields.js';
+import { publicationFindings } from '../publishing/check-publications.js';
 import type { AppDeps } from '../ports.js';
 import type { OpenedVault } from '../scope/session.js';
 
@@ -17,7 +18,8 @@ export type CoreFindingKind =
   | 'unidentified'
   | 'stale-index'
   | 'unavailable-vault'
-  | 'field';
+  | 'field'
+  | 'publication';
 
 /** Core kinds, or a plugin check's kind namespaced as `<plugin>:<kind>`. */
 export type FindingKind = CoreFindingKind | `${string}:${string}`;
@@ -220,7 +222,10 @@ const diagnoseCore = async (
         });
       }
     }
-    if (registry) findings.push(...fieldFindings(registry, opened));
+    if (registry) {
+      findings.push(...fieldFindings(registry, opened));
+      findings.push(...publicationFindings(registry, opened));
+    }
     return ok({ ok: !findings.some((f) => f.severity === 'error'), findings });
   } finally {
     for (const { index } of opened) index.close();

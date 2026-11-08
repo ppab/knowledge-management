@@ -12,6 +12,7 @@ import type { AddReferenceInput } from '../references/add-reference.js';
 import type { LocatedNote } from '../scope/session.js';
 import type { SearchOptions, SearchResult } from '../search/search-notes.js';
 import type { InsertSnippetInput } from '../snippets/insert-snippet.js';
+import type { Destination, ResolvedPublication } from '../publishing/destination.js';
 
 /*
  * The plugin contract (docs/plugins.md). A plugin gives meaning to a kind of note: it owns
@@ -191,6 +192,8 @@ export interface NotePlugin {
   readonly commands?: readonly PluginCommand[];
   readonly checks?: readonly PluginCheck[];
   readonly panels?: readonly PanelSpec[];
+  /** Publication destination kinds this plugin adds; a kind belongs to one plugin or the core. */
+  readonly destinations?: readonly Destination[];
   /** Validates `plugins.<name>` from `.notes/config.yaml`; `{}` when the key is bare. */
   readonly settings?: (raw: unknown) => Result<unknown, AppError>;
 }
@@ -216,4 +219,8 @@ export interface PluginRegistry {
   checks(): readonly { readonly plugin: NotePlugin; readonly check: PluginCheck }[];
   /** Built-in templates of enabled plugins keyed `<plugin>/<name>`. */
   templates(): Readonly<Record<string, string>>;
+  /** Destination kinds available to a vault: the built-ins plus those its enabled plugins add. */
+  destinationsFor(root: string): readonly Destination[];
+  /** Every publication declared by an available vault, resolved and validated. */
+  publications(): readonly ResolvedPublication[];
 }

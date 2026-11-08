@@ -1,6 +1,9 @@
 import { validation, type AppError } from '../../domain/errors.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope, ScopeMember } from '../../domain/scope/scope.js';
+import type { Destination } from '../publishing/destination.js';
+import { builtinDestinations } from '../publishing/destinations/index.js';
+import { resolvePublications } from '../publishing/resolve-publications.js';
 import type {
   EnabledPlugin,
   FieldSpec,
@@ -20,6 +23,8 @@ import type {
 export interface RegistryOptions {
   /** Panels the host registers itself (`core.*`); plugin chords must not clash with them. */
   readonly core?: readonly PanelSpec[];
+  /** Overrides the built-in destination kinds (tests); defaults to `builtinDestinations`. */
+  readonly destinations?: readonly Destination[];
 }
 
 const fieldShape = (spec: FieldSpec): string =>
@@ -172,9 +177,52 @@ export const buildRegistry = (
     keys.set(slot, entry);
   }
 
+  // Destination kinds: built-ins the host owns, plus kinds enabled plugins add. A kind belongs to
+  // the core or to exactly one plugin — the same single-owner rule as types and panel chords.
+  const baseDestinations = options.destinations ?? builtinDestinations;
+  const baseKinds = new Set(baseDestinations.map((d) => d.kind));
+  const destinationOwners = new Map<string, string>();
+  for (const { plugin } of enabled) {
+    for (const destination of plugin.destinations ?? []) {
+      if (baseKinds.has(destination.kind)) {
+        return err(
+          validation(`Destination kind "${destination.kind}" of "${plugin.name}" shadows a built-in`, {
+            kind: destination.kind,
+            plugin: plugin.name,
+          }),
+        );
+      }
+      const other = destinationOwners.get(destination.kind);
+      if (other !== undefined) {
+        return err(
+          validation(`Destination kind "${destination.kind}" is declared by both "${other}" and "${plugin.name}"`, {
+            kind: destination.kind,
+            plugins: [other, plugin.name],
+          }),
+        );
+      }
+      destinationOwners.set(destination.kind, plugin.name);
+    }
+  }
+  const destinationsFor = (root: string): readonly Destination[] => {
+    const result = [...baseDestinations];
+    for (const { plugin, scope: pluginScope } of enabled) {
+      if (!plugin.destinations) continue;
+      if (pluginScope.members.some((m) => m.available && m.root === root)) {
+        result.push(...plugin.destinations);
+      }
+    }
+    return result;
+  };
+
+  const resolved = resolvePublications(scope, destinationsFor);
+  if (!resolved.ok) return resolved;
+
   return ok({
     enabled,
     plugins: enabled.map((e) => e.plugin),
+    destinationsFor,
+    publications: () => resolved.value,
     ownerOf: (type) => owners.get(type),
     fieldsFor: (type) =>
       (owners.get(type)?.fields ?? []).filter(
