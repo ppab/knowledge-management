@@ -655,41 +655,17 @@ Decisions recorded in the issue body under "Decisiones acordadas". B is next.
 
 ---
 
-## M8 — Export
+## M8 — Publish
 
-**Objective.** Publish selected notes to Markdown or HTML fragments with transformed references
-and fail-safe boundaries.
+**Objective.** Publish selected notes through named publications and pluggable *destinations*
+(`markdown`, `html`, `astro`) with transformed references and fail-safe boundaries; the TUI shows
+each note's visibility.
 
-**Deliverables**
-
-- domain: `Publication`, route template, reference classification, collision detection,
-  reference policy.
-- application: `planPublication` (pure), `executePublication`.
-- infrastructure: remark→rehype HTML fragment writer, Markdown writer with relative links,
-  `manifest.json`.
-- CLI: `export --publication <name>` / `--format --output`, `--dry-run` prints the plan.
+Full implementation plan, decisions and test matrix: [plans/publish.md](./plans/publish.md)
+(approved 2026-11-07; supersedes the earlier `export` sketch — verb renamed per ADR 0005,
+two-layer visibility rule, destinations as plugin-like modules).
 
 **Dependencies.** M4.
-
-**Acceptance criteria**
-
-- A note without `visibility: public` is excluded unless an explicit publication include
-  matches it; `--dry-run` lists it as excluded with the reason.
-- A reference to an excluded note with policy `fail` aborts with exit `6` and names source and
-  target; with `strip-to-label` emits the label text; with `keep-id` emits `[[id]]` verbatim.
-- Two notes resolving to the same route abort before any file is written.
-- Markdown output turns `[[ID|Label]]` into `[Label](./relative/path.md)`; HTML output into
-  `<a href="/route/">Label</a>`; unlabeled references use the current title.
-- `manifest.json` lists every published note with `id, title, route, path, dates, tags`.
-- Source file hashes are identical before and after export.
-
-**Tests**
-
-- domain: selection and policy matrix; route template rendering; collision detection.
-- application: plan against a fixture scope with mixed visibility and cross-vault references.
-- infrastructure: golden-file tests for Markdown and HTML outputs.
-- integration: `init → create (public/private) → reference → export → assert links and
-manifest`.
 
 ---
 
