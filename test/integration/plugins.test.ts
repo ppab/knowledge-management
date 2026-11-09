@@ -54,6 +54,7 @@ describe('todos plugin (M4.5)', () => {
     expect(caps.plugins).toEqual([
       expect.objectContaining({ name: 'todos', enabled: false }),
       expect.objectContaining({ name: 'goals', enabled: false }),
+      expect.objectContaining({ name: 'courses', enabled: false }),
     ]);
   });
 
@@ -144,7 +145,7 @@ describe('todos plugin (M4.5)', () => {
     expect(listing.code).toBe(6);
     expect(json<{ error: { details: unknown } }>(listing).error.details).toMatchObject({
       plugin: 'expenses',
-      available: ['todos', 'goals'],
+      available: ['todos', 'goals', 'courses'],
     });
   });
 });
