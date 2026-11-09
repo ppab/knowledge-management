@@ -17,21 +17,21 @@ Decisions taken in conversation (2026-11-07), on top of the written spec:
   configuring publications from the TUI is the post-MVP end state.
 - **Named publications from the start**, declared per vault under `publications:` in
   `.notes/config.yaml`. No ad-hoc `--format/--output` flags.
-- **Destinations.** A publication = *selection* + *route template* + *reference policy* + a
+- **Destinations.** A publication = _selection_ + _route template_ + _reference policy_ + a
   **destination**. The plan is pure and destination-agnostic; the destination only decides how to
   render and lay files out. Destinations are **plugin-like modules**: a code contract, built-in
   kinds parameterised by declarative options in config, and plugins may register new kinds.
   Like plugins, a destination **declares `FieldSpec`s** — frontmatter fields it reads from the
-  *source* note — which `doctor` validates on the notes a publication selects.
-- **Two layers of exposure.** *Note layer = eligibility:* `visibility: public` means any
+  _source_ note — which `doctor` validates on the notes a publication selects.
+- **Two layers of exposure.** _Note layer = eligibility:_ `visibility: public` means any
   publication may use the note; `private` (the default, A3) means none can — there is **no
-  publication-level override**. *Publication layer = selection:* each publication picks which
+  publication-level override**. _Publication layer = selection:_ each publication picks which
   eligible notes it wants (include/exclude globs) and how to emit them. Dry-run distinguishes the
   reasons `private` (note layer) from `not included` / `excluded by <glob>` (publication layer).
   This supersedes invariant 9's "unless an explicit include matches it" clause; the docs change.
 - **MVP kinds: `markdown`** (full file, frontmatter kept verbatim, references → relative links),
   **`html`** (body fragments, A7), and **`astro`** — chosen because the target theme is SEO-ready
-  (sitemap, RSS, OG images, `noIndex`, meta description). `astro` is the *kind*; a **`theme`
+  (sitemap, RSS, OG images, `noIndex`, meta description). `astro` is the _kind_; a **`theme`
   option** selects a theme profile that defines the real contract (collection folder, URL prefix,
   frontmatter schema): `destination: { kind: astro, theme: modular }`. The MVP ships the
   `modular` profile ([astro-modular](https://github.com/davidvkimball/astro-modular), MIT,
@@ -51,15 +51,18 @@ title, source files are never written (hashes unchanged).
   ```ts
   export type ReferencePolicy = 'fail' | 'strip-to-label' | 'keep-id';
   export const REFERENCE_POLICIES: readonly ReferencePolicy[];
-  export interface DestinationRef { readonly kind: string; readonly options: unknown }
+  export interface DestinationRef {
+    readonly kind: string;
+    readonly options: unknown;
+  }
   export interface Publication {
     readonly name: string;
     readonly destination: DestinationRef;
-    readonly output: string;              // dir; relative to the defining vault's root, or absolute
-    readonly route: string;               // `{{slug}}` template; default '/{{slug}}/'
-    readonly include: readonly string[];  // vault-relative globs; [] = every eligible note
+    readonly output: string; // dir; relative to the defining vault's root, or absolute
+    readonly route: string; // `{{slug}}` template; default '/{{slug}}/'
+    readonly include: readonly string[]; // vault-relative globs; [] = every eligible note
     readonly exclude: readonly string[];
-    readonly vaults?: readonly string[];  // scope vault names to draw notes from; default: defining vault
+    readonly vaults?: readonly string[]; // scope vault names to draw notes from; default: defining vault
     readonly references: ReferencePolicy; // default 'fail' (one policy for excluded + unresolved)
   }
   ```
@@ -67,15 +70,15 @@ title, source files are never written (hashes unchanged).
   `renderRoute(template, vars)` = `renderTemplate` (`domain/template/render.ts`) + `normalizeRoute`
   (leading `/`, collapse `//`, reject `.`/`..`, percent-encode outside unreserved+`/`); a missing
   variable (`{{type}}` on a typeless note) is `validation` **naming the note**. `routeToPath(route,
-  ext, layout: 'flat'|'directory')` → `a/b.md` | `a/b/index.html`; `/` → `index.<ext>`.
+ext, layout: 'flat'|'directory')` → `a/b.md` | `a/b/index.html`; `/` → `index.<ext>`.
 - `output-path.ts` — `relativePath(fromFile, toFile)` (POSIX string ops; `./x.md`, `../a/x.md`),
   `resolveOutputDir(root, output)` (lexical join, absolute passes through),
   `normalizeOutputPath(path)` (rejects `..`, empty, leading `/` — a hostile `slug:`),
   `escapeMarkdownText(text)` for titles used as link labels.
 - `select.ts` — `PublicationCandidate { vault, path, id, title, slug?, type?, visibility, tags,
-  dates, fields, version, references: Reference[] }` (built from `NoteSummary` +
+dates, fields, version, references: Reference[] }` (built from `NoteSummary` +
   `index.outgoing(path)` — **no file reads**). `selectCandidates(publication, candidates,
-  definingVault)` → `{ included, excluded: { candidate, reason }[] }` with
+definingVault)` → `{ included, excluded: { candidate, reason }[] }` with
   `ExclusionReason = {kind:'vault'} | {kind:'private'} | {kind:'not-included'} | {kind:'excluded'; by}`.
   Order: vault → visibility (absolute) → include → exclude. Uses `matchesGlob` (`domain/vault/glob.ts`).
 - `classify.ts` — `classifyReferences(included, existing: Map<id,{title}>, policy)` →
@@ -85,11 +88,11 @@ title, source files are never written (hashes unchanged).
   `findPathCollisions(paths)`.
 - `plan.ts` — `PlanEntry = PublicationCandidate & { route }`;
   `PublicationPlan { publication, vault, outputDir, entries (sorted by route), excluded, targets,
-  violations, collisions }`; `buildPlan(publication, definingVault, outputDir, candidates,
-  existing)`: `err` only when a route cannot render; `isPublishable(plan)` = no violations, no
+violations, collisions }`; `buildPlan(publication, definingVault, outputDir, candidates,
+existing)`: `err` only when a route cannot render; `isPublishable(plan)` = no violations, no
   collisions.
 - `manifest.ts` — `buildManifest(plan, paths)` → `{ publication, destination, entries: [{ id, title,
-  route, path, dates, tags, source:{vault,path} }] }`; no timestamp (golden files stay deterministic).
+route, path, dates, tags, source:{vault,path} }] }`; no timestamp (golden files stay deterministic).
 - `src/domain/vault/vault.ts` — `VaultConfig.publications?: Readonly<Record<string, Publication>>`.
 
 ### 2. Ports and infrastructure
@@ -99,7 +102,7 @@ title, source files are never written (hashes unchanged).
   (absolute `dir`, relative POSIX `path`, mkdir -p, atomic temp+rename, `UNAVAILABLE` on failure);
   `AppDeps.outputs`.
 - `src/infrastructure/markdown/html.ts` — `unified().use(remarkParse).use(remarkGfm)
-  .use(remarkRehype, { allowDangerousHtml: true }).use(rehypeStringify, { allowDangerousHtml: true })`
+.use(remarkRehype, { allowDangerousHtml: true }).use(rehypeStringify, { allowDangerousHtml: true })`
   — raw HTML in notes passes through verbatim (no `rehype-raw`; fragments are for an SSG to embed).
   Spread into `createMarkdownParser` (`parser.ts`). New deps: `remark-rehype`, `rehype-stringify`.
 - `src/infrastructure/filesystem/output-store.ts` — `createOutputStore()`: lexical containment of
@@ -119,15 +122,26 @@ title, source files are never written (hashes unchanged).
 - `destination.ts` — the contract (plugins may import application, so this is reachable by
   built-ins, plugins, registry, doctor and CLI without layer violations):
   ```ts
-  export interface RenderTools {            // the publishing analogue of PluginApi: never AppDeps
+  export interface RenderTools {
+    // the publishing analogue of PluginApi: never AppDeps
     toHtml(markdown: string): string;
     updateFrontmatter(yaml: string, update: FrontmatterUpdate): Result<string, AppError>;
   }
-  export interface Located { readonly entry: PlanEntry; readonly path: string }
-  export interface RenderInput { entry: PlanEntry; path: string; frontmatterYaml: string; frontmatter: Record<string, unknown>; body: string /* refs rewritten */ }
+  export interface Located {
+    readonly entry: PlanEntry;
+    readonly path: string;
+  }
+  export interface RenderInput {
+    entry: PlanEntry;
+    path: string;
+    frontmatterYaml: string;
+    frontmatter: Record<string, unknown>;
+    body: string; /* refs rewritten */
+  }
   export interface Destination {
-    readonly kind: string; readonly description: string;
-    readonly settings?: (raw: unknown) => Result<unknown, AppError>;  // validates options; {} when none
+    readonly kind: string;
+    readonly description: string;
+    readonly settings?: (raw: unknown) => Result<unknown, AppError>; // validates options; {} when none
     /** Frontmatter fields read from source notes; doctor-validated on selected notes. Depends on options (e.g. the astro theme). */
     fields(options: unknown): readonly FieldSpec[];
     /** A route template the output layout dictates (astro: '/posts/{{slug}}/'); a publication `route` that differs is a VALIDATION error at registry build. */
@@ -138,7 +152,12 @@ title, source files are never written (hashes unchanged).
     linkTo(from: Located, to: Located, options: unknown): string;
     render(input: RenderInput, tools: RenderTools, options: unknown): Result<string, AppError>;
   }
-  export interface ResolvedPublication { vault: OpenVault; publication: Publication; destination: Destination; options: unknown }
+  export interface ResolvedPublication {
+    vault: OpenVault;
+    publication: Publication;
+    destination: Destination;
+    options: unknown;
+  }
   ```
   `FieldSpec` is a type-only import from `../plugin/plugin.js` (type-only cycle, erased).
 - `destinations/markdown.ts` — options `{ layout?: 'flat'|'directory' }` (default `flat`,
@@ -155,9 +174,9 @@ title, source files are never written (hashes unchanged).
   ```ts
   export interface AstroTheme {
     readonly name: string;
-    readonly contentDir: string;                       // 'src/content'
+    readonly contentDir: string; // 'src/content'
     readonly collections: Readonly<Record<string, { route: string /* '/posts/{{slug}}/' */ }>>;
-    readonly fields: readonly FieldSpec[];             // the theme's frontmatter schema, minus what core maps
+    readonly fields: readonly FieldSpec[]; // the theme's frontmatter schema, minus what core maps
     frontmatter(entry: PlanEntry, source: Record<string, unknown>): Record<string, unknown>;
   }
   ```
@@ -166,7 +185,7 @@ title, source files are never written (hashes unchanged).
   provided", which is the SEO hole doctor should catch), `image`, `imageAlt` (string), `imageOG`,
   `hideCoverImage`, `hideTOC`, `showTOC`, `noIndex`, `draft` (boolean), `targetKeyword`, `author`
   (string). `frontmatter()` maps core → theme: `title` → `title`, `created` → `date` (`YYYY-MM-DD`;
-  the theme falls back to *build time* when absent, so always emit it), `tags` → `tags`, every
+  the theme falls back to _build time_ when absent, so always emit it), `tags` → `tags`, every
   declared field passed through when present, plus `id` kept for traceability (unknown keys are
   stripped by the theme's zod, so it is harmless); `aliases`, `visibility`, `type`, `created` are
   not emitted. Output: `pathFor` = `<contentDir>/<collection>/<slug>.md` (filename stem is the
@@ -174,10 +193,10 @@ title, source files are never written (hashes unchanged).
   `fixedRoute` = the collection's route; `linkTo` = `to.entry.route` (standard
   `[Label](/posts/slug/)` works for every collection; the theme's native wikilinks resolve by
   title, not by our ids, so we do not emit them); `render` = `tools.updateFrontmatter`-built YAML
-  + body; `manifestPath` = `.capture/manifest.json` (hidden, outside the theme's `src/content`
-  Obsidian vault). `output` in the publication points at the **Astro project root**. No new
-  dependencies — astro is Markdown-based.
-  `destinations/index.ts` — `builtinDestinations = [markdown, html, astro]`.
+  - body; `manifestPath` = `.capture/manifest.json` (hidden, outside the theme's `src/content`
+    Obsidian vault). `output` in the publication points at the **Astro project root**. No new
+    dependencies — astro is Markdown-based.
+    `destinations/index.ts` — `builtinDestinations = [markdown, html, astro]`.
 - `resolve-publications.ts` — `resolvePublications(scope, destinationsFor)` → every available
   vault's publications with destination resolved and options validated; `validation` names vault,
   publication, kind and lists known kinds. Applies `fixedRoute`: when the destination dictates a
@@ -208,7 +227,7 @@ title, source files are never written (hashes unchanged).
   message naming source → target. `listPublications(registry)`.
 - `check-publications.ts` — `publicationFindings(registry, opened)`: for each resolved publication
   whose vault is opened, select via the same `selectCandidates`, then `validateFields
-  (destination.fields, summary.fields)` **dropping `undeclared`** → `kind:'publication'`,
+(destination.fields, summary.fields)` **dropping `undeclared`** → `kind:'publication'`,
   `severity:'warning'`, details `{ publication, destination, path, field, problem }`; then
   `buildPlan` and report collisions/violations as warnings ("publication site would not proceed:
   …"). `doctor` is a pre-flight; `publish` is the gate.
@@ -278,20 +297,20 @@ end state after the MVP is configuring publications from the TUI; for now, only 
   ```yaml
   publications:
     site:
-      destination: { kind: html, layout: directory }   # or shorthand: destination: markdown
-      output: ./dist                                    # vault-relative or absolute
-      route: '/{{slug}}/'                               # vars: slug, id, type, dir, stem
+      destination: { kind: html, layout: directory } # or shorthand: destination: markdown
+      output: ./dist # vault-relative or absolute
+      route: '/{{slug}}/' # vars: slug, id, type, dir, stem
       include: ['docs/**']
       exclude: ['docs/drafts/**']
-      references: fail                                  # fail | strip-to-label | keep-id
+      references: fail # fail | strip-to-label | keep-id
     blog:
-      destination: { kind: astro, theme: modular }     # theme fixes route '/posts/{{slug}}/'
-      output: ../my-site                                # the Astro project root
+      destination: { kind: astro, theme: modular } # theme fixes route '/posts/{{slug}}/'
+      output: ../my-site # the Astro project root
       include: ['posts/**']
       references: strip-to-label
   ```
 - `docs/plan.md` M8 → "Publish" with a status line. `docs/plugins.md`: §2 note on destination
-  fields (validated on *selected* notes, no `undeclared`), §3 `destinations?` slot, §7 candidate
+  fields (validated on _selected_ notes, no `undeclared`), §3 `destinations?` slot, §7 candidate
   `astro` kind. `README.md`: short publish section.
 - `docs/decisions/0006-publishing-destinations.md`: destinations as plugin-like modules; plan
   destination-agnostic; manifest core; built-ins inside the registry; validation split (shape →
@@ -357,7 +376,7 @@ docs + ADR 0006.
   `publish` lists → `publish site --dry-run` exits 6 (violation under `fail`), lists the private
   note as `private`, no `dist/` → switch to `strip-to-label` → exit 0, `<a href="/…/">`, label text
   for the private target, `manifest.json` entries, sha256 of every source unchanged → `publish
-  content` → `[Label](./…md)` + frontmatter kept → two notes with the same `slug` exit 6 with
+content` → `[Label](./…md)` + frontmatter kept → two notes with the same `slug` exit 6 with
   nothing written → unknown name exits 3.
 
 ## Verification
@@ -365,6 +384,6 @@ docs + ADR 0006.
 - `bun run check` (lint, format, typecheck, `vitest run`); locally the full suite needs
   `NODE_OPTIONS=--max-old-space-size=3072`.
 - By hand in a scratch vault: add a `publications:` block → `notes publish` (lists) → `notes publish
-  site --dry-run` → `notes publish site` → inspect `dist/` fragments + `manifest.json`; `notes publish
-  content` into a folder outside the vault and open it in Obsidian to confirm relative links
+site --dry-run` → `notes publish site` → inspect `dist/` fragments + `manifest.json`; `notes publish
+content` into a folder outside the vault and open it in Obsidian to confirm relative links
   resolve; `notes doctor` shows `publication` findings when a selected note lacks a declared field.
