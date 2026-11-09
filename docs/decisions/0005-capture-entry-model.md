@@ -14,8 +14,8 @@ logic is exactly what the plugin system already injects per `type` (see
 So the generalization is not new architecture; it is already here. `Note`
 (`domain/note/note.ts`) carries an optional `type`, arbitrary `fields` "the core does not
 interpret, what plugins query by" (`domain/note/summary.ts`), `tags`, `dates`, and
-`visibility`. The plugin contract says it out loud: *"A plugin gives meaning to a kind of note:
-it owns frontmatter `type` values, declares the fields those notes carry."* A todo is already
+`visibility`. The plugin contract says it out loud: _"A plugin gives meaning to a kind of note:
+it owns frontmatter `type` values, declares the fields those notes carry."_ A todo is already
 just an entity with `type: todo` and fields `{status, due}`; a time record would be `type:
 time` with `{start, end}`.
 
@@ -23,14 +23,14 @@ What is wrong is the **naming**, and the naming lies in a way that blocks the pr
 feeling designed:
 
 - The word **note** does two unrelated jobs: it names the universal substrate
-  (`Note`, `NoteStore`, `NoteIndex`, `NoteSummary`, `createNote`) *and* the plain, freeform
+  (`Note`, `NoteStore`, `NoteIndex`, `NoteSummary`, `createNote`) _and_ the plain, freeform
   thing a human calls a note. The union type already reached for the better word for the first
   job and only half-committed — `EntrySummary`, `NoteEntry`.
 - The verbs grew by accretion, not design: four dialects for "put something in"
   (`create` an entry, `reference add` a link, `snippet insert` a fragment, `bind` a date), two
   words for "take out" (`delete` an entry, `reference remove` a link), and the single most
   important relationship verb buried under a noun sub-command (`reference add`).
-- `save` records a *revision*, but entries are plain `.md` written to disk immediately —
+- `save` records a _revision_, but entries are plain `.md` written to disk immediately —
   nothing is ever "unsaved", so the word misdescribes the act.
 
 This ADR settles the concept model, the product name, and the verb vocabulary so that later
@@ -63,7 +63,7 @@ plugins own everything type-specific.
 
 Today `kind: 'note' | 'unidentified'` tangles two different classifications. Separate them:
 
-- **`type` — the domain axis.** Optional. Its *absence* means a **raw, unclassified capture**
+- **`type` — the domain axis.** Optional. Its _absence_ means a **raw, unclassified capture**
   (the inbox): an entry thrown in without saying what it is. A present value — `note`, `todo`,
   `time`, `expense` — means it has been **classified**, and a plugin may own that type's fields
   and logic. (`note` is the trivial type: prose with no required fields, so it need not ship a
@@ -73,9 +73,9 @@ Today `kind: 'note' | 'unidentified'` tangles two different classifications. Sep
   axis alone (e.g. `'entry' | 'unidentified'`, or an `identified` boolean).
 
 **A note is a type of entry, not the base.** A raw (typeless) entry and a `note` can look
-identical on disk; the difference is *declared intent* — "haven't filed this yet" vs. "filed as
-a note". That inbox-vs-filed distinction is the core loop of a capture tool (*capture now,
-classify later*), so it is a feature, not a duplication. This is why the core stays fully
+identical on disk; the difference is _declared intent_ — "haven't filed this yet" vs. "filed as
+a note". That inbox-vs-filed distinction is the core loop of a capture tool (_capture now,
+classify later_), so it is a feature, not a duplication. This is why the core stays fully
 type-agnostic: `type` is purely the plugin extension point, and the core never knows a single
 type name.
 
@@ -84,20 +84,20 @@ type name.
 Two tiers that must not bleed into each other.
 
 **Tier 1 — universal entry verbs (the product's spine).** They act on any entry, know nothing
-about its type, and the set is *closed*: a new type never widens or forks a Tier-1 verb.
+about its type, and the set is _closed_: a new type never widens or forks a Tier-1 verb.
 
-| Verb | Replaces | Note |
-|---|---|---|
-| `capture [type] "title"` | `create` | the hero verb; type is an argument, absent = raw capture |
-| `classify <query> <type>` | — (new) | promote a raw entry into a type, or retype one — the verb that makes the inbox loop real |
-| `show` / `list` / `search` | same | the read trio |
-| `edit` | same | body in `$EDITOR` |
-| `link` / `unlink` / `relabel` | `reference add` / `reference remove` / `reference relabel` | relationship verbs promoted to top level; `unlink` also retires the `delete`/`remove` split |
-| `delete` | same | |
-| `adopt` | same | bring an untracked file under identity; pairs with `capture` as import-vs-create |
-| `snapshot` | `save` | records a revision; "save" misdescribed an always-persisted file |
-| `history` / `diff` / `backlinks` | same | the time + graph layer |
-| `publish` | `export` | write a selected scope of entries to Markdown/HTML + manifest, SSG-agnostic; originals untouched |
+| Verb                             | Replaces                                                   | Note                                                                                             |
+| -------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `capture [type] "title"`         | `create`                                                   | the hero verb; type is an argument, absent = raw capture                                         |
+| `classify <query> <type>`        | — (new)                                                    | promote a raw entry into a type, or retype one — the verb that makes the inbox loop real         |
+| `show` / `list` / `search`       | same                                                       | the read trio                                                                                    |
+| `edit`                           | same                                                       | body in `$EDITOR`                                                                                |
+| `link` / `unlink` / `relabel`    | `reference add` / `reference remove` / `reference relabel` | relationship verbs promoted to top level; `unlink` also retires the `delete`/`remove` split      |
+| `delete`                         | same                                                       |                                                                                                  |
+| `adopt`                          | same                                                       | bring an untracked file under identity; pairs with `capture` as import-vs-create                 |
+| `snapshot`                       | `save`                                                     | records a revision; "save" misdescribed an always-persisted file                                 |
+| `history` / `diff` / `backlinks` | same                                                       | the time + graph layer                                                                           |
+| `publish`                        | `export`                                                   | write a selected scope of entries to Markdown/HTML + manifest, SSG-agnostic; originals untouched |
 
 **Tier 2 — type verbs (plugin-contributed).** Each type names its own actions, scoped to that
 type: todo → `done` / `reopen`, a time record → `start` / `stop`, an expense → `categorize`.
@@ -122,13 +122,13 @@ in entry language:
 - `executePublication` writes Markdown (reference → relative link) or **HTML body fragments**
   plus `manifest.json` (`id, title, route, path, dates, tags`), and never opens a source entry
   for writing.
-- **SSG-agnostic by design** (assumption A7: *"body fragments + manifest.json; layout belongs
-  to the static site generator"*): the export feeds Astro / Eleventy / any generator rather
+- **SSG-agnostic by design** (assumption A7: _"body fragments + manifest.json; layout belongs
+  to the static site generator"_): the export feeds Astro / Eleventy / any generator rather
   than coupling to one, and it transforms id-based `[[…]]` links into portable links/routes —
-  the problem a "the vault *is* the content folder" approach sidesteps by avoiding wikilinks.
+  the problem a "the vault _is_ the content folder" approach sidesteps by avoiding wikilinks.
 
 Naming note: the verb is `publish` (fits the Capture voice); the concept/noun stays
-*publication*. Not scheduled beyond M8's existing plan; this only records that `publish` is part
+_publication_. Not scheduled beyond M8's existing plan; this only records that `publish` is part
 of the spine and entry-based.
 
 ### Shortcuts — configurable front doors per type (deferred; documented here, implemented later)
@@ -138,7 +138,7 @@ Each type gets an optional top-level **shortcut** that is pure sugar over `captu
 `capture <type>` form always works for every type and remains the discoverable spine; a shortcut
 never widens `capture`, it only aliases it.
 
-- **Two sources, default + override.** A type *ships a default shortcut* (the time plugin
+- **Two sources, default + override.** A type _ships a default shortcut_ (the time plugin
   suggests `track`); the **vault configuration is the first-class home** to add, remap, or
   disable them. Config shape is an inverse map, `verb: type`, which reads well and makes
   collision-checking trivial:
@@ -146,9 +146,9 @@ never widens `capture`, it only aliases it.
   ```yaml
   # .notes/config.yaml
   shortcuts:
-    track: time        # `track …`  ≡  `capture time …`
+    track: time # `track …`  ≡  `capture time …`
     spend: expense
-    note:  note        # even the default type can have a front door
+    note: note # even the default type can have a front door
   ```
 
 - **Collision safety reuses the registry pattern.** The TUI already refuses to start when a
@@ -189,7 +189,7 @@ never widens `capture`, it only aliases it.
   existing vaults keep working — so the change is names and verbs, sequenced into a future
   milestone, not a data migration.
 - **Docs to follow when implemented:** `architecture.md` (the domain vocabulary and the CLI
-  synopsis), `plugins.md` (restate the contract in terms of *entries* and *types*, and add the
+  synopsis), `plugins.md` (restate the contract in terms of _entries_ and _types_, and add the
   type-shipped default shortcut), and the goals/plan docs for sequencing.
 - **CLI surface:** `create → capture`, `save → snapshot`, `reference add/remove → link/unlink`,
   `export → publish`, new `classify`; `relabel`, `delete`, `adopt`, `show`, `list`, `search`,
@@ -198,5 +198,5 @@ never widens `capture`, it only aliases it.
 - **Config:** `.notes/config.yaml` gains an optional `shortcuts` map (inverse `verb: type`),
   validated like the other config sections, with load-time collision rejection. Not built yet.
 - **Binary name** (`notes`) is intentionally not decided here.
-- **Not scheduled.** Status is *proposed*; this records the agreed target so later work renames
+- **Not scheduled.** Status is _proposed_; this records the agreed target so later work renames
   against a fixed design rather than re-deciding.

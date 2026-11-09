@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type {
   AppDeps,
   NoteStore,
+  OutputStore,
   RevisionProvider,
   TemplateRepository,
   UserConfig,
@@ -108,6 +109,27 @@ export const createFakeNoteStore = (roots: Map<string, FakeFs>): NoteStore => {
         return Promise.resolve(err(conflict(`${path} modified`, { path })));
       }
       fs.files.delete(canonical);
+      return Promise.resolve(ok(undefined));
+    },
+  };
+};
+
+export interface FakeOutputs extends OutputStore {
+  /** Written files keyed `${dir}/${path}`. */
+  readonly files: Map<string, string>;
+  readonly writes: { dir: string; path: string; content: string }[];
+}
+
+/** In-memory output sink: no containment or filesystem, just what was written and where. */
+export const createFakeOutputStore = (): FakeOutputs => {
+  const files = new Map<string, string>();
+  const writes: { dir: string; path: string; content: string }[] = [];
+  return {
+    files,
+    writes,
+    write: (dir, path, content) => {
+      files.set(`${dir}/${path}`, content);
+      writes.push({ dir, path, content });
       return Promise.resolve(ok(undefined));
     },
   };
@@ -253,6 +275,8 @@ export const createFakeRevisions = (roots: Map<string, FakeFs>): FakeRevisions =
 export interface Fixture {
   deps: AppDeps;
   revisions: FakeRevisions;
+  /** What publications wrote; empty until a publish runs. */
+  outputs: FakeOutputs;
   /** The default vault at `/vault`, named `monitor`. */
   fs: FakeFs;
   vault: VaultHandle;
@@ -281,6 +305,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
   const snippets = new Map<string, string>();
   const userConfig: UserConfig & { scopes: Record<string, { vaults: string[] }> } = { scopes: {} };
   const revisions = createFakeRevisions(roots);
+  const outputs = createFakeOutputStore();
   const ids = ['ID1', 'ID2', 'ID3', 'ID4'];
   let n = 0;
 
@@ -330,6 +355,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
       path: () => '/home/user/.config/notes/config.yaml',
       load: () => Promise.resolve(ok(userConfig)),
     },
+    outputs,
   };
 
   const main = addVault('/vault', 'monitor', overrides);
@@ -339,6 +365,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
   return {
     deps,
     revisions,
+    outputs,
     fs: main.fs,
     vault,
     scope: scopeOf('/vault'),

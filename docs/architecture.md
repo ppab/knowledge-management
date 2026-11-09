@@ -57,7 +57,7 @@ src/
 ├── domain/         vault · scope · note · identity · reference · calendar · revision
 │                   · publishing · text-edit
 ├── application/    vault · notes · references · search · calendar · history · templates
-│                   · export · index · doctor · ports.ts
+│                   · publishing · index · doctor · ports.ts
 ├── infrastructure/ filesystem · markdown · yaml · sqlite · git · identity · editor · config
 │                   · watcher
 └── interfaces/     cli · tui
@@ -92,7 +92,7 @@ Libraries:
 | `Note`                 | `NoteId`                        | title, aliases, dates, tags, visibility, references, opaque extra frontmatter, body                                                                  |
 | `UnidentifiedNote`     | path (vault-relative)           | A Markdown file matched by `include` with no `id`. Listed and searchable; read-only.                                                                 |
 | `Template` / `Snippet` | name                            | variables, content; template adds an output path (under the notes directory, `/` anchors at the vault root), snippet adds default insertion location |
-| `Publication`          | name                            | vault selection, include/exclude, visibility filter, route template, reference policy, format                                                        |
+| `Publication`          | name                            | vault selection, include/exclude, output dir, route template, reference policy, destination (kind + options)                                         |
 
 ### Value objects
 
@@ -121,8 +121,9 @@ Libraries:
 7. A composite scope is read-only; `resolveWriteTarget(scope, vaultId?)` yields exactly one vault
    or fails.
 8. Date bindings form a set.
-9. A publication plan never contains a note whose visibility is not `public` unless an explicit
-   publication include matches it.
+9. Two layers of exposure. A note's `visibility` is absolute eligibility: a plan never contains a
+   note whose visibility is not `public`, and a publication's include/exclude globs only select
+   among eligible notes — a glob can never admit a private one.
 10. Unidentified notes cannot be mutated or referenced until adopted.
 
 ## 3. Decisions (resolved 2026-10-27)
@@ -156,7 +157,7 @@ Libraries:
 | calendar   | `bindDate`, `unbindDate`, `notesOnDate`, `datesInRange`                                                                                                                                       |
 | history    | `listRevisions`, `readRevision`, `diffRevisions`, `revisionStatus` (modified since last revision?)                                                                                            |
 | templates  | `renderTemplate`, `insertSnippet`                                                                                                                                                             |
-| export     | `planPublication` (pure) → `executePublication`                                                                                                                                               |
+| publishing | `planPublication` (pure) → `executePublication`; destinations (markdown / html / astro) render and lay out, the plan is destination-agnostic                                                  |
 | index      | `rebuildIndex`, `refreshIndex(paths)`, `indexStatus`                                                                                                                                          |
 | doctor     | `diagnose` → duplicate ids, unidentified notes, dangling references, stale index, unavailable vaults                                                                                          |
 
@@ -175,6 +176,7 @@ exceptions.
 | `IdentityStrategy`   | identity   | `generate(ctx) → NoteId` for `ulid` / `uuidv7` / `formatted`                                                                                                                     |
 | `RevisionProvider`   | git        | `status`, `list` (follows renames), `read(revision)`, `record(path, message)`; an unversioned vault is a status, not an error; diffs are computed in the domain (`unifiedDiff`)  |
 | `TemplateRepository` | filesystem | `getTemplate`, `getSnippet`, `list`                                                                                                                                              |
+| `OutputStore`        | filesystem | `write(dir, path, content)` for publication output: absolute `dir`, relative POSIX `path` validated inside it, mkdir -p, atomic; never reads, lists or deletes                   |
 | `ExternalEditor`     | editor     | `open(file, {command?})` — vault `editor:` → `$VISUAL` → `$EDITOR` → `nvim`; CLI spawns directly, TUI suspends Ink first                                                         |
 | `FileWatcher`        | chokidar   | TUI-only; `watch(roots, onChange)` batches `.md` changes per tick, ignores dot directories; the next read refreshes the index                                                    |
 | `UserConfig`         | config     | named scopes in `$XDG_CONFIG_HOME/notes/config.yaml`                                                                                                                             |
@@ -199,11 +201,17 @@ plugins: # optional, see §9; a bare key enables a plugin with default settings
   todos:
 publications: # optional, see §7
   site:
-    format: html
-    output: ./dist
-    route: '/{slug}/'
+    destination: { kind: html, layout: directory } # or shorthand: destination: markdown
+    output: ./dist # vault-relative or absolute
+    route: '/{{slug}}/' # vars: slug, id, type, dir, stem
     include: ['docs/**']
-    unresolved: fail
+    exclude: ['docs/drafts/**']
+    references: fail # fail | strip-to-label | keep-id
+  blog:
+    destination: { kind: astro, theme: modular } # theme fixes route '/posts/{{slug}}/'
+    output: ../my-site # the Astro project root
+    include: ['posts/**']
+    references: strip-to-label
 ```
 
 **Frontmatter** — recognized keys: `id`, `title`, `created`, `aliases`, `dates`, `tags`, `visibility`, `type`,
@@ -303,7 +311,7 @@ notes backlinks <id>
 notes snippet insert <id> --snippet <name> [--at ...] [--var k=v]...
 notes history <id>
 notes diff <id> [--from <rev>] [--to <rev>|working]
-notes export (--publication <name> | --format md|html --output <dir>) [--dry-run]
+notes publish [<name>] [--dry-run]                   # omit name to list the configured publications
 notes index rebuild | status
 notes doctor [--fix]
 notes scope list | show [<name>]
@@ -390,24 +398,53 @@ cannot be referenced from or selected in.
 
 ## 7. Publishing pipeline
 
-`planPublication(config, scope)` is pure: select (vaults → globs → visibility) → assign routes from
-the template (`slug` from frontmatter or slugified title) → detect route collisions → classify
-every reference as `published`, `excluded` or `unresolved`. Policy for the last two: `fail`
-(default) | `strip-to-label` | `keep-id`. Only a plan with zero violations proceeds.
+A **publication** is a named recipe in `.notes/config.yaml`: a selection (include/exclude globs
+over the eligible, `public` notes), a route template, a reference policy, and a **destination**.
+The plan is pure and destination-agnostic; the destination decides how entries render and where
+their files go.
 
-`executePublication(plan)` writes Markdown (reference → relative link) or HTML body fragments
-(reference → route `<a>`), plus `manifest.json` (`id, title, route, path, dates, tags`). Source
-notes are never opened for writing.
+`planPublication(session, resolved)` builds entirely from the index (no file reads): select
+(vaults → visibility → globs) → assign routes from the template (`slug` from frontmatter or
+slugified title) → detect route collisions → classify every reference as `published`, `excluded`
+or `unresolved`. Policy for the last two: `fail` (default) | `strip-to-label` | `keep-id`. Only a
+plan with zero violations and no collisions proceeds.
+
+`executePublication` reads each selected note, rewrites its references for the destination, renders
+everything **in memory, then writes** (so a path collision or a render failure aborts before the
+first file). Every publication also emits `manifest.json` (`id, title, route, path, dates, tags,
+source`). Source notes are only ever read, never written.
+
+**Destinations** are plugin-like modules (a code contract; plugins may add kinds). Each declares
+its config **options as data** (`options(chosen?) → OptionSpec[]`, a string/boolean/enum schema),
+which the core validates generically and lists under `capabilities` — no destination hand-parses
+config. Like a plugin, a destination also declares `FieldSpec`s — frontmatter fields it reads from
+the source note — which `doctor` validates on the selected notes. Built-ins:
+
+- **markdown** — a full Markdown file per entry, frontmatter kept verbatim, references → relative
+  links. The portable, tool-agnostic output. Option: `layout` (`flat` | `directory`).
+- **html** — body fragments (layout belongs to the SSG, A7), references → route `<a>` links.
+  Option: `layout`.
+- **astro** — Markdown in an Astro content collection. Options: `theme` (a profile) and
+  `collection` (one of that theme's collections, a dependent enum). A theme owns the content dir
+  and, per collection, its URL route, source fields and frontmatter mapping. Ships `modular`
+  ([astro-modular](https://github.com/davidvkimball/astro-modular)) exposing `posts`, `pages`,
+  `projects`, `docs`, chosen because it is SEO-ready (sitemap, RSS, OG images, `noIndex`, meta
+  description). Themes are pluggable: a plugin contributes one via `astroThemes` and
+  `{ kind: astro, theme: <name> }` just works. One publication writes one collection; a second
+  collection is a second publication.
+
+See [0006](./decisions/0006-publishing-destinations.md) and
+[0007](./decisions/0007-destination-options.md) for the design rationale.
 
 ## 8. Testing boundaries
 
-| Layer          | Approach                                                                                             |
-| -------------- | ---------------------------------------------------------------------------------------------------- |
-| domain         | pure unit tests; property test for `applyEdits`                                                      |
-| application    | use cases against in-memory fakes of every port (`test/fakes/`)                                      |
-| infrastructure | each adapter against real tmp dirs, real git repos, real SQLite, fixtures in `test/fixtures/`        |
-| integration    | spawn the real CLI binary in a tmp vault: init → create → reference → search → export → assert links |
-| TUI            | `ink-testing-library` for key maps, screen stack, and rendered↔source mapping; no pixel assertions   |
+| Layer          | Approach                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| domain         | pure unit tests; property test for `applyEdits`                                                       |
+| application    | use cases against in-memory fakes of every port (`test/fakes/`)                                       |
+| infrastructure | each adapter against real tmp dirs, real git repos, real SQLite, fixtures in `test/fixtures/`         |
+| integration    | spawn the real CLI binary in a tmp vault: init → create → reference → search → publish → assert links |
+| TUI            | `ink-testing-library` for key maps, screen stack, and rendered↔source mapping; no pixel assertions    |
 
 ## 9. Plugins (addendum)
 

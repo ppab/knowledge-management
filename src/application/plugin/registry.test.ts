@@ -187,4 +187,91 @@ describe('buildRegistry', () => {
       error: { code: 'VALIDATION', details: { plugin: 'todos' } },
     });
   });
+
+  describe('destinations', () => {
+    const dest = (kind: string) => ({
+      kind,
+      description: kind,
+      options: () => [],
+      fields: () => [],
+      pathFor: () => 'x.md',
+      linkTo: () => 'x.md',
+      render: () => ok(''),
+    });
+
+    it('exposes the built-in kinds for a vault and lets plugins add more', () => {
+      const f = fixture({ plugins: { pub: {} } });
+      const withDest = plugin('pub', { types: ['pub'], destinations: [dest('zola')] });
+      const registry = unwrap(buildRegistry([withDest], f.scope));
+      expect(registry.destinationsFor('/vault').map((d) => d.kind)).toEqual([
+        'markdown',
+        'html',
+        'astro',
+        'zola',
+      ]);
+    });
+
+    it('rejects a plugin destination that shadows a built-in', () => {
+      const f = fixture({ plugins: { pub: {} } });
+      const shadow = plugin('pub', { types: ['pub'], destinations: [dest('markdown')] });
+      expect(buildRegistry([shadow], f.scope)).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', details: { kind: 'markdown' } },
+      });
+    });
+
+    it('rejects two plugins that declare the same destination kind', () => {
+      const f = fixture({ plugins: { pub: {}, pub2: {} } });
+      const a = plugin('pub', { types: ['pub'], destinations: [dest('zola')] });
+      const b = plugin('pub2', { types: ['pub2'], destinations: [dest('zola')] });
+      expect(buildRegistry([a, b], f.scope)).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', details: { kind: 'zola', plugins: ['pub', 'pub2'] } },
+      });
+    });
+  });
+
+  describe('astro themes', () => {
+    const theme = (name: string) => ({
+      name,
+      contentDir: 'src/content',
+      collections: { notes: { route: '/notes/{{slug}}/', fields: [], frontmatter: () => ({}) } },
+    });
+
+    it('offers a plugin theme to the vaults that enable the plugin, and not to others', () => {
+      const f = fixture({ plugins: { pub: {} } });
+      f.addVault('/other', 'other');
+      const scope = f.scopeOf('/vault', '/other');
+      const withTheme = plugin('pub', { types: ['pub'], astroThemes: [theme('zen')] });
+      const registry = unwrap(buildRegistry([withTheme], scope));
+
+      const astroFor = (root: string) =>
+        registry.destinationsFor(root).find((d) => d.kind === 'astro');
+      const themesOf = (root: string) =>
+        astroFor(root)
+          ?.options()
+          .find((o) => o.name === 'theme')?.values;
+      expect(themesOf('/vault')).toEqual(['modular', 'zen']);
+      expect(themesOf('/other')).toEqual(['modular']);
+    });
+
+    it('rejects a plugin theme that shadows the built-in modular', () => {
+      const f = fixture({ plugins: { pub: {} } });
+      const shadow = plugin('pub', { types: ['pub'], astroThemes: [theme('modular')] });
+      expect(buildRegistry([shadow], f.scope)).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', details: { theme: 'modular', plugin: 'pub' } },
+      });
+    });
+
+    it('rejects two plugins that declare the same theme name', () => {
+      const f = fixture({ plugins: { pub: {}, pub2: {} } });
+      const a = plugin('pub', { types: ['pub'], astroThemes: [theme('zen')] });
+      const b = plugin('pub2', { types: ['pub2'], astroThemes: [theme('zen')] });
+      expect(buildRegistry([a, b], f.scope)).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION', details: { theme: 'zen', plugins: ['pub', 'pub2'] } },
+      });
+    });
+  });
 });

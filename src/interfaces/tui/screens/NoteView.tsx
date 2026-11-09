@@ -722,6 +722,13 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     { isActive: flow === null && !leader.pending },
   );
 
+  // The visibility badge: eligibility for publishing is always in view, green when public.
+  const visibilityBadge =
+    entry && isNote(entry) ? (
+      <Text {...theme.paint(entry.visibility === 'public' ? 'ok' : 'muted')}>
+        {entry.visibility}
+      </Text>
+    ) : undefined;
   const idText = entry && isNote(entry) ? entry.id : 'unidentified';
   const typeText = entry && isNote(entry) && entry.type !== undefined ? ` · ${entry.type}` : '';
   const title = viewed
@@ -818,7 +825,13 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     );
 
   return (
-    <Frame title={title} hints={hints} {...(mode !== undefined && { mode })} overlay={leader.popup}>
+    <Frame
+      title={title}
+      {...(visibilityBadge !== undefined && { meta: visibilityBadge })}
+      hints={hints}
+      {...(mode !== undefined && { mode })}
+      overlay={leader.popup}
+    >
       {flow?.kind === 'pick' ? (
         <Picker
           height={height}

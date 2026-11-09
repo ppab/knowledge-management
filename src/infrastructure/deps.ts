@@ -5,6 +5,7 @@ import { createFileWatcher } from './watch/file-watcher.js';
 import { createGitRevisionProvider } from './git/revision-provider.js';
 import { createVaultRepository } from './filesystem/vault-repository.js';
 import { createNoteStore } from './filesystem/note-store.js';
+import { createOutputStore } from './filesystem/output-store.js';
 import { createUniqueSource } from './identity/unique-source.js';
 import { createMarkdownParser } from './markdown/parser.js';
 import { createSqliteIndexProvider } from './sqlite/note-index.js';
@@ -23,6 +24,7 @@ export const createDeps = (): AppDeps => ({
   revisions: createGitRevisionProvider(),
   indexes: createSqliteIndexProvider(),
   userConfig: createUserConfigRepository(),
+  outputs: createOutputStore(),
 });
 
 /** The interface-level ports: the editor (CLI `edit`, TUI `e`) and the watcher (TUI only). */

@@ -135,11 +135,14 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
 
   const rows = entries.map((e) => [
     e.kind === 'note' ? e.id : '-',
+    e.kind === 'note' ? e.visibility : '-',
     e.title,
     ...(composite ? [e.vault] : []),
     e.tags.join(','),
   ]);
-  const header = ['id', 'title', ...(composite ? ['vault'] : []), 'tags'];
+  const header = ['id', 'visibility', 'title', ...(composite ? ['vault'] : []), 'tags'];
+  // private is the unremarkable default-deny baseline; public is what you must notice.
+  const visibilityRole = (cell: string) => (cell === 'public' ? 'ok' : 'muted');
 
   return (
     <Frame title={title} {...(meta !== undefined && { meta })} hints={hints} overlay={leader.popup}>
@@ -185,7 +188,13 @@ export const NoteList = ({ screen }: { readonly screen: ListScreen }) => {
             <Rows
               header={header}
               rows={rows}
-              roles={['muted', null, ...(composite ? ['muted' as const] : []), 'tag']}
+              roles={[
+                'muted',
+                visibilityRole,
+                null,
+                ...(composite ? ['muted' as const] : []),
+                'tag',
+              ]}
               cursor={cursor}
               height={
                 height -

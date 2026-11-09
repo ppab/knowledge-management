@@ -27,7 +27,7 @@ describe('history and save in the TUI', () => {
     expect(h.f.revisions.recorded).toEqual([
       { root: '/vault', path: 'n.md', message: 'note: wording' },
     ]);
-    await term.waitFor((f) => f.includes('Note · monitor · N1\n'));
+    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
 
     // Saving a clean note records nothing; Esc cancels the prompt.
     await term.press('s', KEYS.enter);
@@ -47,7 +47,7 @@ describe('history and save in the TUI', () => {
     await term.waitFor('▎ second words');
     await term.press('s', KEYS.enter);
     await term.waitFor('Saved revision rev0002: note: save Note');
-    await term.waitFor((f) => f.includes('Note · monitor · N1\n'));
+    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
     await term.waitFor((f) => !f.includes('▎'));
   });
 
@@ -56,13 +56,13 @@ describe('history and save in the TUI', () => {
       f.fs.files.set('n.md', v1);
     });
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })]);
-    await term.waitFor((f) => f.includes('Note · monitor · N1\n'));
+    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
     await term.press('s', KEYS.enter);
     await term.waitFor('Nothing saved: n.md is not under version control');
     await term.press('H');
     await term.waitFor('n.md is not under version control');
     await term.press(KEYS.escape);
-    await term.waitFor((f) => f.includes('Note · monitor · N1\n'));
+    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
 
     h.f.revisions.enable('/vault');
     h.f.revisions.rejectNext('hook says no');

@@ -1,5 +1,7 @@
 import type { Command } from 'commander';
 import type { NotePlugin } from '../../../application/plugin/plugin.js';
+import type { Destination } from '../../../application/publishing/destination.js';
+import { builtinDestinations } from '../../../application/publishing/destinations/index.js';
 import { ok } from '../../../domain/result.js';
 import { firstPartyPlugins } from '../../../plugins/index.js';
 import type { Exit } from '../commands.js';
@@ -34,6 +36,19 @@ const describeCommand = (command: Command): CommandDescription => ({
   commands: command.commands.map(describeCommand),
 });
 
+const describeDestination = (d: Destination) => ({
+  kind: d.kind,
+  description: d.description,
+  options: d.options().map((o) => ({
+    name: o.name,
+    type: o.type,
+    ...(o.values !== undefined && { values: o.values }),
+    ...(o.default !== undefined && { default: o.default }),
+    ...(o.required === true && { required: true }),
+    ...(o.description !== undefined && { description: o.description }),
+  })),
+});
+
 const describePlugin = (plugin: NotePlugin, enabled: boolean | undefined) => ({
   name: plugin.name,
   description: plugin.description,
@@ -58,6 +73,7 @@ const describePlugin = (plugin: NotePlugin, enabled: boolean | undefined) => ({
     ...(p.chord !== undefined && { chord: p.chord }),
     actions: (p.actions ?? []).map((a) => ({ key: a.key, label: a.label })),
   })),
+  destinations: (plugin.destinations ?? []).map(describeDestination),
 });
 
 export const registerCapabilitiesCommand = (program: Command, io: CliIo, exit: Exit): void => {
@@ -78,6 +94,7 @@ export const registerCapabilitiesCommand = (program: Command, io: CliIo, exit: E
               version: program.version() ?? '',
               commands: program.commands.map(describeCommand),
               exitCodes: EXIT_CODES,
+              destinations: builtinDestinations.map(describeDestination),
               plugins: firstPartyPlugins.map((p) =>
                 describePlugin(p, registry ? enabledNames.has(p.name) : undefined),
               ),

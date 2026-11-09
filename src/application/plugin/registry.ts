@@ -1,6 +1,16 @@
 import { validation, type AppError } from '../../domain/errors.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope, ScopeMember } from '../../domain/scope/scope.js';
+import type { Destination } from '../publishing/destination.js';
+import type { AstroTheme } from '../publishing/destinations/astro.js';
+import {
+  builtinDestinations,
+  createAstroDestination,
+  htmlDestination,
+  markdownDestination,
+  modularTheme,
+} from '../publishing/destinations/index.js';
+import { resolvePublications } from '../publishing/resolve-publications.js';
 import type {
   EnabledPlugin,
   FieldSpec,
@@ -20,6 +30,8 @@ import type {
 export interface RegistryOptions {
   /** Panels the host registers itself (`core.*`); plugin chords must not clash with them. */
   readonly core?: readonly PanelSpec[];
+  /** Overrides the built-in destination kinds (tests); defaults to `builtinDestinations`. */
+  readonly destinations?: readonly Destination[];
 }
 
 const fieldShape = (spec: FieldSpec): string =>
@@ -172,9 +184,103 @@ export const buildRegistry = (
     keys.set(slot, entry);
   }
 
+  // Destination kinds: built-ins the host owns, plus kinds enabled plugins add. A kind belongs to
+  // the core or to exactly one plugin — the same single-owner rule as types and panel chords.
+  const baseDestinations = options.destinations ?? builtinDestinations;
+  const baseKinds = new Set(baseDestinations.map((d) => d.kind));
+  const destinationOwners = new Map<string, string>();
+  for (const { plugin } of enabled) {
+    for (const destination of plugin.destinations ?? []) {
+      if (baseKinds.has(destination.kind)) {
+        return err(
+          validation(
+            `Destination kind "${destination.kind}" of "${plugin.name}" shadows a built-in`,
+            {
+              kind: destination.kind,
+              plugin: plugin.name,
+            },
+          ),
+        );
+      }
+      const other = destinationOwners.get(destination.kind);
+      if (other !== undefined) {
+        return err(
+          validation(
+            `Destination kind "${destination.kind}" is declared by both "${other}" and "${plugin.name}"`,
+            {
+              kind: destination.kind,
+              plugins: [other, plugin.name],
+            },
+          ),
+        );
+      }
+      destinationOwners.set(destination.kind, plugin.name);
+    }
+  }
+
+  // Astro themes: the built-in `modular` plus themes enabled plugins contribute to the `astro`
+  // kind. A theme name belongs to the core or exactly one plugin — the same single-owner rule as
+  // destination kinds and panel chords. The built-in astro is thus extended, not replaced.
+  const themeOwners = new Map<string, string>([['modular', 'core']]);
+  for (const { plugin } of enabled) {
+    for (const theme of plugin.astroThemes ?? []) {
+      const other = themeOwners.get(theme.name);
+      if (other === 'core') {
+        return err(
+          validation(`Astro theme "${theme.name}" of "${plugin.name}" shadows the built-in`, {
+            theme: theme.name,
+            plugin: plugin.name,
+          }),
+        );
+      }
+      if (other !== undefined) {
+        return err(
+          validation(
+            `Astro theme "${theme.name}" is declared by both "${other}" and "${plugin.name}"`,
+            { theme: theme.name, plugins: [other, plugin.name] },
+          ),
+        );
+      }
+      themeOwners.set(theme.name, plugin.name);
+    }
+  }
+  const themesFor = (root: string): AstroTheme[] => {
+    const themes: AstroTheme[] = [modularTheme];
+    for (const { plugin, scope: pluginScope } of enabled) {
+      if (!plugin.astroThemes) continue;
+      if (pluginScope.members.some((m) => m.available && m.root === root)) {
+        themes.push(...plugin.astroThemes);
+      }
+    }
+    return themes;
+  };
+
+  const destinationsFor = (root: string): readonly Destination[] => {
+    // A test override replaces the whole base set; otherwise the astro kind is built per vault from
+    // that vault's available themes, so its `theme` enum is exactly what the vault can use.
+    const base = options.destinations ?? [
+      markdownDestination,
+      htmlDestination,
+      createAstroDestination(themesFor(root)),
+    ];
+    const result = [...base];
+    for (const { plugin, scope: pluginScope } of enabled) {
+      if (!plugin.destinations) continue;
+      if (pluginScope.members.some((m) => m.available && m.root === root)) {
+        result.push(...plugin.destinations);
+      }
+    }
+    return result;
+  };
+
+  const resolved = resolvePublications(scope, destinationsFor);
+  if (!resolved.ok) return resolved;
+
   return ok({
     enabled,
     plugins: enabled.map((e) => e.plugin),
+    destinationsFor,
+    publications: () => resolved.value,
     ownerOf: (type) => owners.get(type),
     fieldsFor: (type) =>
       (owners.get(type)?.fields ?? []).filter(

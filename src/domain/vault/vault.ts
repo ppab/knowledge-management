@@ -1,4 +1,5 @@
 import type { IdentityConfig } from '../identity/identity.js';
+import type { Publication } from '../publishing/publication.js';
 
 declare const vaultIdBrand: unique symbol;
 export type VaultId = string & { readonly [vaultIdBrand]: true };
@@ -17,6 +18,8 @@ export interface VaultConfig {
   readonly editor?: string;
   /** Enabled plugins by name with their raw settings (`{}` for a bare key); absent = none. */
   readonly plugins?: Readonly<Record<string, unknown>>;
+  /** Named publications keyed by name; absent = none defined. */
+  readonly publications?: Readonly<Record<string, Publication>>;
 }
 
 /** A vault that has been located and whose configuration validated. */

@@ -9,6 +9,7 @@ import { findReferences, type Reference } from '../../domain/reference/reference
 import type { SourceRange } from '../../domain/text/text-edit.js';
 import type { MarkdownParser, ParsedMarkdown } from '../../application/ports.js';
 import { renderMarkdown } from './render.js';
+import { markdownToHtml } from './html.js';
 
 const processor = unified().use(remarkParse).use(remarkGfm);
 
@@ -53,5 +54,9 @@ export const createMarkdownParser = (): MarkdownParser => ({
 
   render(source, bodyStart, options) {
     return renderMarkdown(processor.parse(source.slice(bodyStart)), source, bodyStart, options);
+  },
+
+  toHtml(markdown) {
+    return markdownToHtml(markdown);
   },
 });
