@@ -62,6 +62,27 @@ describe('ofl CLI (M1)', () => {
     expect(JSON.parse(missing.stdout)).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });
 
+  it('classify files a raw capture under a type and clears it back to the inbox', async () => {
+    const box = await mkdtemp(join(tmpdir(), 'notes-classify-'));
+    try {
+      await ofl(box, 'init', '--name', 'demo', '--json');
+      const created = await ofl(box, 'capture', '--title', 'Loose', '--json');
+      const { id } = JSON.parse(created.stdout) as { id: string };
+      const typeOf = async (): Promise<string | undefined> =>
+        (JSON.parse((await ofl(box, 'show', id, '--json')).stdout) as { type?: string }).type;
+
+      expect(await typeOf()).toBeUndefined(); // raw, unclassified
+      expect((await ofl(box, 'classify', id, 'todo')).code).toBe(0);
+      expect(await typeOf()).toBe('todo');
+      expect((await ofl(box, 'classify', id, '--clear')).code).toBe(0);
+      expect(await typeOf()).toBeUndefined();
+      // Neither a type nor --clear: a validation error.
+      expect((await ofl(box, 'classify', id)).code).toBe(6);
+    } finally {
+      await rm(box, { recursive: true, force: true });
+    }
+  });
+
   it('adopts an unidentified file without touching anything but the id', async () => {
     const original = '---\n# keep me\ntitle: Legacy # note\nextra: [1, 2]\n---\n\nBody [[X]]\n';
     await writeFile(join(root, 'legacy.md'), original);
@@ -84,7 +105,7 @@ describe('ofl CLI (M1)', () => {
     expect(raw.stdout).toBe(after + '\n');
   });
 
-  it('indexes references: search, backlinks, reference list, doctor, rebuild', async () => {
+  it('indexes references: search, backlinks, references, doctor, rebuild', async () => {
     const make = async (title: string, body: string) => {
       const res = await ofl(root, 'capture', '--title', title, '--json');
       expect(res.code).toBe(0);
@@ -149,7 +170,7 @@ describe('ofl CLI (M1)', () => {
     expect((await ofl(root, 'index', 'status')).stdout).toContain('- dup.md');
   });
 
-  it('mutates safely: reference add, snippet insert, bind, dry-run and conflicts', async () => {
+  it('mutates safely: link, snippet insert, bind, dry-run and conflicts', async () => {
     const created = await ofl(root, 'capture', '--title', 'Mutable', '--json');
     const { id, path } = JSON.parse(created.stdout) as { id: string; path: string };
     const file = join(root, path);

@@ -89,10 +89,17 @@ Libraries:
 | Entity                 | Identity                        | Fields                                                                                                                                               |
 | ---------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Vault`                | `VaultId` (ULID, set at `init`) | name, include/exclude globs, identity strategy. Root path is an infrastructure detail.                                                               |
-| `Entry`                | `EntryId`                       | title, aliases, dates, tags, visibility, references, opaque extra frontmatter, body                                                                  |
+| `Entry`                | `EntryId`                       | optional `type`, title, aliases, dates, tags, visibility, references, opaque extra frontmatter, body                                                 |
 | `UnidentifiedEntry`    | path (vault-relative)           | A Markdown file matched by `include` with no `id`. Listed and searchable; read-only.                                                                 |
 | `Template` / `Snippet` | name                            | variables, content; template adds an output path (under the notes directory, `/` anchors at the vault root), snippet adds default insertion location |
 | `Publication`          | name                            | vault selection, include/exclude, output dir, route template, reference policy, destination (kind + options)                                         |
+
+An entry has two orthogonal axes (ADR 0005). The **identity axis** is `Entry` vs.
+`UnidentifiedEntry` — a file matched by `include` has no id until `adopt` assigns one, and only
+identified entries can be mutated or referenced. The **domain axis** is the optional `type`: its
+absence is a raw, unclassified capture (the inbox); a present value (`note`, `todo`, `time`, …) is
+a classification a plugin may own. `classify` sets or clears it. The core stays type-agnostic —
+`type` is purely the plugin extension point and the core never knows a single type name.
 
 ### Value objects
 
@@ -301,6 +308,7 @@ ofl show <id|alias> [--raw] [--at <rev>]
 ofl search <words...> [--limit <n>]        # trailing * on a word matches prefixes
 ofl capture --template <name> --title <t> [--var k=v]... [--path <p>] [--in <vault>]   # --in: name or path within the scope; --path: vault-relative
 ofl edit <id>
+ofl classify <id> [<type>] [--clear] [--dry-run]   # file a raw capture under a type (the domain axis), or --clear it back to the inbox
 ofl adopt <path>... [--type <type>] [--in <vault>]
 ofl snapshot <id> [-m <message>]
 ofl bind <id> --date <d> [--remove]

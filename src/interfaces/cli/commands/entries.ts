@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import { readRevision } from '../../../application/history/history.js';
 import { adoptEntry, type AdoptedEntry } from '../../../application/entries/adopt-entry.js';
 import { captureEntry } from '../../../application/entries/capture-entry.js';
+import { classifyEntry } from '../../../application/entries/classify-entry.js';
 import { deleteEntry, type DeletedEntry } from '../../../application/entries/delete-entry.js';
 import { listEntries } from '../../../application/entries/list-entries.js';
 import { showEntry } from '../../../application/entries/show-entry.js';
@@ -26,7 +27,7 @@ import {
   type CliContext,
   type CliIo,
 } from '../context.js';
-import { emit, entryToJson, summaryRow, table } from '../output.js';
+import { emit, entryToJson, mutationText, summaryRow, table } from '../output.js';
 import { revisionDate } from './history.js';
 import { parseVar } from './mutations.js';
 
@@ -288,6 +289,38 @@ export const registerEntryCommands = (program: Command, io: CliIo, exit: Exit): 
         ),
       );
     });
+
+  program
+    .command('classify')
+    .description('file an entry under a type, or clear it back to the inbox')
+    .argument('<query>', 'entry id, title or alias')
+    .argument('[type]', 'the type to file it under (omit with --clear)')
+    .option('--clear', 'remove the type, returning the entry to the inbox')
+    .option('--dry-run', 'print the change as a diff and write nothing')
+    .action(
+      async (
+        query: string,
+        type: string | undefined,
+        opts: { clear?: boolean; dryRun?: boolean },
+        cmd: Command,
+      ) => {
+        const ctx = contextFor(io, cmd);
+        exit(
+          await emit(
+            ctx,
+            inScope(ctx, (scope) =>
+              classifyEntry(ctx.deps, scope, {
+                query,
+                ...(type !== undefined && { type }),
+                ...(opts.clear !== undefined && { clear: opts.clear }),
+                ...(opts.dryRun !== undefined && { dryRun: opts.dryRun }),
+              }),
+            ),
+            mutationText,
+          ),
+        );
+      },
+    );
 
   program
     .command('delete')

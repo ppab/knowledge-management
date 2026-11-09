@@ -58,6 +58,7 @@ code (`ofl capabilities --json` lists the commands, flags and codes):
 ofl list --json
 ofl search kumquat --json
 ofl show "first note" --json
+ofl classify "first note" todo        # file a raw capture under a type (--clear sends it back to the inbox)
 ofl snapshot "first note" -m "first words"
 ```
 
