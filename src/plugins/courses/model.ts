@@ -1,6 +1,6 @@
 import type { ScopedEntry } from '../../application/notes/list-notes.js';
 import type { FieldSpec } from '../../application/plugin/plugin.js';
-import type { IsoDate } from '../../domain/calendar/date-binding.js';
+import { parseIsoDate, type IsoDate } from '../../domain/calendar/date-binding.js';
 import type { FieldValue } from '../../domain/note/fields.js';
 import type { NoteId } from '../../domain/note/note-id.js';
 import { parseFieldReference } from '../../domain/reference/reference.js';
@@ -50,6 +50,12 @@ export const COURSE_FIELDS: readonly FieldSpec[] = [
     values: COURSE_STATUSES,
     required: true,
     description: 'active, completed, paused or dropped',
+  },
+  {
+    name: 'course_target',
+    types: [COURSE_TYPE],
+    type: 'date',
+    description: 'a planned finish date; progress stays derived, this is only the plan',
   },
 ];
 
@@ -166,6 +172,8 @@ export interface Course extends Identity {
   readonly provider?: string;
   readonly url?: string;
   readonly instructor?: string;
+  /** A planned finish date; the plan only — progress is still derived from children. */
+  readonly target?: IsoDate;
 }
 
 export interface Chapter extends Identity {
@@ -256,13 +264,24 @@ const readCourse = (
   const provider = optionalText(fields, 'course_provider', problems);
   const url = optionalText(fields, 'course_url', problems);
   const instructor = optionalText(fields, 'course_instructor', problems);
-  if (!status) return { course: null, problems };
+  let target: IsoDate | undefined;
+  if (present(fields.course_target)) {
+    const parsed =
+      typeof fields.course_target === 'string' ? parseIsoDate(fields.course_target) : null;
+    if (parsed?.ok) target = parsed.value;
+    else
+      problems.push(
+        `course_target must be a date (YYYY-MM-DD), got ${JSON.stringify(fields.course_target)}`,
+      );
+  }
+  if (problems.length > 0 || !status) return { course: null, problems };
   return {
     course: {
       status,
       ...(provider !== undefined && { provider }),
       ...(url !== undefined && { url }),
       ...(instructor !== undefined && { instructor }),
+      ...(target !== undefined && { target }),
     },
     problems,
   };
@@ -275,7 +294,7 @@ const readChapter = (
   const course = parseFieldReference(fields.chapter_course);
   if (!course) problems.push('chapter_course must be a note link ("[[id]]")');
   const order = optionalCount(fields, 'chapter_order', problems);
-  if (!course) return { chapter: null, problems };
+  if (problems.length > 0 || !course) return { chapter: null, problems };
   return {
     chapter: { course: course.target, ...(order !== undefined && { order }) },
     problems,
@@ -297,7 +316,7 @@ const readLesson = (
   const order = optionalCount(fields, 'lesson_order', problems);
   const url = optionalText(fields, 'lesson_url', problems);
   const duration = optionalCount(fields, 'lesson_duration', problems);
-  if (!chapter || !status) return { lesson: null, problems };
+  if (problems.length > 0 || !chapter || !status) return { lesson: null, problems };
   return {
     lesson: {
       chapter: chapter.target,
@@ -340,7 +359,9 @@ const readStudy = (
   }
   const day = dates[0];
   if (day === undefined) problems.push('a study session needs its day in dates:');
-  if (!course || amount === undefined || day === undefined) return { study: null, problems };
+  if (problems.length > 0 || !course || amount === undefined || day === undefined) {
+    return { study: null, problems };
+  }
   return {
     study: { course: course.target, amount, unit, day, ...(lesson !== undefined && { lesson }) },
     problems,

@@ -38,7 +38,9 @@ course_status: active
 ```
 
 `course_status` is one of `active | completed | paused | dropped` (required). `course_provider`,
-`course_url` and `course_instructor` are optional text.
+`course_url` and `course_instructor` are optional text. `course_target` is an optional planned
+finish date (`YYYY-MM-DD`): the plan only — the course's actual start and finish stay derived from
+its study sessions and lesson states, never stored.
 
 ### 1.2 Chapter (`type: chapter`)
 

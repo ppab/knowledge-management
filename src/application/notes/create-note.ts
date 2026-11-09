@@ -1,4 +1,5 @@
 import { conflict, validation, type AppError } from '../../domain/errors.js';
+import type { FieldValue } from '../../domain/note/fields.js';
 import { generateNoteId } from '../../domain/identity/identity.js';
 import { wrapFrontmatter } from '../../domain/note/frontmatter.js';
 import { slugify, type Note } from '../../domain/note/note.js';
@@ -27,6 +28,12 @@ export interface CreateNoteInput {
   readonly variables?: TemplateVariables;
   /** Overrides the template's output path. Vault-relative; must still fall under `include`. */
   readonly path?: string;
+  /**
+   * Frontmatter keys written as real YAML values after the template renders — the one way to
+   * create a note with a numeric or reference field (a `{{placeholder}}` always lands as a
+   * string). They override whatever the template wrote for the same key.
+   */
+  readonly fields?: Readonly<Record<string, FieldValue>>;
 }
 
 export const isoDate = (d: Date): string =>
@@ -204,6 +211,13 @@ export const createNote = async (
     });
     if (!withAlias.ok) return withAlias;
     yamlText = withAlias.value;
+  }
+  // Typed fields are written last as real YAML, so a numeric or reference field a template can
+  // only express as a string (`{{placeholder}}`) lands with its true type.
+  if (input.fields && Object.keys(input.fields).length > 0) {
+    const withFields = deps.frontmatter.update(yamlText, { set: input.fields });
+    if (!withFields.ok) return withFields;
+    yamlText = withFields.value;
   }
   const body = substitute(template.value.body);
   const content = wrapFrontmatter(yamlText) + body;

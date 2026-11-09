@@ -49,8 +49,8 @@ Resolved in conversation; the plan below reflects these, not the contract's sile
 4. **Progress as text now, `ProgressBar` later.** Panels render `3/24 lessons · 6h30m` as text; the
    `ProgressBar` cell is the same core extension `goals` delivery D calls for, added with it, not
    before.
-5. **Course start/finish are derived; `course_target` is the one stored plan.** A course's *started*
-   = the date of its first study session (or first lesson marked done); *finished* = when
+5. **Course start/finish are derived; `course_target` is the one stored plan.** A course's _started_
+   = the date of its first study session (or first lesson marked done); _finished_ = when
    `course_status` → `completed` or every lesson is `done` — both derived, never stored, per the
    plugin's derive-don't-store rule (contract §2). The only stored lifecycle field is
    **`course_target`** (an optional planned finish date, like `goal_due`) — a schema addendum to
@@ -220,7 +220,7 @@ not in `courses`.
 - `j`/`k` move between visible nodes; `h`/`l` collapse/expand the node (`Space` is the leader,
   `Enter` opens — so neither can toggle); `Tab`/`→` steps the cursor onto a node's action spans.
 - **`Enter` on a node body → open its note; `Enter` on an action span → run that action** against
-  *that* node (no query, no ambiguity — the per-child verb targets where the cursor is).
+  _that_ node (no query, no ambiguity — the per-child verb targets where the cursor is).
 - **Division of labor:** inline spans carry **per-child verbs** (`done`/`start` on this lesson); the
   **`Space` leader menu** carries **note-level verbs** (`log`/`set target`/`stop`) scoped to the
   focused node's type.
@@ -272,14 +272,14 @@ is the one substantial build; the rest are small and partly shared with `goals`.
 
 ## Deliveries and core extensions
 
-| Delivery | Ships                                                                                   | Core change                                                                                                   |
-| -------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.      | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).                      |
-| A′       | `course_target` field (schema addendum).                                                 | None.                                                                                                         |
-| B        | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                  | `expectedVersion` on `PluginApi.setFields`; typed `create`.                                                   |
-| C        | `courses start` / `stop`; `courses:open` doctor check.                                   | None beyond B.                                                                                                |
-| D1       | The courses **tree screen** (`Space → C`); leader menu scoped by node type.              | A `tree` `PanelData` kind; `PanelAction.inputs`; `ProgressBar` cell (bar shared with `goals` D).             |
-| D2       | Inline `[done]`/`[start]` action spans on tree nodes; the `courses.note` subtree panel.  | Focusable action spans in the `tree` renderer (reuses the reference cursor).                                 |
+| Delivery        | Ships                                                                                   | Core change                                                                                      |
+| --------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.  | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).         |
+| A′              | `course_target` field (schema addendum).                                                | None.                                                                                            |
+| B               | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                 | `expectedVersion` on `PluginApi.setFields`; typed `create`.                                      |
+| C               | `courses start` / `stop`; `courses:open` doctor check.                                  | None beyond B.                                                                                   |
+| D1              | The courses **tree screen** (`Space → C`); leader menu scoped by node type.             | A `tree` `PanelData` kind; `PanelAction.inputs`; `ProgressBar` cell (bar shared with `goals` D). |
+| D2              | Inline `[done]`/`[start]` action spans on tree nodes; the `courses.note` subtree panel. | Focusable action spans in the `tree` renderer (reuses the reference cursor).                     |
 
 B and C are additive to `goals`' core work; if `goals` delivery B/D land first, `courses` inherits
 `expectedVersion`, typed create and `PanelAction.inputs` for free. The `tree` panel kind and its

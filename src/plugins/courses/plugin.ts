@@ -16,11 +16,13 @@ import {
   type CoursesEntries,
 } from './model.js';
 import { CHAPTER_TEMPLATE, COURSE_TEMPLATE, LESSON_TEMPLATE, STUDY_TEMPLATE } from './templates.js';
+import { COMMANDS } from './commands.js';
 
 /*
  * Courses: the content of an online course as a course → chapter → lesson hierarchy, with study
- * sessions alongside it and progress derived from the children (docs/courses.md). This delivery
- * declares the schema, the templates and the doctor checks; commands and panels follow.
+ * sessions alongside it and progress derived from the children (docs/courses.md). Delivery A
+ * declared the schema, templates and doctor checks; delivery B adds the commands below. Panels
+ * follow in D.
  */
 
 const NAME = 'courses';
@@ -114,5 +116,6 @@ export const coursesPlugin: NotePlugin = {
     lesson: LESSON_TEMPLATE,
     study: STUDY_TEMPLATE,
   },
+  commands: COMMANDS,
   checks: [invalidCheck, orphanCheck],
 };
