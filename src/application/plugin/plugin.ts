@@ -137,6 +137,24 @@ export interface PanelNoteRef {
   readonly id?: string;
 }
 
+/**
+ * A node in a `tree` panel. Grouping nodes (no `note`/`type`) are pure expand/collapse containers;
+ * a node with a `note` opens it on `Enter` and a node with a `type` scopes the leader verbs offered
+ * on it. `expanded` is the initial state (default expanded); the viewer's `h`/`l` overrides it.
+ */
+export interface TreeNode {
+  readonly id: string;
+  readonly label: string;
+  readonly detail?: string;
+  readonly note?: PanelNoteRef;
+  /** The owned type of the node's note, for scoping its verbs; absent on a grouping node. */
+  readonly type?: string;
+  readonly expanded?: boolean;
+  /** Inline per-child verbs shown on the node; each `key` is a `PanelAction`'s. */
+  readonly actions?: readonly { readonly key: string; readonly label: string }[];
+  readonly children?: readonly TreeNode[];
+}
+
 export type PanelData =
   | {
       readonly kind: 'list';
@@ -152,6 +170,7 @@ export type PanelData =
       readonly header: readonly string[];
       readonly rows: readonly { readonly cells: readonly string[]; readonly note?: PanelNoteRef }[];
     }
+  | { readonly kind: 'tree'; readonly roots: readonly TreeNode[] }
   | { readonly kind: 'text'; readonly lines: readonly string[] };
 
 export interface PanelContext {
@@ -161,10 +180,26 @@ export interface PanelContext {
   readonly selection?: unknown;
 }
 
+/** A value a panel action collects before it runs (the `log` amount, a date); rendered by the core. */
+export interface PanelInput {
+  readonly name: string;
+  readonly label: string;
+  readonly type: 'string' | 'number' | 'enum';
+  readonly values?: readonly string[];
+  readonly default?: string | number;
+  readonly required?: boolean;
+}
+
 export interface PanelAction {
   readonly key: string;
   readonly label: string;
-  /** Receives the row under the cursor; `null` when there was nothing to do. */
+  /** Node/note types this verb is offered for; every type when absent. */
+  readonly appliesTo?: readonly string[];
+  /** Where the verb appears on a `tree`: an inline span on the node, or the leader menu (default). */
+  readonly surface?: 'inline' | 'menu';
+  /** Values to collect before running (D2); absent runs on the key. */
+  readonly inputs?: readonly PanelInput[];
+  /** Receives the row/node under the cursor; `null` when there was nothing to do. */
   run(api: PluginApi, context: PanelContext): Promise<Result<MutationOutcome | null, AppError>>;
 }
 

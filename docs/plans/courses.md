@@ -272,19 +272,19 @@ is the one substantial build; the rest are small and partly shared with `goals`.
 
 ## Deliveries and core extensions
 
-| Delivery        | Ships                                                                                   | Core change                                                                                      |
-| --------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.  | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).         |
-| A′              | `course_target` field (schema addendum).                                                | None.                                                                                            |
-| B               | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                 | `expectedVersion` on `PluginApi.setFields`; typed `create`.                                      |
-| C               | `courses start` / `stop`; `courses:open` doctor check.                                  | None beyond B.                                                                                   |
-| D1              | The courses **tree screen** (`Space → C`); leader menu scoped by node type.             | A `tree` `PanelData` kind; `PanelAction.inputs`; `ProgressBar` cell (bar shared with `goals` D). |
-| D2              | Inline `[done]`/`[start]` action spans on tree nodes; the `courses.note` subtree panel. | Focusable action spans in the `tree` renderer (reuses the reference cursor).                     |
+| Delivery        | Ships                                                                                                                                                 | Core change                                                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.                                                                | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).                                        |
+| A′ ✓            | `course_target` field (schema addendum).                                                                                                              | Typed `create` (`CreateNoteInput.fields`).                                                                                      |
+| B ✓             | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                                                                               | Typed `create` (above); readers reject on any field problem.                                                                    |
+| C ✓             | `courses start` / `stop`; `courses:open` doctor check; open-study model.                                                                              | None beyond B.                                                                                                                  |
+| D1 ✓            | The courses **tree screen** (`Space → C`), collapsible with derived expansion; inline `[done]`/`[stop]` verbs; leader menu scoped by node type.       | A generic `tree` `PanelData` kind + `TreeNode`; `PanelAction.appliesTo`/`surface`/`inputs`; tree renderer.                      |
+| D2              | The creating verbs from the tree (`start`/`log`/`set target`) via the leader menu + input form; the `courses.note` subtree panel; `ProgressBar` cell. | `PanelAction.run` result widened for creates; `PanelAction.inputs` rendered by the core; `ProgressBar` (shared with `goals` D). |
 
-B and C are additive to `goals`' core work; if `goals` delivery B/D land first, `courses` inherits
-`expectedVersion`, typed create and `PanelAction.inputs` for free. The `tree` panel kind and its
-focusable action spans are the one substantial core build D introduces, and are reusable beyond
-`courses`.
+A′–D1 are shipped. D1's inline verbs are the mutation ones that fit today's `PanelAction` contract
+(`done` on a lesson, `stop` on a running study); the creating verbs (`start`/`log`/`set target`) and
+the declarative input form are D2, because `create` returns a note, not a `MutationOutcome`. The
+generic `tree` panel kind is the one substantial core build, reusable beyond `courses`.
 
 ## Testing
 

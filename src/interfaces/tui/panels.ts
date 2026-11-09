@@ -54,6 +54,7 @@ export const rowCount = (data: PanelData | undefined): number => {
       return data.items.length;
     case 'table':
       return data.rows.length;
+    case 'tree': // the visible count depends on collapse state; PanelScreen computes it.
     case 'text':
       return 0;
   }
@@ -67,6 +68,7 @@ export const rowAt = (data: PanelData | undefined, cursor: number): unknown => {
       return data.items[cursor];
     case 'table':
       return data.rows[cursor];
+    case 'tree':
     case 'text':
       return undefined;
   }
@@ -79,6 +81,7 @@ export const noteAt = (data: PanelData | undefined, cursor: number): PanelNoteRe
       return data.items[cursor]?.note;
     case 'table':
       return data.rows[cursor]?.note;
+    case 'tree':
     case 'text':
       return undefined;
   }

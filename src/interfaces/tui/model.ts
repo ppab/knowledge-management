@@ -47,7 +47,13 @@ export type Screen =
       readonly listCursor?: number;
     }
   | { readonly kind: 'day'; readonly date: IsoDate; readonly cursor: number }
-  | { readonly kind: 'panel'; readonly id: string; readonly cursor: number }
+  | {
+      readonly kind: 'panel';
+      readonly id: string;
+      readonly cursor: number;
+      /** `tree` panels only: node ids toggled away from their default expansion. */
+      readonly toggled?: readonly string[];
+    }
   /** The revision list; on a wide terminal the selected revision previews beside it. */
   | {
       readonly kind: 'history';

@@ -224,7 +224,9 @@ export const harness = (
   } = {},
 ): Harness => {
   const f = fixture(
-    options.plugins && options.plugins.length > 0 ? { plugins: { todos: {} } } : {},
+    options.plugins && options.plugins.length > 0
+      ? { plugins: Object.fromEntries(options.plugins.map((p) => [p.name, {}])) }
+      : {},
   );
   setup(f);
   // Re-read the scope after setup so a test can change the vault config (e.g. its editor).

@@ -18,6 +18,7 @@ import {
 } from './model.js';
 import { CHAPTER_TEMPLATE, COURSE_TEMPLATE, LESSON_TEMPLATE, STUDY_TEMPLATE } from './templates.js';
 import { COMMANDS } from './commands.js';
+import { PANELS } from './panels.js';
 
 /*
  * Courses: the content of an online course as a course → chapter → lesson hierarchy, with study
@@ -144,4 +145,5 @@ export const coursesPlugin: NotePlugin = {
   },
   commands: COMMANDS,
   checks: [invalidCheck, orphanCheck, openCheck],
+  panels: PANELS,
 };
