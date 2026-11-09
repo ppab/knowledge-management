@@ -2,10 +2,10 @@ import { Box, Text, useInput } from 'ink';
 import { Spinner, StatusMessage, TextInput } from '@inkjs/ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  createNote,
+  captureEntry,
   previewTemplates,
   type TemplatePreview,
-} from '../../../application/notes/create-note.js';
+} from '../../../application/entries/capture-entry.js';
 import { resolveWriteTarget } from '../../../domain/scope/scope.js';
 import { Dialog, DIALOG_CHROME } from '../components/Dialog.js';
 import type { Hint } from '../components/Frame.js';
@@ -14,14 +14,14 @@ import { InkUi } from '../components/ink-ui.js';
 import { Rows } from '../components/Rows.js';
 import { useTui } from '../context.js';
 import { isDown, isUp } from '../keys.js';
-import { clamp, noteScreen } from '../model.js';
+import { clamp, entryScreen } from '../model.js';
 
 /*
  * The note-creation flow (issue #4): `c` → title → template → create, as one owned state machine.
  *
- * Why a self-contained flow rather than loose state on `NoteList`: the keyboard must have a single
+ * Why a self-contained flow rather than loose state on `EntryList`: the keyboard must have a single
  * owner from the first keystroke to the last, including the async gaps where templates are
- * previewed and the note is written. `NoteList` turns its list keys and the leader off whenever
+ * previewed and the note is written. `EntryList` turns its list keys and the leader off whenever
  * `active` is true, so nothing else reads the keyboard mid-flow. Each async step is guarded by a
  * liveness flag, so a preview or write that resolves after the user cancelled (or the app
  * unmounted) is dropped instead of reopening a closed dialog.
@@ -141,7 +141,7 @@ export const useCreateFlow = (): CreateFlow => {
     const write = async () => {
       const target = resolveWriteTarget(scope, { cwd });
       if (!target.ok) return target;
-      return createNote(
+      return captureEntry(
         deps,
         target.value,
         { title, ...(template !== undefined && { template }) },
@@ -157,7 +157,7 @@ export const useCreateFlow = (): CreateFlow => {
         }
         setStage(null);
         notify(`Created ${created.value.id} at ${created.value.path}`);
-        navigate({ type: 'push', screen: noteScreen({ query: created.value.id }) });
+        navigate({ type: 'push', screen: entryScreen({ query: created.value.id }) });
       },
       (error: unknown) => {
         if (live) setStage(toSelect(asMessage(error)));

@@ -1,8 +1,8 @@
-import type { ScopedEntry } from '../../application/notes/list-notes.js';
+import type { ScopedEntry } from '../../application/entries/list-entries.js';
 import type { FieldSpec } from '../../application/plugin/plugin.js';
 import { parseIsoDate, type IsoDate } from '../../domain/calendar/date-binding.js';
-import type { FieldValue } from '../../domain/note/fields.js';
-import type { NoteId } from '../../domain/note/note-id.js';
+import type { FieldValue } from '../../domain/entry/fields.js';
+import type { EntryId } from '../../domain/entry/entry-id.js';
 import { parseFieldReference } from '../../domain/reference/reference.js';
 import { parseInstant, parseUnit, type Instant, type Unit } from './units.js';
 
@@ -125,7 +125,7 @@ export const FIELDS: readonly FieldSpec[] = [...GOAL_FIELDS, ...SESSION_FIELDS];
 interface Identity {
   readonly vault: string;
   readonly path: string;
-  readonly id: NoteId;
+  readonly id: EntryId;
   readonly title: string;
   /** Content version at read time; what a mutation passes as `expectedVersion`. */
   readonly version: string;
@@ -138,11 +138,11 @@ export interface Goal extends Identity {
   readonly outcome?: string;
   readonly status: GoalStatus;
   /** The session registered as running; see docs/goals.md §5. */
-  readonly openSession?: NoteId;
+  readonly openSession?: EntryId;
 }
 
 export interface Session extends Identity {
-  readonly goal: NoteId;
+  readonly goal: EntryId;
   readonly status: SessionStatus;
   /** Present once confirmed; in `unit` when given, else in the goal's unit. */
   readonly amount?: number;
@@ -215,7 +215,7 @@ const readGoalFields = (
     if (typeof fields.goal_outcome === 'string') outcome = fields.goal_outcome;
     else problems.push('goal_outcome must be text');
   }
-  let openSession: NoteId | undefined;
+  let openSession: EntryId | undefined;
   if (present(fields.goal_open_session)) {
     const reference = parseFieldReference(fields.goal_open_session);
     if (reference) openSession = reference.target;
@@ -325,7 +325,7 @@ export const collect = (entries: readonly ScopedEntry[]): GoalsEntries => {
   for (const entry of entries) {
     if (entry.type !== GOAL_TYPE && entry.type !== SESSION_TYPE) continue;
     const type = entry.type;
-    if (entry.kind !== 'note') continue;
+    if (entry.kind !== 'entry') continue;
     const identity: Identity = {
       vault: entry.vault,
       path: entry.path,

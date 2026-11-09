@@ -21,14 +21,14 @@ export interface InitVaultInput {
   readonly identity?: IdentityConfig;
   /**
    * Directory for notes, relative to the vault root: becomes the single `include` glob
-   * (`<dir>/**\/*.md`) and the default location of `create`. `.` or absent: the whole vault.
+   * (`<dir>/**\/*.md`) and the default location of `capture`. `.` or absent: the whole vault.
    */
-  readonly notesDir?: string;
+  readonly entriesDir?: string;
 }
 
 /** `include` for a notes directory; `null` keeps the default (every `.md` under the root). */
-export const includeFor = (notesDir: string | undefined): Result<string[] | null, AppError> => {
-  const trimmed = notesDir?.trim().replace(/[\\/]+$/, '');
+export const includeFor = (entriesDir: string | undefined): Result<string[] | null, AppError> => {
+  const trimmed = entriesDir?.trim().replace(/[\\/]+$/, '');
   if (trimmed === undefined || trimmed === '' || trimmed === '.') return ok(null);
   const normalized = normalizeVaultPath(trimmed);
   if (!normalized.ok) return normalized;
@@ -51,7 +51,7 @@ export const initVault = async (
   const identity = input.identity ?? { strategy: 'ulid' };
   const valid = validateIdentityConfig(identity);
   if (!valid.ok) return valid;
-  const include = includeFor(input.notesDir);
+  const include = includeFor(input.entriesDir);
   if (!include.ok) return include;
 
   const config: VaultConfig = {

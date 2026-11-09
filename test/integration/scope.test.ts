@@ -90,8 +90,7 @@ describe('scopes (M4)', () => {
       base,
       '--scope',
       'both',
-      'reference',
-      'add',
+      'link',
       '--source',
       'A',
       '--target',
@@ -104,19 +103,9 @@ describe('scopes (M4)', () => {
         shared,
       ).error.details.candidates.map((c) => c.vault),
     ).toEqual(['one', 'two']);
-    const byId = await ofl(
-      base,
-      '--scope',
-      'both',
-      'reference',
-      'add',
-      '--source',
-      'A',
-      '--target',
-      'B',
-    );
+    const byId = await ofl(base, '--scope', 'both', 'link', '--source', 'A', '--target', 'B');
     expect(byId.code).toBe(0);
-    expect((await ofl(base, '--scope', 'both', 'reference', 'list', 'A')).stdout).toContain(
+    expect((await ofl(base, '--scope', 'both', 'references', 'A')).stdout).toContain(
       '[[B|Beta]] -> Beta (two:b.md)',
     );
   });
@@ -137,15 +126,15 @@ describe('scopes (M4)', () => {
   });
 
   it('writes need one vault: --in, or a cwd inside exactly one member', async () => {
-    expect((await ofl(base, '--scope', 'both', 'create', '--title', 'Nowhere')).code).toBe(2);
-    const inside = await ofl(one, '--scope', 'both', 'create', '--title', 'Inside', '--json');
+    expect((await ofl(base, '--scope', 'both', 'capture', '--title', 'Nowhere')).code).toBe(2);
+    const inside = await ofl(one, '--scope', 'both', 'capture', '--title', 'Inside', '--json');
     expect(inside.code).toBe(0);
     expect(json<{ vault: string }>(inside).vault).toBe('one');
     const named = await ofl(
       base,
       '--scope',
       'both',
-      'create',
+      'capture',
       '--title',
       'Named',
       '--in',
@@ -157,7 +146,7 @@ describe('scopes (M4)', () => {
       path: 'named.md',
     });
     expect(
-      (await ofl(base, '--scope', 'both', 'create', '--title', 'X', '--in', 'nope')).code,
+      (await ofl(base, '--scope', 'both', 'capture', '--title', 'X', '--in', 'nope')).code,
     ).toBe(2);
   });
 });

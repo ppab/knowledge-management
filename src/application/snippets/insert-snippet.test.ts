@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { listNotes } from '../notes/list-notes.js';
+import { listEntries } from '../entries/list-entries.js';
 import { insertSnippet } from './insert-snippet.js';
 
 const A =
@@ -35,16 +35,16 @@ describe('insertSnippet', () => {
     f.fs.files.set('a.md', A);
     f.snippets.set('needs', 'Hello {{who}} [[B]]\n');
     // Warm the index so the only file read left to observe would be the note itself.
-    unwrap(await listNotes(f.deps, f.scope));
+    unwrap(await listEntries(f.deps, f.scope));
     const reads: string[] = [];
-    const notes = f.deps.notes;
+    const entries = f.deps.entries;
     const spied = {
       ...f.deps,
-      notes: {
-        ...notes,
+      entries: {
+        ...entries,
         read: (root: string, path: string) => {
           reads.push(path);
-          return notes.read(root, path);
+          return entries.read(root, path);
         },
       },
     };

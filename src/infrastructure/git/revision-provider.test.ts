@@ -37,7 +37,7 @@ beforeAll(async () => {
 });
 afterAll(() => rm(base, { recursive: true, force: true }));
 
-const note = (body: string) => `---\nid: N1\ntitle: Note\n---\n\n${body}\n`;
+const note = (body: string) => `---\nid: N1\ntitle: Entry\n---\n\n${body}\n`;
 
 describe('git revision provider', () => {
   it('treats a directory outside any repository as unversioned', async () => {

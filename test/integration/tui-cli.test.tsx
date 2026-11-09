@@ -9,7 +9,7 @@ import { unwrap } from '../../src/domain/result.js';
 import { createDeps } from '../../src/infrastructure/deps.js';
 import { App } from '../../src/interfaces/tui/App.js';
 import type { TuiServices } from '../../src/interfaces/tui/context.js';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { createTheme } from '../../src/interfaces/tui/theme.js';
 import { buildTuiRegistry } from '../../src/interfaces/tui/tui.js';
 import { firstPartyPlugins } from '../../src/plugins/index.js';
@@ -51,7 +51,7 @@ describe('ofl (no subcommand) and ofl edit', () => {
   });
 
   it('opens the note file in $EDITOR and the next read sees the edit', async () => {
-    const created = await ofl(['create', '--title', 'Draft', '--json']);
+    const created = await ofl(['capture', '--title', 'Draft', '--json']);
     const { id, path } = JSON.parse(created.stdout) as { id: string; path: string };
     const fake = join(root, 'fake-editor.sh');
     await writeFile(fake, '#!/bin/sh\nprintf "\\nappended by editor\\n" >> "$1"\n', {
@@ -89,17 +89,7 @@ describe('reference add --label and the TUI selection path agree', () => {
       await writeFile(join(a, 'src.md'), '---\nid: SRC\ntitle: Source\n---\n\nintro\n');
       const added = await run(
         tsx,
-        [
-          main,
-          'reference',
-          'add',
-          '--source',
-          'SRC',
-          '--target',
-          'TGT',
-          '--label',
-          'ingestion pipeline',
-        ],
+        [main, 'link', '--source', 'SRC', '--target', 'TGT', '--label', 'ingestion pipeline'],
         { cwd: a },
       );
       expect(added.stderr).toBe('');
@@ -124,7 +114,7 @@ describe('reference add --label and the TUI selection path agree', () => {
         <App
           services={services}
           changes={fakeChanges()}
-          initial={[{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]}
+          initial={[{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]}
         />,
       );
       try {

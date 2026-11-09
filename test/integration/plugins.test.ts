@@ -47,7 +47,7 @@ describe('todos plugin (M4.5)', () => {
     const disabled = await ofl('todos', 'list');
     expect(disabled.code).toBe(2);
     expect(disabled.stderr).toContain('not enabled');
-    expect((await ofl('create', '--template', 'todos/task', '--title', 'X')).code).toBe(3);
+    expect((await ofl('capture', '--template', 'todos/task', '--title', 'X')).code).toBe(3);
     const caps = json<{ plugins: { name: string; enabled: boolean }[] }>(
       await ofl('capabilities', '--json'),
     );
@@ -61,7 +61,7 @@ describe('todos plugin (M4.5)', () => {
   it('creates, lists, closes and checks todos once enabled', async () => {
     await appendFile(join(root, '.ofl', 'config.yaml'), 'plugins:\n  todos:\n');
 
-    const created = await ofl('create', '--template', 'todos/task', '--title', 'Ship', '--json');
+    const created = await ofl('capture', '--template', 'todos/task', '--title', 'Ship', '--json');
     expect(created.code).toBe(0);
     const { id, path, frontmatter } = json<{
       id: string;

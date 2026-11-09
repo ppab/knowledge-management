@@ -2,7 +2,7 @@ import type { AppError } from '../../domain/errors.js';
 import { ok, type Result } from '../../domain/result.js';
 import type {
   CheckResult,
-  NotePlugin,
+  EntryPlugin,
   PluginApi,
   PluginCheck,
 } from '../../application/plugin/plugin.js';
@@ -132,7 +132,7 @@ const openCheck: PluginCheck = {
   },
 };
 
-export const coursesPlugin: NotePlugin = {
+export const coursesPlugin: EntryPlugin = {
   name: NAME,
   description: 'an online course as chapters and lessons, with study sessions and derived progress',
   types: [COURSE_TYPE, CHAPTER_TYPE, LESSON_TYPE, STUDY_TYPE],

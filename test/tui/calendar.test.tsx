@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { harness, KEYS, type Terminal } from './harness.js';
 
 let term: Terminal | undefined;
@@ -248,7 +248,7 @@ describe('Calendar', () => {
     const h = harness((f) => {
       f.fs.files.set('plain.md', vault.plain);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'P' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'P' })]);
     await term.waitFor('Plain · monitor · P');
     await term.press(' ');
     const menu = await term.waitFor('Space …');

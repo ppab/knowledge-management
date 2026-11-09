@@ -1,5 +1,5 @@
 import { validation } from '../../../domain/errors.js';
-import { wrapFrontmatter } from '../../../domain/note/frontmatter.js';
+import { wrapFrontmatter } from '../../../domain/entry/frontmatter.js';
 import type { PlanEntry } from '../../../domain/publishing/plan.js';
 import { routeVariables } from '../../../domain/publishing/route.js';
 import { err, ok } from '../../../domain/result.js';

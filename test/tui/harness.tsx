@@ -6,7 +6,7 @@ import { createTheme } from '../../src/interfaces/tui/theme.js';
 import { App } from '../../src/interfaces/tui/App.js';
 import type { ChangeFeed, StatusMessage, TuiServices } from '../../src/interfaces/tui/context.js';
 import type { Screen } from '../../src/interfaces/tui/model.js';
-import type { NotePlugin } from '../../src/application/plugin/plugin.js';
+import type { EntryPlugin } from '../../src/application/plugin/plugin.js';
 import type { ExternalEditor } from '../../src/application/ports.js';
 import { ok } from '../../src/domain/result.js';
 import { fixture, type Fixture } from '../fakes/index.js';
@@ -218,7 +218,7 @@ export interface Harness {
 export const harness = (
   setup: (f: Fixture) => void,
   options: {
-    plugins?: readonly NotePlugin[];
+    plugins?: readonly EntryPlugin[];
     editor?: FakeEditor;
     scope?: (f: Fixture) => Fixture['scope'];
   } = {},

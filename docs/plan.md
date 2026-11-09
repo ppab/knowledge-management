@@ -56,10 +56,10 @@ and show notes — scanning the filesystem directly, no index yet.
 
 **Deliverables**
 
-- domain: `VaultId`, `NoteId`, `Note`, `UnidentifiedNote`, `Reference` (string grammar), identity
+- domain: `VaultId`, `EntryId`, `Entry`, `UnidentifiedEntry`, `Reference` (string grammar), identity
   strategy interface and the `formatted` composer, `Visibility`, title fallback rule.
-- application: `initVault`, `locateVault`, `createNote`, `listNotes`, `showNote`, `adoptNote`,
-  `renderTemplate`; ports `VaultLocator`, `NoteStore`, `MarkdownDocument`, `FrontmatterCodec`,
+- application: `initVault`, `locateVault`, `createEntry`, `listNotes`, `showNote`, `adoptNote`,
+  `renderTemplate`; ports `VaultLocator`, `EntryStore`, `MarkdownDocument`, `FrontmatterCodec`,
   `IdentityStrategy`, `TemplateRepository`, `Clock`.
 - infrastructure: filesystem locator (nearest `.ofl` ancestor) and store (atomic write,
   version hash), remark parser producing `ParsedNote` with positions and references from text
@@ -92,7 +92,7 @@ and show notes — scanning the filesystem directly, no index yet.
 
 - domain: id immutability, formatted-id composition, title fallback, reference grammar
   (including rejection of `[[a b]]`, `[[a|]]`).
-- application: `createNote` with fake ports (path, id, template variables, missing required
+- application: `createEntry` with fake ports (path, id, template variables, missing required
   variable error); `adoptNote` adds only `id`.
 - infrastructure: frontmatter round-trip fixtures (comments, order, unknown keys, no
   frontmatter, CRLF); references ignored inside code spans and fences; atomic write leaves no
@@ -112,7 +112,7 @@ lookup, with incremental refresh and full rebuild.
 - application: `rebuildIndex`, `refreshIndex(paths)`, `indexStatus`, `searchNotes`,
   `lookupByTitleOrAlias`, `backlinks`, `listReferences`, `notesOnDate`, `datesInRange`,
   `diagnose` (duplicate ids, unidentified notes, dangling references, stale index); port
-  `NoteIndex`.
+  `EntryIndex`.
 - infrastructure: `node:sqlite` adapter with schema from architecture §4, FTS5 table, schema
   version check, incremental update keyed on `(path, version)`.
 - CLI: `search`, `backlinks`, `reference list`, `index rebuild|status`, `doctor`; `list` and
@@ -129,7 +129,7 @@ parser and YAML codec); `list --json` now returns index summaries, not full note
 `create`/`adopt` do not yet call `refreshIndex([path])` (reads refresh on their own; the
 mutation pipeline lands in M3).
 
-**Follow-up before M5.** Write an architecture addendum defining the `NotePlugin` interface
+**Follow-up before M5.** Write an architecture addendum defining the `EntryPlugin` interface
 (declared fields with types, commands, doctor checks) and the TUI panel registry, so the TUI is
 built around a registry from the start. First-party plugins live under `src/plugins/<name>/`
 under the same layer rules as the rest.
@@ -148,7 +148,7 @@ under the same layer rules as the rest.
 **Tests**
 
 - domain: date binding set semantics; duplicate detection.
-- application: search/backlinks/doctor against the in-memory `NoteIndex` fake.
+- application: search/backlinks/doctor against the in-memory `EntryIndex` fake.
 - infrastructure: rebuild from fixture vault equals incremental result after a sequence of
   create/modify/delete; schema version bump triggers rebuild; FTS query escaping.
 - integration: `create ×3 with references → index rebuild → backlinks → doctor --json`.
@@ -261,7 +261,7 @@ the panel registry.
 
 **Deliverables**
 
-- application: `NotePlugin`, `FieldSpec`, `PluginCommand`, `PluginCheck`, `PanelSpec` and
+- application: `EntryPlugin`, `FieldSpec`, `PluginCommand`, `PluginCheck`, `PanelSpec` and
   `PluginRegistry` types; `buildRegistry(plugins, scope)` (owner uniqueness, field-type
   conflicts, key collisions); `createPluginApi`; `setFields` mutation; declared-field
   validation shared by `doctor` and `show`.
@@ -366,7 +366,7 @@ only bumps a revision, the next read's incremental refresh does the indexing; `c
 is registered as a home panel (so its `c` key is collision-checked) but rendered by the
 dedicated Calendar screen; screen-bound keys are checked against plugin panels at startup in
 addition to the registry's panel-key check; the `list` placement is not rendered; `Esc` doubles
-as back; unidentified files open by vault and path (`NoteLocator`). TUI tests drive the real
+as back; unidentified files open by vault and path (`EntryLocator`). TUI tests drive the real
 Ink runtime through injected streams (`test/tui/harness.tsx`) instead of `ink-testing-library`,
 which cannot set the terminal size or observe raw mode. The `n` new-note prompt creates from the
 `default` template in the scope's single or cwd-containing vault.
@@ -456,7 +456,7 @@ sides are read through `read` and compared with the domain's `unifiedDiff`, so t
 | `unrecorded` (none yet) | `clean` | `modified`; `save` turns the first two non-recordable
 cases into outcomes (`not-under-version-control`, `nothing-to-save`, exit 0, `status` in
 `--json`) and a failing hook into `INTERNAL` (exit 1) carrying the hook's output. History use
-cases take the viewer's `NoteLocator`, so unidentified files have a history too; `show --at`
+cases take the viewer's `EntryLocator`, so unidentified files have a history too; `show --at`
 parses the historical content with the normal loader and never indexes it. Revisions may be
 given by full id or a unique prefix of at least four characters. The `●` marker also shows for
 a versioned file with no revision yet. Known limit: a save after a plain `mv` records the new
@@ -472,7 +472,7 @@ own `default.md` and other templates decide for themselves. The TUI's `n` asks f
 after the title, every time (the vault's own plus the enabled plugins' built-ins, `default`
 first); with only `default` the picker shows that one row, so the step reads the same whatever
 the vault offers and a vault's own `default.md` is visibly the one in use. Each row shows the
-path that template would write for the typed title (`previewTemplates`, sharing `createNote`'s
+path that template would write for the typed title (`previewTemplates`, sharing `createEntry`'s
 path logic; an `{{id}}` in a path stays as a placeholder since no id is generated for a
 preview, and an unusable template says why in place of a path).
 `ofl init` takes `--dir <notes-dir>` (the single `include` glob `<dir>/**/*.md`, created with

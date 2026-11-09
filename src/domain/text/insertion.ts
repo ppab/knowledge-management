@@ -1,5 +1,5 @@
 import { ambiguous, notFound, usage, validation, type AppError } from '../errors.js';
-import type { Heading } from '../note/note.js';
+import type { Heading } from '../entry/entry.js';
 import { err, ok, type Result } from '../result.js';
 import { insertAt, type SourceRange, type TextEdit } from './text-edit.js';
 

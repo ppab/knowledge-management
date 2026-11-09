@@ -6,7 +6,7 @@ import {
 } from '../../domain/calendar/date-binding.js';
 import type { AppError } from '../../domain/errors.js';
 import { ok, type Result } from '../../domain/result.js';
-import type { ScopedEntry } from '../../application/notes/list-notes.js';
+import type { ScopedEntry } from '../../application/entries/list-entries.js';
 
 /*
  * Pure views over index entries. A todo is an identified note whose `type` is `todo`; its
@@ -29,7 +29,7 @@ export interface Todo {
 }
 
 export const todoOf = (entry: ScopedEntry): Todo | null => {
-  if (entry.kind !== 'note' || entry.type !== TODO_TYPE) return null;
+  if (entry.kind !== 'entry' || entry.type !== TODO_TYPE) return null;
   const { status, due, priority } = entry.fields;
   return {
     vault: entry.vault,

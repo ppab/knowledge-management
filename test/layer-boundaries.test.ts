@@ -58,7 +58,7 @@ describe('layer boundaries', () => {
     ['src/plugins/todos/x.ts', "import '../../application/plugin/plugin.js';"],
     ['src/plugins/todos/x.ts', "import '../../domain/result.js'; import './queries.js';"],
     ['src/interfaces/tui/x.tsx', "import 'ink'; import 'react';"],
-    ['src/interfaces/tui/x.tsx', "import '../../application/notes/view-note.js';"],
+    ['src/interfaces/tui/x.tsx', "import '../../application/entries/view-entry.js';"],
     ['src/interfaces/tui/x.tsx', "import '../../plugins/index.js';"],
     ['src/interfaces/cli/main.ts', "import '../tui/tui.js';"],
   ])('%s allows %s', async (file, source) => {

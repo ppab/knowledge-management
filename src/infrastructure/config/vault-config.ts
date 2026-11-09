@@ -40,7 +40,7 @@ const publicationSchema = z.object({
 /** On-disk shape of `.ofl/config.yaml`. */
 const schema = z.object({
   vault: z.object({ id: z.string().min(1), name: z.string().min(1) }),
-  notes: z
+  entries: z
     .object({
       include: z.array(z.string().min(1)).min(1).default(['**/*.md']),
       exclude: z.array(z.string().min(1)).default([]),
@@ -89,12 +89,12 @@ export const parseVaultConfig = (data: unknown): Result<VaultConfig, AppError> =
   }
   const identity = validateIdentityConfig(parsed.data.identity);
   if (!identity.ok) return identity;
-  const { vault, notes, editor, plugins, publications } = parsed.data;
+  const { vault, entries, editor, plugins, publications } = parsed.data;
   return ok({
     id: asVaultId(vault.id),
     name: vault.name,
-    include: notes.include,
-    exclude: notes.exclude,
+    include: entries.include,
+    exclude: entries.exclude,
     identity: parsed.data.identity,
     ...(editor !== undefined && { editor }),
     ...(plugins !== undefined && {
@@ -124,7 +124,7 @@ export const parseVaultConfig = (data: unknown): Result<VaultConfig, AppError> =
 
 export const toVaultConfigFile = (config: VaultConfig): VaultConfigFile => ({
   vault: { id: config.id, name: config.name },
-  notes: { include: [...config.include], exclude: [...config.exclude] },
+  entries: { include: [...config.include], exclude: [...config.exclude] },
   identity: config.identity,
   ...(config.editor !== undefined && { editor: config.editor }),
   ...(config.plugins !== undefined && { plugins: { ...config.plugins } }),

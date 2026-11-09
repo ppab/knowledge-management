@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import type { NotePlugin } from '../../../application/plugin/plugin.js';
+import type { EntryPlugin } from '../../../application/plugin/plugin.js';
 import type { Destination } from '../../../application/publishing/destination.js';
 import { builtinDestinations } from '../../../application/publishing/destinations/index.js';
 import { ok } from '../../../domain/result.js';
@@ -49,7 +49,7 @@ const describeDestination = (d: Destination) => ({
   })),
 });
 
-const describePlugin = (plugin: NotePlugin, enabled: boolean | undefined) => ({
+const describePlugin = (plugin: EntryPlugin, enabled: boolean | undefined) => ({
   name: plugin.name,
   description: plugin.description,
   ...(enabled !== undefined && { enabled }),

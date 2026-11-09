@@ -1,5 +1,5 @@
 import type { SourceRange } from '../text/text-edit.js';
-import { isNoteId, type NoteId } from '../note/note-id.js';
+import { isEntryId, type EntryId } from '../entry/entry-id.js';
 
 /**
  * A persistent, directed relationship to another note, addressed by canonical id only. The
@@ -7,7 +7,7 @@ import { isNoteId, type NoteId } from '../note/note-id.js';
  * offset-precise.
  */
 export interface Reference {
-  readonly target: NoteId;
+  readonly target: EntryId;
   readonly label?: string;
   readonly range: SourceRange;
 }
@@ -24,14 +24,14 @@ export const findReferences = (text: string, offset = 0): Reference[] => {
   const found: Reference[] = [];
   for (const match of text.matchAll(REFERENCE_PATTERN)) {
     const [whole, id, label] = match;
-    if (id === undefined || !isNoteId(id)) continue;
+    if (id === undefined || !isEntryId(id)) continue;
     const range = { start: offset + match.index, end: offset + match.index + whole.length };
     found.push(label === undefined ? { target: id, range } : { target: id, label, range });
   }
   return found;
 };
 
-export const formatReference = (target: NoteId, label?: string): string =>
+export const formatReference = (target: EntryId, label?: string): string =>
   label === undefined || label === '' ? `[[${target}]]` : `[[${target}|${label}]]`;
 
 /** A line holding only a list marker (`- `, `* `, `1. `) and nothing else around the link. */
@@ -39,8 +39,8 @@ const LIST_MARKER_ONLY = /^\s*(?:[-*+]|\d+[.)])\s+$/;
 
 /**
  * Whether the `[[...]]` at `range` stands alone on its line — the rest of the line is blank or
- * only a list marker. Such a reference was placed as a standalone item (how `addReference`
- * inserts one), as opposed to one woven into a sentence. `removeReference` drops the whole line
+ * only a list marker. Such a reference was placed as a standalone item (how `linkReference`
+ * inserts one), as opposed to one woven into a sentence. `unlinkReference` drops the whole line
  * for a standalone link; `relabel` treats one as a managed title-copy to refresh.
  */
 export const isStandaloneReference = (source: string, range: SourceRange): boolean => {
@@ -60,11 +60,11 @@ const FIELD_REFERENCE = /^\[\[([^\s|[\]]+)(?:\|([^[\]]*))?\]\]$/;
  */
 export const parseFieldReference = (
   value: unknown,
-): { readonly target: NoteId; readonly label?: string } | null => {
+): { readonly target: EntryId; readonly label?: string } | null => {
   if (typeof value !== 'string') return null;
   const match = FIELD_REFERENCE.exec(value.trim());
   if (!match) return null;
   const [, id, label] = match;
-  if (id === undefined || !isNoteId(id)) return null;
+  if (id === undefined || !isEntryId(id)) return null;
   return label === undefined ? { target: id } : { target: id, label };
 };

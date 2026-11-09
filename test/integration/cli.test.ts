@@ -41,17 +41,17 @@ describe('ofl CLI (M1)', () => {
 
     expect((await ofl(root, 'init')).code).toBe(6); // already a vault
 
-    const created = await ofl(root, 'create', '--title', 'Hello World', '--json');
+    const created = await ofl(root, 'capture', '--title', 'Hello World', '--json');
     expect(created.code).toBe(0);
     const note = JSON.parse(created.stdout) as { id: string; path: string };
     expect(note.path).toBe('hello-world.md');
 
-    const again = await ofl(root, 'create', '--title', 'Hello World');
+    const again = await ofl(root, 'capture', '--title', 'Hello World');
     expect(again.code).toBe(5);
 
     const list = await ofl(root, 'list', '--json');
-    const listed = JSON.parse(list.stdout) as { notes: { id: string }[] };
-    expect(listed.notes.map((n) => n.id)).toEqual([note.id]);
+    const listed = JSON.parse(list.stdout) as { entries: { id: string }[] };
+    expect(listed.entries.map((n) => n.id)).toEqual([note.id]);
 
     const show = await ofl(join(root), 'show', 'hello world');
     expect(show.code).toBe(0);
@@ -62,13 +62,34 @@ describe('ofl CLI (M1)', () => {
     expect(JSON.parse(missing.stdout)).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });
 
+  it('classify files a raw capture under a type and clears it back to the inbox', async () => {
+    const box = await mkdtemp(join(tmpdir(), 'notes-classify-'));
+    try {
+      await ofl(box, 'init', '--name', 'demo', '--json');
+      const created = await ofl(box, 'capture', '--title', 'Loose', '--json');
+      const { id } = JSON.parse(created.stdout) as { id: string };
+      const typeOf = async (): Promise<string | undefined> =>
+        (JSON.parse((await ofl(box, 'show', id, '--json')).stdout) as { type?: string }).type;
+
+      expect(await typeOf()).toBeUndefined(); // raw, unclassified
+      expect((await ofl(box, 'classify', id, 'todo')).code).toBe(0);
+      expect(await typeOf()).toBe('todo');
+      expect((await ofl(box, 'classify', id, '--clear')).code).toBe(0);
+      expect(await typeOf()).toBeUndefined();
+      // Neither a type nor --clear: a validation error.
+      expect((await ofl(box, 'classify', id)).code).toBe(6);
+    } finally {
+      await rm(box, { recursive: true, force: true });
+    }
+  });
+
   it('adopts an unidentified file without touching anything but the id', async () => {
     const original = '---\n# keep me\ntitle: Legacy # note\nextra: [1, 2]\n---\n\nBody [[X]]\n';
     await writeFile(join(root, 'legacy.md'), original);
 
     const list = await ofl(root, 'list', '--unidentified', '--json');
-    const listed = JSON.parse(list.stdout) as { notes: { path: string; kind: string }[] };
-    expect(listed.notes).toEqual([
+    const listed = JSON.parse(list.stdout) as { entries: { path: string; kind: string }[] };
+    expect(listed.entries).toEqual([
       expect.objectContaining({ path: 'legacy.md', kind: 'unidentified' }),
     ]);
 
@@ -84,9 +105,9 @@ describe('ofl CLI (M1)', () => {
     expect(raw.stdout).toBe(after + '\n');
   });
 
-  it('indexes references: search, backlinks, reference list, doctor, rebuild', async () => {
+  it('indexes references: search, backlinks, references, doctor, rebuild', async () => {
     const make = async (title: string, body: string) => {
-      const res = await ofl(root, 'create', '--title', title, '--json');
+      const res = await ofl(root, 'capture', '--title', title, '--json');
       expect(res.code).toBe(0);
       const { id, path } = JSON.parse(res.stdout) as { id: string; path: string };
       await writeFile(join(root, path), (await readFile(join(root, path), 'utf8')) + body);
@@ -105,7 +126,7 @@ describe('ofl CLI (M1)', () => {
     const { backlinks } = JSON.parse(back.stdout) as { backlinks: { source: { id: string } }[] };
     expect(backlinks.map((b) => b.source.id)).toEqual([beta, beta]);
 
-    const refs = await ofl(root, 'reference', 'list', gamma);
+    const refs = await ofl(root, 'references', gamma);
     expect(refs.stdout).toContain(`[[${beta}]] -> Beta (beta.md)`);
     expect(refs.stdout).toContain('[[MISSING]] -> unresolved');
 
@@ -149,24 +170,15 @@ describe('ofl CLI (M1)', () => {
     expect((await ofl(root, 'index', 'status')).stdout).toContain('- dup.md');
   });
 
-  it('mutates safely: reference add, snippet insert, bind, dry-run and conflicts', async () => {
-    const created = await ofl(root, 'create', '--title', 'Mutable', '--json');
+  it('mutates safely: link, snippet insert, bind, dry-run and conflicts', async () => {
+    const created = await ofl(root, 'capture', '--title', 'Mutable', '--json');
     const { id, path } = JSON.parse(created.stdout) as { id: string; path: string };
     const file = join(root, path);
     const original = await readFile(file, 'utf8');
 
     // Dry run: a diff on stdout, nothing written (mtime unchanged).
     const before = (await stat(file)).mtimeMs;
-    const dry = await ofl(
-      root,
-      'reference',
-      'add',
-      '--source',
-      id,
-      '--target',
-      'Alpha',
-      '--dry-run',
-    );
+    const dry = await ofl(root, 'link', '--source', id, '--target', 'Alpha', '--dry-run');
     expect(dry.code).toBe(0);
     expect(dry.stdout).toContain(`+++ b/${path}`);
     expect(await readFile(file, 'utf8')).toBe(original);
@@ -177,19 +189,7 @@ describe('ofl CLI (M1)', () => {
       JSON.parse((await ofl(root, 'show', 'Alpha', '--json')).stdout) as { id: string }
     ).id;
     expect(
-      (
-        await ofl(
-          root,
-          'reference',
-          'add',
-          '--source',
-          id,
-          '--target',
-          'Alpha',
-          '--at',
-          'references',
-        )
-      ).code,
+      (await ofl(root, 'link', '--source', id, '--target', 'Alpha', '--at', 'references')).code,
     ).toBe(0);
     // The template ends with a blank line; the section is appended after the content, before it.
     // With no --label, the link defaults to the target's current title.
@@ -229,35 +229,22 @@ describe('ofl CLI (M1)', () => {
     expect((await ofl(root, 'bind', id, '--date', '1999-01-01', '--remove')).code).toBe(0);
     const listed = await ofl(root, 'list', '--date', '2026-10-23', '--json');
     expect(
-      (JSON.parse(listed.stdout) as { notes: { id: string }[] }).notes.map((n) => n.id),
+      (JSON.parse(listed.stdout) as { entries: { id: string }[] }).entries.map((n) => n.id),
     ).toEqual([id]);
 
     // Unknown heading → 3; bad date → 6; usage mistakes → 2.
     expect(
-      (
-        await ofl(
-          root,
-          'reference',
-          'add',
-          '--source',
-          id,
-          '--target',
-          alphaId,
-          '--at',
-          'heading:Nope',
-        )
-      ).code,
+      (await ofl(root, 'link', '--source', id, '--target', alphaId, '--at', 'heading:Nope')).code,
     ).toBe(3);
     expect((await ofl(root, 'bind', id, '--date', 'tomorrow')).code).toBe(6);
     expect(
-      (await ofl(root, 'reference', 'add', '--source', id, '--target', alphaId, '--at', 'middle'))
-        .code,
+      (await ofl(root, 'link', '--source', id, '--target', alphaId, '--at', 'middle')).code,
     ).toBe(2);
   });
 
   it('relabels standalone links to show each target current title', async () => {
     const create = async (title: string) => {
-      const r = await ofl(root, 'create', '--title', title, '--json');
+      const r = await ofl(root, 'capture', '--title', title, '--json');
       expect(r.code).toBe(0);
       return JSON.parse(r.stdout) as { id: string; path: string };
     };
@@ -268,8 +255,7 @@ describe('ofl CLI (M1)', () => {
       (
         await ofl(
           root,
-          'reference',
-          'add',
+          'link',
           '--source',
           source.id,
           '--target',
@@ -285,28 +271,26 @@ describe('ofl CLI (M1)', () => {
     expect(await readFile(sfile, 'utf8')).toContain(`[[${target.id}|OldLabel]]`);
 
     // Dry run previews the new title and writes nothing.
-    const dry = await ofl(root, 'reference', 'relabel', source.id, '--dry-run');
+    const dry = await ofl(root, 'relabel', source.id, '--dry-run');
     expect(dry.code).toBe(0);
     expect(dry.stdout).toContain(`+[[${target.id}|Relabel Target]]`);
     expect(await readFile(sfile, 'utf8')).toContain('OldLabel');
 
     // The real relabel rewrites the label to the target's current title.
-    expect((await ofl(root, 'reference', 'relabel', source.id)).code).toBe(0);
+    expect((await ofl(root, 'relabel', source.id)).code).toBe(0);
     expect(await readFile(sfile, 'utf8')).toContain(`[[${target.id}|Relabel Target]]`);
     // (--all and the no-argument usage error are covered by relabel.test.ts without spawning.)
   });
 
   it('deletes a note, refusing while something links to it unless forced', async () => {
     const create = async (title: string) => {
-      const r = await ofl(root, 'create', '--title', title, '--json');
+      const r = await ofl(root, 'capture', '--title', title, '--json');
       expect(r.code).toBe(0);
       return JSON.parse(r.stdout) as { id: string; path: string };
     };
     const target = await create('Delete Target');
     const source = await create('Delete Source');
-    expect(
-      (await ofl(root, 'reference', 'add', '--source', source.id, '--target', target.id)).code,
-    ).toBe(0);
+    expect((await ofl(root, 'link', '--source', source.id, '--target', target.id)).code).toBe(0);
 
     // A note something links to is kept unless --force; the error points the way.
     const blocked = await ofl(root, 'delete', target.id);

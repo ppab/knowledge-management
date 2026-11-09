@@ -207,10 +207,10 @@ describe('courses.home panel actions', () => {
 describe('courses.note panel', () => {
   it('shows the focused note’s course as a navigable lesson list, marking the current note', async () => {
     const { api } = setup();
-    const notePanel = coursesPlugin.panels?.find((p) => p.id === 'courses.note');
-    if (!notePanel) throw new Error('no note panel');
+    const entryPanel = coursesPlugin.panels?.find((p) => p.id === 'courses.note');
+    if (!entryPanel) throw new Error('no note panel');
     const located = unwrap(await api.read('L1'));
-    const data = unwrap(await notePanel.load(api, { note: located })) as Extract<
+    const data = unwrap(await entryPanel.load(api, { note: located })) as Extract<
       PanelData,
       { kind: 'list' }
     >;

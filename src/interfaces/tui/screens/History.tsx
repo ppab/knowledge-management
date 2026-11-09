@@ -5,7 +5,7 @@ import {
   readRevision,
 } from '../../../application/history/history.js';
 import type { AppError } from '../../../domain/errors.js';
-import { isNote } from '../../../domain/note/note.js';
+import { isEntry } from '../../../domain/entry/entry.js';
 import { ok, type Result } from '../../../domain/result.js';
 import { abbreviate, type Revision } from '../../../domain/revision/revision.js';
 import { screenChords, useLeader } from '../chords.js';
@@ -123,7 +123,7 @@ export const History = ({ screen }: { readonly screen: HistoryScreen }) => {
   );
 
   const entry = history?.entry;
-  const idText = entry && isNote(entry) ? entry.id : 'unidentified';
+  const idText = entry && isEntry(entry) ? entry.id : 'unidentified';
   const title = history
     ? `history · ${history.entry.title} · ${history.vault.config.name} · ${idText}`
     : 'history · loading…';

@@ -1,5 +1,5 @@
-import { asNoteId } from '../../domain/note/note-id.js';
-import { isNoteSummary } from '../../domain/note/summary.js';
+import { asEntryId } from '../../domain/entry/entry-id.js';
+import { isEntrySummary } from '../../domain/entry/summary.js';
 import type { Reference } from '../../domain/reference/reference.js';
 import type { PublicationCandidate } from '../../domain/publishing/select.js';
 import type { OpenedVault } from '../scope/session.js';
@@ -22,10 +22,10 @@ export const collectCandidates = (opened: readonly OpenedVault[]): CandidateSet 
   for (const vaultOpened of opened) {
     const vault = vaultOpened.vault.config.name;
     for (const summary of vaultOpened.index.all()) {
-      if (!isNoteSummary(summary)) continue;
+      if (!isEntrySummary(summary)) continue;
       existing.set(summary.id, { title: summary.title });
       const references: Reference[] = vaultOpened.index.outgoing(summary.path).map((reference) => ({
-        target: asNoteId(reference.target),
+        target: asEntryId(reference.target),
         ...(reference.label !== undefined && { label: reference.label }),
         range: reference.range,
       }));

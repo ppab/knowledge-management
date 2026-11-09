@@ -1,4 +1,4 @@
-import { wrapFrontmatter } from '../../../domain/note/frontmatter.js';
+import { wrapFrontmatter } from '../../../domain/entry/frontmatter.js';
 import { relativePath } from '../../../domain/publishing/output-path.js';
 import { routeToPath, type Layout } from '../../../domain/publishing/route.js';
 import { ok } from '../../../domain/result.js';
