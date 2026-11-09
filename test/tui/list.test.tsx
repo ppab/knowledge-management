@@ -17,7 +17,7 @@ describe('NoteList', () => {
     });
     term = h.start();
     const frame = await term.waitFor('3 notes');
-    expect(frame).toContain('A1  private');
+    expect(frame).toContain('private     A1');
     expect(frame).toContain('Alpha');
     expect(frame).toContain('Gamma'); // unidentified files are listed too
     expect(frame).toContain('j/k move');
@@ -85,13 +85,13 @@ describe('NoteList', () => {
     await term.press('j'); // swallowed by the pending chord: the cursor does not move
     await term.waitFor((f) => !f.includes('Space …'));
     expect(term.frame()).toContain('Space j is not bound');
-    expect(term.frame()).toContain('▸ A1');
+    expect(term.frame()).toContain('▸ Alpha');
 
     await term.press(' ');
     await term.waitFor('Space …');
     await term.press(KEYS.escape);
     await term.waitFor((f) => !f.includes('Space …'));
-    expect(term.frame()).toContain('▸ A1'); // Esc cancelled the chord, nothing else happened
+    expect(term.frame()).toContain('▸ Alpha'); // Esc cancelled the chord, nothing else happened
 
     // Inside a prompt, Space is a space.
     await term.press('c', 'a', ' ', 'b', KEYS.enter);
