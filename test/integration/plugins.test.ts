@@ -139,6 +139,18 @@ describe('todos plugin (M4.5)', () => {
     });
   });
 
+  it('runs a plugin command whose optional positional is omitted', async () => {
+    // courses `outline [course]` has an optional arg; omitting it must not pass "undefined".
+    await appendFile(join(root, '.notes', 'config.yaml'), '  courses:\n');
+    expect((await notes('courses', 'new', 'course', 'Algorithms')).code).toBe(0);
+    const outline = await notes('courses', 'outline');
+    expect(outline.code).toBe(0);
+    expect(outline.stdout).toContain('Algorithms');
+    expect(outline.stdout).not.toContain('undefined');
+    // Naming the course still works (the arg is passed through).
+    expect((await notes('courses', 'outline', 'Algorithms')).stdout).toContain('Algorithms');
+  });
+
   it('refuses to open a vault that enables an unknown plugin (exit 6)', async () => {
     await appendFile(join(root, '.notes', 'config.yaml'), '  expenses: {}\n');
     const listing = await notes('list', '--json');
