@@ -4,7 +4,7 @@ import { fixture } from '../../../test/fakes/index.js';
 import { diagnose } from '../doctor/diagnose.js';
 import { listEntries } from '../entries/list-entries.js';
 import { showEntry } from '../entries/show-entry.js';
-import { addReference } from '../references/add-reference.js';
+import { linkReference } from '../references/link-reference.js';
 import { backlinks, listReferences } from '../references/references.js';
 import { searchEntries } from '../search/search-entries.js';
 import { loadScope } from '../vault/vault.js';
@@ -119,10 +119,10 @@ describe('federated reads', () => {
 
   it('adds a reference to a note in another vault, writing the canonical id', async () => {
     const { f, work, scope } = twoVaults();
-    unwrap(await addReference(f.deps, scope, { source: 'Work note', target: 'Alpha' }));
+    unwrap(await linkReference(f.deps, scope, { source: 'Work note', target: 'Alpha' }));
     expect(work.fs.files.get('w.md')).toContain('\n[[A|Alpha]]\n'); // defaults to the target title
     expect(f.fs.writes).toEqual([]);
-    expect(await addReference(f.deps, scope, { source: 'W', target: 'shared' })).toMatchObject({
+    expect(await linkReference(f.deps, scope, { source: 'W', target: 'shared' })).toMatchObject({
       ok: false,
       error: { code: 'AMBIGUOUS' },
     });

@@ -15,12 +15,12 @@ describe('history and save in the TUI', () => {
       f.revisions.enable('/vault');
       f.fs.files.set('n.md', v1);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })], { columns: 100 });
     await term.waitFor('Entry · monitor · N1 ●');
-    expect(term.frame()).toContain('s save  t tag  D delete');
+    expect(term.frame()).toContain('s snapshot  t tag  D delete');
 
     await term.press('s');
-    await term.waitFor('save message:');
+    await term.waitFor('snapshot message:');
     await term.type('wording');
     await term.press(KEYS.enter);
     await term.waitFor('Saved revision rev0001: note: wording');
@@ -33,9 +33,9 @@ describe('history and save in the TUI', () => {
     await term.press('s', KEYS.enter);
     await term.waitFor('Nothing to save: n.md matches revision rev0001');
     await term.press('s');
-    await term.waitFor('save message:');
+    await term.waitFor('snapshot message:');
     await term.press(KEYS.escape);
-    await term.waitFor((f) => !f.includes('save message:'));
+    await term.waitFor((f) => !f.includes('snapshot message:'));
     expect(h.f.revisions.recorded).toHaveLength(1);
 
     // An edit on disk brings the marker back, and the changed line gets a gutter mark that a
@@ -46,7 +46,7 @@ describe('history and save in the TUI', () => {
     await term.waitFor('Entry · monitor · N1 ●');
     await term.waitFor('▎ second words');
     await term.press('s', KEYS.enter);
-    await term.waitFor('Saved revision rev0002: note: save Entry');
+    await term.waitFor('Saved revision rev0002: note: snapshot Entry');
     await term.waitFor((f) => f.includes('Entry · monitor · N1') && !f.includes('N1 ●'));
     await term.waitFor((f) => !f.includes('▎'));
   });

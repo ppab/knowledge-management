@@ -5,10 +5,10 @@ import type { Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import type { BindDateInput } from '../calendar/bind-date.js';
 import type { MutationOutcome } from '../mutations/mutate.js';
-import type { CreateEntryInput } from '../entries/create-entry.js';
+import type { CaptureEntryInput } from '../entries/capture-entry.js';
 import type { ListFilters, ScopedEntry } from '../entries/list-entries.js';
 import type { Clock } from '../ports.js';
-import type { AddReferenceInput } from '../references/add-reference.js';
+import type { LinkReferenceInput } from '../references/link-reference.js';
 import type { IndexedEntry } from '../scope/session.js';
 import type { SearchOptions, SearchResult } from '../search/search-entries.js';
 import type { InsertSnippetInput } from '../snippets/insert-snippet.js';
@@ -58,14 +58,14 @@ export interface PluginApi {
   search(query: string, options?: SearchOptions): Promise<Result<SearchResult[], AppError>>;
   read(query: string): Promise<Result<IndexedEntry, AppError>>;
   // Writes; every one goes through the mutation path, dry-run included.
-  create(input: CreateEntryInput & { readonly in?: string }): Promise<Result<Entry, AppError>>;
+  capture(input: CaptureEntryInput & { readonly in?: string }): Promise<Result<Entry, AppError>>;
   setFields(
     query: string,
     fields: Readonly<Record<string, FieldValue | null>>,
     options?: { readonly dryRun?: boolean },
   ): Promise<Result<MutationOutcome, AppError>>;
   bindDate(input: BindDateInput): Promise<Result<MutationOutcome, AppError>>;
-  addReference(input: AddReferenceInput): Promise<Result<MutationOutcome, AppError>>;
+  linkReference(input: LinkReferenceInput): Promise<Result<MutationOutcome, AppError>>;
   insertSnippet(input: InsertSnippetInput): Promise<Result<MutationOutcome, AppError>>;
 }
 
@@ -187,7 +187,7 @@ export interface PanelContext {
 
 /**
  * What a panel action reports: a mutation (the usual edit), `null` for nothing to do, or a plain
- * message — what a *creating* verb returns, since `create` yields a note, not a `MutationOutcome`.
+ * message — what a *creating* verb returns, since `capture` yields a note, not a `MutationOutcome`.
  */
 export type PanelActionResult = MutationOutcome | null | { readonly message: string };
 

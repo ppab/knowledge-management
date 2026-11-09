@@ -274,7 +274,7 @@ export const createEntryStore = (): EntryStore => {
         }
       }
       // Remove the entry at the path the caller named: for an internal symlink that drops the
-      // link and leaves its target, mirroring how `create` writes a real file at that path.
+      // link and leaves its target, mirroring how `capture` writes a real file at that path.
       try {
         await unlink(located.value.absolute);
         return ok(undefined);

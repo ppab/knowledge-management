@@ -48,7 +48,7 @@ Properties:
   in the application layer. No global database.
 - **CLI and TUI are thin.** Both call the same `application/` services. The TUI adds only a
   screen stack, a rendered↔source map for selection, and a file watcher.
-- **Revisions are explicit.** Nothing auto-commits. `save` records a revision of exactly one note.
+- **Revisions are explicit.** Nothing auto-commits. `snapshot` records a revision of exactly one note.
 
 Source tree:
 
@@ -128,21 +128,21 @@ Libraries:
 
 ## 3. Decisions (resolved 2026-10-27)
 
-| #   | Question                        | Decision                                                                                                                                                                                                                                                                                                                                                 |
-| --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1  | `{type}` in formatted identity  | Taken from the template name (`templates/adr.md` ⇒ `ADR`); overridable by frontmatter `type`. A format referencing an unavailable variable fails config validation.                                                                                                                                                                                      |
-| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `ofl adopt <path>` assigns an id. Mutations and references require an id.                                                                                                                                                                                                |
-| A3  | Missing `visibility`            | Treated as `private` for publishing (default-deny).                                                                                                                                                                                                                                                                                                      |
-| A4  | Commits                         | Never implicit. `save` (TUI `s`, CLI `ofl save <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                                                                                                                                                                                                            |
-| A5  | Working copy as revision        | `history` lists commits only; `diff` defaults to last revision → working file.                                                                                                                                                                                                                                                                           |
-| A6  | `NotFound` vs `Unavailable`     | `Unavailable` when any vault in the scope could not be opened; otherwise `NotFound`.                                                                                                                                                                                                                                                                     |
-| A7  | HTML export shape               | Body fragments + `manifest.json`. Layout belongs to the static site generator.                                                                                                                                                                                                                                                                           |
-| A8  | `create` without template       | Built-in `default` template writing `{{slug}}.md` into the first `include` directory, bound to its creation day (`dates: ["{{date}}"]`); `.ofl/templates/default.md` overrides it.                                                                                                                                                                       |
-| A8b | Where `create` may write        | A template's `template.path` is relative to the notes directory (the first `include` glob's literal prefix); a leading `/` anchors it at the vault root. `--path` is vault-relative. Whatever decides the path, `create` refuses (exit 6, naming the path and the globs) any file `include`/`exclude` would not index, so a new note is never invisible. |
-| A9  | Notes per file                  | Exactly one.                                                                                                                                                                                                                                                                                                                                             |
-| A10 | Federated FTS ranking           | BM25 scores are not comparable across indexes. Human views interleave by rank position across vaults; `--json` carries `vault` and `rankInVault`.                                                                                                                                                                                                        |
-| A11 | Named scope with a moved vault  | Scopes reference paths; `doctor` and `scope show` flag missing vaults as unavailable. No registry.                                                                                                                                                                                                                                                       |
-| A12 | Visual selection                | Restricted to a single mdast `text` node in v0.1.                                                                                                                                                                                                                                                                                                        |
+| #   | Question                        | Decision                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | `{type}` in formatted identity  | Taken from the template name (`templates/adr.md` ⇒ `ADR`); overridable by frontmatter `type`. A format referencing an unavailable variable fails config validation.                                                                                                                                                                                       |
+| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `ofl adopt <path>` assigns an id. Mutations and references require an id.                                                                                                                                                                                                 |
+| A3  | Missing `visibility`            | Treated as `private` for publishing (default-deny).                                                                                                                                                                                                                                                                                                       |
+| A4  | Commits                         | Never implicit. `snapshot` (TUI `s`, CLI `ofl snapshot <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                                                                                                                                                                                                     |
+| A5  | Working copy as revision        | `history` lists commits only; `diff` defaults to last revision → working file.                                                                                                                                                                                                                                                                            |
+| A6  | `NotFound` vs `Unavailable`     | `Unavailable` when any vault in the scope could not be opened; otherwise `NotFound`.                                                                                                                                                                                                                                                                      |
+| A7  | HTML export shape               | Body fragments + `manifest.json`. Layout belongs to the static site generator.                                                                                                                                                                                                                                                                            |
+| A8  | `capture` without template      | Built-in `default` template writing `{{slug}}.md` into the first `include` directory, bound to its creation day (`dates: ["{{date}}"]`); `.ofl/templates/default.md` overrides it.                                                                                                                                                                        |
+| A8b | Where `capture` may write       | A template's `template.path` is relative to the notes directory (the first `include` glob's literal prefix); a leading `/` anchors it at the vault root. `--path` is vault-relative. Whatever decides the path, `capture` refuses (exit 6, naming the path and the globs) any file `include`/`exclude` would not index, so a new note is never invisible. |
+| A9  | Notes per file                  | Exactly one.                                                                                                                                                                                                                                                                                                                                              |
+| A10 | Federated FTS ranking           | BM25 scores are not comparable across indexes. Human views interleave by rank position across vaults; `--json` carries `vault` and `rankInVault`.                                                                                                                                                                                                         |
+| A11 | Named scope with a moved vault  | Scopes reference paths; `doctor` and `scope show` flag missing vaults as unavailable. No registry.                                                                                                                                                                                                                                                        |
+| A12 | Visual selection                | Restricted to a single mdast `text` node in v0.1.                                                                                                                                                                                                                                                                                                         |
 
 ## 4. Application layer
 
@@ -255,11 +255,11 @@ work there, since Obsidian resolves a wikilink against a note's **filename** or 
   stay unresolved until re-created or a future backfill. `adopt` is deliberately left untouched
   (its contract is to add nothing but the id).
 - **Readable display.** A label-less reference is written `[[<id>|<current title>]]` (the TUI
-  `i`/`a`/`I` flows and `reference add` without `--label`), so Obsidian shows the title, not the
+  `i`/`a`/`I` flows and `link` without `--label`), so Obsidian shows the title, not the
   raw id. Explicit labels and selection-wrapped prose (`r` on a selection) are kept verbatim.
 
-Titles drift, so `reference relabel <query>` (and `reference relabel --all`) refreshes the label
-of a note's **standalone** links to each target's current title; `--dry-run` previews. `save`
+Titles drift, so `relabel <query>` (and `relabel --all`) refreshes the label
+of a note's **standalone** links to each target's current title; `--dry-run` previews. `snapshot`
 stays a pure recorder (decision A4) and never relabels. "Standalone" is a position heuristic
 (`isStandaloneReference`, shared with `removeReference`): a link alone on its line — optionally
 behind a `-`/`*`/`1.` bullet — is treated as a managed title-copy and refreshed; a link woven
@@ -299,14 +299,14 @@ ofl init [--name <n>] [--dir <notes-dir>] [--identity ulid|uuidv7|formatted --fo
 ofl list [--tag <t>] [--date <d>|<from>..<to>] [--vault <name>] [--unidentified]
 ofl show <id|alias> [--raw] [--at <rev>]
 ofl search <words...> [--limit <n>]        # trailing * on a word matches prefixes
-ofl create --template <name> --title <t> [--var k=v]... [--path <p>] [--in <vault>]   # --in: name or path within the scope; --path: vault-relative
+ofl capture --template <name> --title <t> [--var k=v]... [--path <p>] [--in <vault>]   # --in: name or path within the scope; --path: vault-relative
 ofl edit <id>
 ofl adopt <path>... [--type <type>] [--in <vault>]
-ofl save <id> [-m <message>]
+ofl snapshot <id> [-m <message>]
 ofl bind <id> --date <d> [--remove]
-ofl reference add --source <id> --target <id|alias> [--at end|heading:<text>|references] [--label <l>]
-ofl reference list <id>
-ofl reference relabel [<id>] [--all] [--dry-run]   # refresh standalone [[links]] to targets' current titles (Obsidian)
+ofl link --source <id> --target <id|alias> [--at end|heading:<text>|references] [--label <l>]
+ofl references <id>
+ofl relabel [<id>] [--all] [--dry-run]   # refresh standalone [[links]] to targets' current titles (Obsidian)
 ofl backlinks <id>
 ofl snippet insert <id> --snippet <name> [--at ...] [--var k=v]...
 ofl history <id>

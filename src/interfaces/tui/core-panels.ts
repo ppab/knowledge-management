@@ -1,5 +1,5 @@
 import { boundDates } from '../../application/calendar/calendar.js';
-import { isoDate } from '../../application/entries/create-entry.js';
+import { isoDate } from '../../application/entries/capture-entry.js';
 import type { PanelSpec, Placement, PluginRegistry } from '../../application/plugin/plugin.js';
 import { describeFields } from '../../application/plugin/validate-fields.js';
 import type { AppDeps } from '../../application/ports.js';

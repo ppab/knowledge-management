@@ -51,7 +51,7 @@ export const KNOWN_KEYS = [
 export interface FrontmatterFields {
   readonly id?: string;
   readonly title?: string;
-  /** Creation timestamp (ISO 8601) written by `create`; independent of `dates` bindings. */
+  /** Creation timestamp (ISO 8601) written by `capture`; independent of `dates` bindings. */
   readonly created?: string;
   readonly aliases: readonly string[];
   readonly dates: readonly string[];

@@ -37,7 +37,7 @@ export interface Entry extends EntryBase {
   readonly visibility: Visibility;
   readonly type?: string;
   readonly slug?: string;
-  /** ISO 8601 instant written by `create`; a timestamp, not a date binding. */
+  /** ISO 8601 instant written by `capture`; a timestamp, not a date binding. */
   readonly created?: string;
 }
 

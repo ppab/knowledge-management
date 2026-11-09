@@ -88,7 +88,7 @@ const startAction: PanelAction = {
     }
     const target = courseOf(entries.value, id, focused?.type);
     if (!target) return err(usage('this note’s course is not in this scope'));
-    const created = await api.create({
+    const created = await api.capture({
       title: `${focused?.label ?? 'study'}, ${isoDay(api)}`,
       template: 'courses/study',
       variables: { course: target.course },
@@ -121,7 +121,7 @@ const logAction: PanelAction = {
       study_amount: amount,
       ...(unit !== 'minutes' && { study_unit: unit }),
     };
-    const created = await api.create({
+    const created = await api.capture({
       title: `Study, ${isoDay(api)}`,
       template: 'courses/study',
       variables: { course: id },

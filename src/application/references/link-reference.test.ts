@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { addReference, checkInsertionPoint } from './add-reference.js';
+import { linkReference, checkInsertionPoint } from './link-reference.js';
 import { backlinks } from './references.js';
 
 const A =
   '---\nid: A\ntitle: Alpha\n---\n\n# Alpha\n\nIntro.\n\n## Design\n\nText.\n\n## Notes\n\nEnd.\n';
 
-describe('addReference at a cursor', () => {
+describe('linkReference at a cursor', () => {
   it('writes the canonical id inline next to the word, or refuses outside prose', async () => {
     const f = fixture();
     const A = '---\nid: A\n---\n\n# Head\n\nintro *em* text\n';
     f.fs.files.set('a.md', A);
     f.fs.files.set('d.md', '---\nid: D\ntitle: Design doc\naliases: [dd]\n---\n');
     const at = (needle: string, side: 'before' | 'after') =>
-      addReference(f.deps, f.scope, {
+      linkReference(f.deps, f.scope, {
         source: 'A',
         target: 'dd',
         at: { kind: 'at', offset: A.indexOf(needle), side },
@@ -54,14 +54,14 @@ describe('addReference at a cursor', () => {
   });
 });
 
-describe('addReference', () => {
+describe('linkReference', () => {
   it('writes the canonical id when the target was given by alias, at the requested place', async () => {
     const f = fixture();
     f.fs.files.set('a.md', A);
     f.fs.files.set('b.md', '---\nid: B\ntitle: Beta\naliases: [bee]\n---\n');
 
     unwrap(
-      await addReference(f.deps, f.scope, {
+      await linkReference(f.deps, f.scope, {
         source: 'alpha',
         target: 'bee',
         at: { kind: 'heading', text: 'Design' },
@@ -82,10 +82,18 @@ describe('addReference', () => {
     f.fs.files.set('b.md', '---\nid: B\ntitle: Beta\n---\n');
     f.fs.files.set('c.md', '---\nid: C\ntitle: Gamma\n---\n');
     unwrap(
-      await addReference(f.deps, f.scope, { source: 'A', target: 'B', at: { kind: 'references' } }),
+      await linkReference(f.deps, f.scope, {
+        source: 'A',
+        target: 'B',
+        at: { kind: 'references' },
+      }),
     );
     unwrap(
-      await addReference(f.deps, f.scope, { source: 'A', target: 'C', at: { kind: 'references' } }),
+      await linkReference(f.deps, f.scope, {
+        source: 'A',
+        target: 'C',
+        at: { kind: 'references' },
+      }),
     );
     expect(f.fs.files.get('a.md')).toBe(A + '\n## References\n\n[[B|Beta]]\n\n[[C|Gamma]]\n');
   });
@@ -95,16 +103,16 @@ describe('addReference', () => {
     f.fs.files.set('a.md', A);
     f.fs.files.set('b.md', '---\nid: B\ntitle: Beta\n---\n');
     const preview = unwrap(
-      await addReference(f.deps, f.scope, { source: 'A', target: 'B', dryRun: true }),
+      await linkReference(f.deps, f.scope, { source: 'A', target: 'B', dryRun: true }),
     );
     expect(preview.diff).toContain('+[[B|Beta]]');
     expect(f.fs.writes).toEqual([]);
-    expect(await addReference(f.deps, f.scope, { source: 'A', target: 'nope' })).toMatchObject({
+    expect(await linkReference(f.deps, f.scope, { source: 'A', target: 'nope' })).toMatchObject({
       ok: false,
       error: { code: 'NOT_FOUND' },
     });
     expect(
-      await addReference(f.deps, f.scope, {
+      await linkReference(f.deps, f.scope, {
         source: 'A',
         target: 'B',
         at: { kind: 'heading', text: 'Nope' },

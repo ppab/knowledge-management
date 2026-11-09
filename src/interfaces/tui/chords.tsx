@@ -1,7 +1,7 @@
 import { Box, Text, useInput } from 'ink';
 import { useState, type ReactNode } from 'react';
 import type { PanelSpec } from '../../application/plugin/plugin.js';
-import { isoDate } from '../../application/entries/create-entry.js';
+import { isoDate } from '../../application/entries/capture-entry.js';
 import { Dialog } from './components/Dialog.js';
 import { useTui, type TuiState } from './context.js';
 

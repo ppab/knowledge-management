@@ -4,7 +4,7 @@ import type { Scope } from '../../domain/scope/scope.js';
 import { renderTemplate, type TemplateVariables } from '../../domain/template/render.js';
 import { locateInsertion, type InsertionLocation } from '../../domain/text/insertion.js';
 import { mutateEntry, type MutationOutcome } from '../mutations/mutate.js';
-import { isoDate } from '../entries/create-entry.js';
+import { isoDate } from '../entries/capture-entry.js';
 import { readEntryFile } from '../entries/show-entry.js';
 import type { AppDeps } from '../ports.js';
 import { resolveInScope, withScope } from '../scope/session.js';

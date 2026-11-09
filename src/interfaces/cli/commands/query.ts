@@ -33,7 +33,7 @@ const referenceText = (ref: OutgoingReference, composite: boolean): string => {
 };
 
 /** Registers the read-side commands; returns the `reference` group so `add` can join it. */
-export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): Command => {
+export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): void => {
   program
     .command('search')
     .description('full-text search over titles, aliases and bodies')
@@ -94,11 +94,10 @@ export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): 
       );
     });
 
-  const reference = program.command('reference').description('work with [[references]]');
-  reference
-    .command('list')
-    .description('list the references a note makes and where each leads')
-    .argument('<query>', 'note id, title or alias')
+  program
+    .command('references')
+    .description('list the references an entry makes and where each leads')
+    .argument('<query>', 'entry id, title or alias')
     .action(async (query: string, _opts: unknown, cmd: Command) => {
       const ctx = contextFor(io, cmd);
       exit(
@@ -117,5 +116,4 @@ export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): 
         ),
       );
     });
-  return reference;
 };

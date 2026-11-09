@@ -120,7 +120,7 @@ describe('EntryView references (M6)', () => {
     await term.press('i');
     await term.waitFor('find:');
     await term.press(KEYS.escape);
-    await term.waitFor((f) => !f.includes('find:') && f.includes('i/a/I ref  x unref  v select'));
+    await term.waitFor((f) => !f.includes('find:') && f.includes('i/a/I ref  x unlink  v select'));
     expect(h.f.fs.writes).toHaveLength(0);
   });
 
@@ -152,7 +152,7 @@ describe('EntryView references (M6)', () => {
     );
     // Back to browsing: j scrolls instead of extending.
     await term.press('j');
-    await term.waitFor('i/a/I ref  x unref  v select');
+    await term.waitFor('i/a/I ref  x unlink  v select');
   });
 
   it('refuses a selection that crosses formatting and keeps it on screen', async () => {
@@ -211,7 +211,7 @@ describe('EntryView references (M6)', () => {
     h.changes.fire();
     await term.waitFor('Selection cleared: the note changed on disk');
     await term.press('j');
-    await term.waitFor('i/a/I ref  x unref  v select');
+    await term.waitFor('i/a/I ref  x unlink  v select');
 
     // Changed on disk but not yet noticed: the action refuses with a conflict instead.
     await term.press('v');
@@ -221,7 +221,7 @@ describe('EntryView references (M6)', () => {
     await term.waitFor('conflict: src.md changed on disk since it was read');
     expect(term.frame()).not.toContain('find:');
     await term.press('j');
-    await term.waitFor('i/a/I ref  x unref  v select');
+    await term.waitFor('i/a/I ref  x unlink  v select');
     expect(h.f.fs.writes).toHaveLength(0);
   });
 

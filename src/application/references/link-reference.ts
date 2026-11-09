@@ -12,7 +12,7 @@ import { checkVersion, mutateEntry, type MutationOutcome } from '../mutations/mu
 import type { AppDeps } from '../ports.js';
 import { readEntryInScope, resolveInScope, withScope } from '../scope/session.js';
 
-export interface AddReferenceInput {
+export interface LinkReferenceInput {
   /** Entry to edit: id, title or alias. */
   readonly source: string;
   /** Entry to point at, anywhere in the scope: id, title or alias; the canonical id is written. */
@@ -54,7 +54,7 @@ export interface InsertionPointInput {
 }
 
 /**
- * What the TUI checks before asking for a target: the same refusals `addReference` would
+ * What the TUI checks before asking for a target: the same refusals `linkReference` would
  * give for the location (stale note, cursor off prose, heading), without writing anything.
  */
 export const checkInsertionPoint = (
@@ -69,10 +69,10 @@ export const checkInsertionPoint = (
     return planned.ok ? ok(undefined) : planned;
   });
 
-export const addReference = (
+export const linkReference = (
   deps: AppDeps,
   scope: Scope,
-  input: AddReferenceInput,
+  input: LinkReferenceInput,
 ): Promise<Result<MutationOutcome, AppError>> =>
   withScope(deps, scope, async (session) => {
     const target = resolveInScope(session, input.target);

@@ -1,6 +1,6 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
-import { isoDate } from '../../../application/entries/create-entry.js';
+import { isoDate } from '../../../application/entries/capture-entry.js';
 import { listEntries, type ScopedEntry } from '../../../application/entries/list-entries.js';
 import { viewEntry } from '../../../application/entries/view-entry.js';
 import { shiftDays } from '../../../domain/calendar/month-grid.js';

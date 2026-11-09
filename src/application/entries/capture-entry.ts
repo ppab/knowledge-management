@@ -21,7 +21,7 @@ import {
 import type { VaultHandle } from '../vault/vault.js';
 import { loadEntry } from './load-entry.js';
 
-export interface CreateEntryInput {
+export interface CaptureEntryInput {
   readonly title: string;
   /** Template name under `.ofl/templates/`; the built-in `default` when omitted. */
   readonly template?: string;
@@ -53,7 +53,7 @@ const findTemplate = async (
 };
 
 /**
- * The template names `create` accepts in `vault`: its own under `.ofl/templates/` plus the
+ * The template names `capture` accepts in `vault`: its own under `.ofl/templates/` plus the
  * enabled plugins' built-ins (`<plugin>/<name>`); `default` first, then alphabetical.
  */
 export const availableTemplates = async (
@@ -93,7 +93,7 @@ const templateOutputPath = (
 ): string => {
   const text = unprotectPlaceholders(template.pathTemplate ?? `${variables.slug ?? ''}.md`);
   // Placeholders without a value stay visible rather than failing: a preview shows `{{id}}`
-  // where the identity will go; `createEntry` has already checked that nothing is missing.
+  // where the identity will go; `captureEntry` has already checked that nothing is missing.
   const known = Object.fromEntries(
     templateVariables(text).map((name) => [name, variables[name] ?? `{{${name}}}`]),
   );
@@ -136,10 +136,10 @@ export const previewTemplates = async (
   );
 };
 
-export const createEntry = async (
+export const captureEntry = async (
   deps: AppDeps,
   vault: VaultHandle,
-  input: CreateEntryInput,
+  input: CaptureEntryInput,
   builtinTemplates: Readonly<Record<string, string>> = {},
 ): Promise<Result<Entry, AppError>> => {
   if (input.title.trim() === '') return err(validation('Title must not be empty'));

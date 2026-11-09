@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import { readRevision } from '../../../application/history/history.js';
 import { adoptEntry, type AdoptedEntry } from '../../../application/entries/adopt-entry.js';
-import { createEntry } from '../../../application/entries/create-entry.js';
+import { captureEntry } from '../../../application/entries/capture-entry.js';
 import { deleteEntry, type DeletedEntry } from '../../../application/entries/delete-entry.js';
 import { listEntries } from '../../../application/entries/list-entries.js';
 import { showEntry } from '../../../application/entries/show-entry.js';
@@ -111,9 +111,9 @@ const IN_HELP = 'vault (name or path) to write in when the scope has several';
 
 export const registerEntryCommands = (program: Command, io: CliIo, exit: Exit): void => {
   program
-    .command('create')
-    .description('create a note from a template')
-    .requiredOption('--title <title>', 'note title')
+    .command('capture')
+    .description('capture an entry from a template')
+    .requiredOption('--title <title>', 'entry title')
     .option(
       '--template <name>',
       'template under .ofl/templates/, or a plugin one as <plugin>/<name> (default: default)',
@@ -139,7 +139,7 @@ export const registerEntryCommands = (program: Command, io: CliIo, exit: Exit): 
             inScopeWithPlugins(ctx, async (scope, registry) => {
               const vault = writeTarget(ctx, scope, opts.in);
               if (!vault.ok) return vault;
-              const created = await createEntry(
+              const created = await captureEntry(
                 ctx.deps,
                 vault.value,
                 {

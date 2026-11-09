@@ -152,12 +152,12 @@ describe('todos commands', () => {
 
   it('creates a todo from the built-in task template', async () => {
     const { f, api } = setup();
-    const created = unwrap(await api.create({ title: 'New task', template: 'todos/task' }));
+    const created = unwrap(await api.capture({ title: 'New task', template: 'todos/task' }));
     expect(created.type).toBe('todo');
     expect(f.fs.files.get(created.path)).toContain('type: todo\nstatus: open\n');
     // A vault template of the same name wins.
     f.templates.set('todos/task', '---\nid: "{{id}}"\ntype: todo\nstatus: open\nowner: me\n---\n');
-    const own = unwrap(await api.create({ title: 'Mine', template: 'todos/task' }));
+    const own = unwrap(await api.capture({ title: 'Mine', template: 'todos/task' }));
     expect(f.fs.files.get(own.path)).toContain('owner: me');
   });
 });

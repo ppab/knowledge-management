@@ -75,7 +75,7 @@ describe.skipIf(!existsSync(binary))('compiled notes binary', () => {
     const init = json(await ofl(vault, 'init', '--name', 'demo', '--json')) as { name: string };
     expect(init.name).toBe('demo');
 
-    const created = json(await ofl(vault, 'create', '--title', 'Kumquat Harvest', '--json')) as {
+    const created = json(await ofl(vault, 'capture', '--title', 'Kumquat Harvest', '--json')) as {
       id: string;
       path: string;
     };
@@ -93,7 +93,7 @@ describe.skipIf(!existsSync(binary))('compiled notes binary', () => {
   });
 
   it('saves a note to git', async () => {
-    const saved = await ofl(vault, 'save', 'kumquat harvest', '-m', 'first words');
+    const saved = await ofl(vault, 'snapshot', 'kumquat harvest', '-m', 'first words');
     expect(saved.code, saved.stderr).toBe(0);
     const log = await run('git', ['log', '--format=%s'], { cwd: repo, env });
     expect(log.stdout.trim()).toBe('note: first words');

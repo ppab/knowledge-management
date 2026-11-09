@@ -39,8 +39,8 @@ const LIST_MARKER_ONLY = /^\s*(?:[-*+]|\d+[.)])\s+$/;
 
 /**
  * Whether the `[[...]]` at `range` stands alone on its line — the rest of the line is blank or
- * only a list marker. Such a reference was placed as a standalone item (how `addReference`
- * inserts one), as opposed to one woven into a sentence. `removeReference` drops the whole line
+ * only a list marker. Such a reference was placed as a standalone item (how `linkReference`
+ * inserts one), as opposed to one woven into a sentence. `unlinkReference` drops the whole line
  * for a standalone link; `relabel` treats one as a managed title-copy to refresh.
  */
 export const isStandaloneReference = (source: string, range: SourceRange): boolean => {

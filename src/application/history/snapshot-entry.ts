@@ -12,39 +12,40 @@ import { withScope } from '../scope/session.js';
  * not errors, so scripts can call `save` unconditionally.
  */
 
-export interface SaveInput {
-  /** Revision message, recorded as `note: <message>`; default: `note: save <title>`. */
+export interface SnapshotInput {
+  /** Revision message, recorded as `note: <message>`; default: `note: snapshot <title>`. */
   readonly message?: string;
 }
 
-export type SaveOutcome =
+export type SnapshotOutcome =
   | { readonly kind: 'saved'; readonly revision: Revision }
   | { readonly kind: 'nothing-to-save'; readonly last: Revision }
   | { readonly kind: 'not-under-version-control' };
 
-/** Every revision a note records is scoped, so note commits stand out in a shared repository. */
-export const SAVE_SCOPE = 'note';
+/** Every revision an entry records is scoped, so entry commits stand out in a shared repository. */
+export const REVISION_SCOPE = 'note';
 
-export const defaultSaveMessage = (entry: LocatedEntry['entry']): string => `save ${entry.title}`;
+export const defaultSnapshotMessage = (entry: LocatedEntry['entry']): string =>
+  `snapshot ${entry.title}`;
 
 /** `note: <message>`; a message that already carries the scope is left alone. */
-export const saveMessage = (entry: LocatedEntry['entry'], message?: string): string => {
+export const snapshotMessage = (entry: LocatedEntry['entry'], message?: string): string => {
   const text = message?.trim();
-  const body = text === undefined || text === '' ? defaultSaveMessage(entry) : text;
-  return body.toLowerCase().startsWith(`${SAVE_SCOPE}:`) ? body : `${SAVE_SCOPE}: ${body}`;
+  const body = text === undefined || text === '' ? defaultSnapshotMessage(entry) : text;
+  return body.toLowerCase().startsWith(`${REVISION_SCOPE}:`) ? body : `${REVISION_SCOPE}: ${body}`;
 };
 
-export interface SavedEntry extends LocatedEntry {
-  readonly outcome: SaveOutcome;
+export interface SnapshotResult extends LocatedEntry {
+  readonly outcome: SnapshotOutcome;
 }
 
-export const saveEntry = (
+export const snapshotEntry = (
   deps: AppDeps,
   scope: Scope,
   locator: EntryLocator,
-  input: SaveInput = {},
-): Promise<Result<SavedEntry, AppError>> =>
-  withScope(deps, scope, async (session): Promise<Result<SavedEntry, AppError>> => {
+  input: SnapshotInput = {},
+): Promise<Result<SnapshotResult, AppError>> =>
+  withScope(deps, scope, async (session): Promise<Result<SnapshotResult, AppError>> => {
     const found = await locateEntry(deps, session, locator);
     if (!found.ok) return found;
     const { vault, entry } = found.value;
@@ -60,7 +61,7 @@ export const saveEntry = (
     const recorded = await deps.revisions.record(
       vault.root,
       entry.path,
-      saveMessage(entry, input.message),
+      snapshotMessage(entry, input.message),
     );
     if (!recorded.ok) return recorded;
     return ok({ ...found.value, outcome: { kind: 'saved', revision: recorded.value } });

@@ -35,8 +35,8 @@ export const registerCommands = (program: Command, io: CliIo, exit: Exit): void 
   });
   registerInitCommand(program, io, exit);
   registerEntryCommands(program, io, exit);
-  const reference = registerQueryCommands(program, io, exit);
-  registerMutationCommands(program, reference, io, exit);
+  registerQueryCommands(program, io, exit);
+  registerMutationCommands(program, io, exit);
   registerHistoryCommands(program, io, exit);
   registerMaintenanceCommands(program, io, exit);
   registerPublishCommand(program, io, exit);

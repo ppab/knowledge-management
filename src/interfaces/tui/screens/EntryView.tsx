@@ -1,7 +1,10 @@
 import { Box, Text, useInput, type Key } from 'ink';
 import { useEffect, useMemo, useState } from 'react';
 import { revisionStatus } from '../../../application/history/history.js';
-import { saveEntry, type SaveOutcome } from '../../../application/history/save-entry.js';
+import {
+  snapshotEntry,
+  type SnapshotOutcome,
+} from '../../../application/history/snapshot-entry.js';
 import {
   checkSelection,
   wrapSelectionAsExternalLink,
@@ -17,12 +20,12 @@ import {
 } from '../../../application/entries/view-entry.js';
 import type { PanelData, PanelSpec } from '../../../application/plugin/plugin.js';
 import {
-  addReference,
+  linkReference,
   checkInsertionPoint,
-} from '../../../application/references/add-reference.js';
+} from '../../../application/references/link-reference.js';
 import type { Resolution } from '../../../application/references/references.js';
 import { relabelReferences } from '../../../application/references/relabel.js';
-import { removeReference } from '../../../application/references/remove-reference.js';
+import { unlinkReference } from '../../../application/references/unlink-reference.js';
 import { readRevision } from '../../../application/history/history.js';
 import { changedLines, lineNumberAt } from '../../../domain/text/diff.js';
 import { parseIsoDate } from '../../../domain/calendar/date-binding.js';
@@ -83,7 +86,7 @@ type Flow =
   | { readonly kind: 'pick'; readonly purpose: 'wrap'; readonly range: SourceRange }
   | { readonly kind: 'locate'; readonly target: Picked }
   | { readonly kind: 'url'; readonly range: SourceRange }
-  | { readonly kind: 'save' }
+  | { readonly kind: 'snapshot' }
   /** `Space d`: a date to add under `dates:`. */
   | { readonly kind: 'date' }
   /** `t`: edit the note's `tags:` as a set, pre-filled with the current tags. */
@@ -97,7 +100,7 @@ const PANEL_WIDTH = 36;
 const modifiedMarker = (status: RevisionStatus | undefined): string =>
   status && isUnsaved(status) ? ' ●' : '';
 
-const saveText = (path: string, outcome: SaveOutcome): string => {
+const snapshotText = (path: string, outcome: SnapshotOutcome): string => {
   switch (outcome.kind) {
     case 'saved':
       return `Saved revision ${abbreviate(outcome.revision.id)}: ${outcome.revision.summary}`;
@@ -434,7 +437,7 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
     }
     const shown = referenceDisplay(ref);
     void mutate(
-      removeReference(deps, scope, {
+      unlinkReference(deps, scope, {
         source: located.note.id,
         range: ref.range,
         expectedVersion: located.note.version,
@@ -574,7 +577,7 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
     }
     if (flow.purpose === 'at') {
       void mutate(
-        addReference(deps, scope, {
+        linkReference(deps, scope, {
           source: located.note.id,
           target: picked.id,
           at: { kind: 'at', offset: flow.offset, side: flow.side },
@@ -601,7 +604,7 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
   const onLocated = (at: InsertionLocation) => {
     if (flow?.kind !== 'locate' || !located) return;
     void mutate(
-      addReference(deps, scope, {
+      linkReference(deps, scope, {
         source: located.note.id,
         target: flow.target.id,
         at,
@@ -612,10 +615,10 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
     );
   };
 
-  const onSave = (message: string) => {
+  const onSnapshot = (message: string) => {
     setFlow(null);
-    void saveEntry(deps, scope, screen.locator, { message }).then((saved) => {
-      if (saved.ok) notify(saveText(saved.value.entry.path, saved.value.outcome));
+    void snapshotEntry(deps, scope, screen.locator, { message }).then((saved) => {
+      if (saved.ok) notify(snapshotText(saved.value.entry.path, saved.value.outcome));
       else report(saved.error);
       reload();
     });
@@ -716,7 +719,7 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
         return;
       }
       if (input === 's') {
-        setFlow({ kind: 'save' });
+        setFlow({ kind: 'snapshot' });
         return;
       }
       if (input === 't') {
@@ -800,11 +803,16 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
         ? { hints: [['j/k', 'move'], ['Enter', 'insert'], cancel] }
         : flow?.kind === 'url'
           ? { hints: [['Enter', 'link'], cancel] }
-          : flow?.kind === 'save'
-            ? { hints: [['Enter', 'save (empty message: "save <title>")'], cancel] }
+          : flow?.kind === 'snapshot'
+            ? { hints: [['Enter', 'snapshot (empty message: "snapshot <title>")'], cancel] }
             : flow?.kind === 'tags'
               ? {
-                  hints: [['', 'filter / create'], ['Space', 'toggle'], ['Enter', 'save'], cancel],
+                  hints: [
+                    ['', 'filter / capture'],
+                    ['Space', 'toggle'],
+                    ['Enter', 'snapshot'],
+                    cancel,
+                  ],
                 }
               : flow?.kind === 'delete'
                 ? {
@@ -839,10 +847,10 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
                         hints: [
                           ['hjkl/w/b/e', 'move'],
                           ['i/a/I', 'ref'],
-                          ['x', 'unref'],
+                          ['x', 'unlink'],
                           ['v', 'select'],
                           ['o', 'edit'],
-                          ['s', 'save'],
+                          ['s', 'snapshot'],
                           ['t', 'tag'],
                           ['D', 'delete'],
                           ['H', 'history'],
@@ -925,17 +933,19 @@ export const EntryView = ({ screen }: { readonly screen: EntryScreen }) => {
       ) : (
         <Box flexDirection="row" height={height}>
           <Box flexDirection="column" width={bodyWidth} overflow="hidden">
-            {flow?.kind === 'url' || flow?.kind === 'save' || flow?.kind === 'date' ? (
+            {flow?.kind === 'url' || flow?.kind === 'snapshot' || flow?.kind === 'date' ? (
               <Dialog width={60}>
                 <Prompt
                   label={
                     flow.kind === 'url'
                       ? 'url:'
-                      : flow.kind === 'save'
-                        ? 'save message:'
+                      : flow.kind === 'snapshot'
+                        ? 'snapshot message:'
                         : 'bind to date (YYYY-MM-DD):'
                   }
-                  onSubmit={flow.kind === 'url' ? onUrl : flow.kind === 'save' ? onSave : onDate}
+                  onSubmit={
+                    flow.kind === 'url' ? onUrl : flow.kind === 'snapshot' ? onSnapshot : onDate
+                  }
                   onCancel={() => {
                     setFlow(null);
                   }}

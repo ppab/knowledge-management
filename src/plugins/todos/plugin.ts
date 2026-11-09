@@ -2,7 +2,7 @@ import { usage, type AppError } from '../../domain/errors.js';
 import { summarize } from '../../domain/entry/summary.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { isComposite } from '../../domain/scope/scope.js';
-import { isoDate } from '../../application/entries/create-entry.js';
+import { isoDate } from '../../application/entries/capture-entry.js';
 import type {
   CheckResult,
   EntryPlugin,

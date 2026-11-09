@@ -21,7 +21,7 @@ export interface InitVaultInput {
   readonly identity?: IdentityConfig;
   /**
    * Directory for notes, relative to the vault root: becomes the single `include` glob
-   * (`<dir>/**\/*.md`) and the default location of `create`. `.` or absent: the whole vault.
+   * (`<dir>/**\/*.md`) and the default location of `capture`. `.` or absent: the whole vault.
    */
   readonly entriesDir?: string;
 }

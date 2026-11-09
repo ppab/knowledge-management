@@ -1,7 +1,7 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
 import { boundDates, type ScopedDateHit } from '../../../application/calendar/calendar.js';
-import { isoDate } from '../../../application/entries/create-entry.js';
+import { isoDate } from '../../../application/entries/capture-entry.js';
 import type { DateRange, IsoDate } from '../../../domain/calendar/date-binding.js';
 import {
   dayMarker,

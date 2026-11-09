@@ -8,7 +8,7 @@ import { checkVersion, mutateEntry, type MutationOutcome } from '../mutations/mu
 import type { AppDeps } from '../ports.js';
 import { readEntryInScope, withScope } from '../scope/session.js';
 
-export interface RemoveReferenceInput {
+export interface UnlinkReferenceInput {
   /** Entry to edit: id, title or alias. */
   readonly source: string;
   /** The exact `[[...]]` span, as `listReferences`/`viewEntry` report it. */
@@ -80,10 +80,10 @@ export interface RemovedReference extends MutationOutcome {
   readonly kind: RemovalKind;
 }
 
-export const removeReference = (
+export const unlinkReference = (
   deps: AppDeps,
   scope: Scope,
-  input: RemoveReferenceInput,
+  input: UnlinkReferenceInput,
 ): Promise<Result<RemovedReference, AppError>> =>
   withScope(deps, scope, async (session) => {
     const located = await readEntryInScope(deps, session, input.source);

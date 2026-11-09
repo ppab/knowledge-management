@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { createEntry, previewTemplates } from './create-entry.js';
+import { captureEntry, previewTemplates } from './capture-entry.js';
 
-describe('createEntry', () => {
+describe('captureEntry', () => {
   it('creates a note from the built-in default template in the first include directory', async () => {
     const f = fixture({ include: ['docs/**/*.md'] });
-    const note = unwrap(await createEntry(f.deps, f.vault, { title: 'Event Ingestion' }));
+    const note = unwrap(await captureEntry(f.deps, f.vault, { title: 'Event Ingestion' }));
 
     expect(note.id).toBe('ID1');
     expect(note.path).toBe('docs/event-ingestion.md');
@@ -23,14 +23,14 @@ describe('createEntry', () => {
   it('keeps a template alias and adds the id first', async () => {
     const f = fixture();
     f.templates.set('aka', '---\nid: "{{id}}"\naliases: [nickname]\n---\n# {{title}}\n');
-    const note = unwrap(await createEntry(f.deps, f.vault, { title: 'T', template: 'aka' }));
+    const note = unwrap(await captureEntry(f.deps, f.vault, { title: 'T', template: 'aka' }));
     expect(note.aliases).toEqual(['ID1', 'nickname']);
   });
 
   it('does not duplicate an id a template already lists as an alias', async () => {
     const f = fixture();
     f.templates.set('aka', '---\nid: "{{id}}"\naliases: ["{{id}}", nickname]\n---\n# {{title}}\n');
-    const note = unwrap(await createEntry(f.deps, f.vault, { title: 'T', template: 'aka' }));
+    const note = unwrap(await captureEntry(f.deps, f.vault, { title: 'T', template: 'aka' }));
     expect(note.aliases).toEqual(['ID1', 'nickname']);
     expect(f.fs.files.get(note.path)).not.toContain('aliases:\n  - ID1'); // left as the template wrote it
   });
@@ -58,7 +58,7 @@ describe('createEntry', () => {
       ].join('\n'),
     );
     const note = unwrap(
-      await createEntry(f.deps, f.vault, {
+      await captureEntry(f.deps, f.vault, {
         title: 'Use SQLite',
         template: 'adr',
         variables: { owner: 'me' },
@@ -89,11 +89,11 @@ describe('createEntry', () => {
     );
 
     const inside = unwrap(
-      await createEntry(f.deps, f.vault, { title: 'Use SQLite', template: 'decision' }),
+      await captureEntry(f.deps, f.vault, { title: 'Use SQLite', template: 'decision' }),
     );
     expect(inside.path).toBe('notes/decisions/2026-10-27-use-sqlite.md');
     const anchored = unwrap(
-      await createEntry(f.deps, f.vault, { title: 'Today', template: 'journal' }),
+      await captureEntry(f.deps, f.vault, { title: 'Today', template: 'journal' }),
     );
     expect(anchored.path).toBe('journal/2026-10-27.md');
   });
@@ -123,7 +123,7 @@ describe('createEntry', () => {
       '---\ntemplate:\n  path: "/decisions/{{slug}}.md"\n---\n# {{title}}\n',
     );
 
-    const outside = await createEntry(f.deps, f.vault, { title: 'Lost', template: 'stray' });
+    const outside = await captureEntry(f.deps, f.vault, { title: 'Lost', template: 'stray' });
     expect(outside).toMatchObject({
       ok: false,
       error: {
@@ -133,12 +133,12 @@ describe('createEntry', () => {
         details: { path: 'decisions/lost.md', include: ['notes/**/*.md'] },
       },
     });
-    const byOption = await createEntry(f.deps, f.vault, {
+    const byOption = await captureEntry(f.deps, f.vault, {
       title: 'Lost',
       path: 'elsewhere/lost.md',
     });
     expect(byOption).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
-    const excluded = await createEntry(f.deps, f.vault, {
+    const excluded = await captureEntry(f.deps, f.vault, {
       title: 'Old',
       path: 'notes/archive/old.md',
     });
@@ -153,7 +153,7 @@ describe('createEntry', () => {
     expect(f.fs.writes).toEqual([]);
 
     const fine = unwrap(
-      await createEntry(f.deps, f.vault, { title: 'Kept', path: 'notes/kept.md' }),
+      await captureEntry(f.deps, f.vault, { title: 'Kept', path: 'notes/kept.md' }),
     );
     expect(fine.path).toBe('notes/kept.md');
   });
@@ -163,7 +163,7 @@ describe('createEntry', () => {
       identity: { strategy: 'formatted', format: '{vault}-{type}-{date}-{ulid}' },
     });
     f.templates.set('adr', '# {{title}}\n');
-    const note = unwrap(await createEntry(f.deps, f.vault, { title: 'X', template: 'adr' }));
+    const note = unwrap(await captureEntry(f.deps, f.vault, { title: 'X', template: 'adr' }));
     expect(note.id).toBe('monitor-adr-20261027-ID1');
     expect(f.fs.files.get(note.path)).toBe(
       `---\nid: monitor-adr-20261027-ID1\ntitle: X\ncreated: ${f.deps.clock.now().toISOString()}\naliases:\n  - monitor-adr-20261027-ID1\n---\n# X\n`,
@@ -173,15 +173,15 @@ describe('createEntry', () => {
   it('fails before writing when a variable is missing or the path is unsafe', async () => {
     const f = fixture();
     f.templates.set('needy', '# {{title}} for {{customer}}\n');
-    const missing = await createEntry(f.deps, f.vault, { title: 'T', template: 'needy' });
+    const missing = await captureEntry(f.deps, f.vault, { title: 'T', template: 'needy' });
     expect(missing).toMatchObject({
       ok: false,
       error: { code: 'VALIDATION', details: { missing: ['customer'] } },
     });
 
-    const escape = await createEntry(f.deps, f.vault, { title: 'T', path: '../outside.md' });
+    const escape = await captureEntry(f.deps, f.vault, { title: 'T', path: '../outside.md' });
     expect(escape).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
-    const hidden = await createEntry(f.deps, f.vault, { title: 'T', path: '.ofl/x.md' });
+    const hidden = await captureEntry(f.deps, f.vault, { title: 'T', path: '.ofl/x.md' });
     expect(hidden).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
     expect(f.fs.writes).toEqual([]);
   });
@@ -189,12 +189,12 @@ describe('createEntry', () => {
   it('never overwrites an existing file and never lets --var forge the id', async () => {
     const f = fixture();
     f.fs.files.set('t.md', 'existing');
-    const clash = await createEntry(f.deps, f.vault, { title: 'T' });
+    const clash = await captureEntry(f.deps, f.vault, { title: 'T' });
     expect(clash).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
     expect(f.fs.files.get('t.md')).toBe('existing');
 
     const forged = unwrap(
-      await createEntry(f.deps, f.vault, { title: 'Other', variables: { id: 'FORGED' } }),
+      await captureEntry(f.deps, f.vault, { title: 'Other', variables: { id: 'FORGED' } }),
     );
     expect(forged.id).toBe('ID2'); // ID1 was consumed by the refused attempt; never 'FORGED'
     expect(f.fs.files.get(forged.path)).toContain('id: "ID2"');
@@ -202,8 +202,8 @@ describe('createEntry', () => {
 
   it('produces distinct ids on repeated creation', async () => {
     const f = fixture();
-    const a = unwrap(await createEntry(f.deps, f.vault, { title: 'A' }));
-    const b = unwrap(await createEntry(f.deps, f.vault, { title: 'B' }));
+    const a = unwrap(await captureEntry(f.deps, f.vault, { title: 'A' }));
+    const b = unwrap(await captureEntry(f.deps, f.vault, { title: 'B' }));
     expect(a.id).not.toBe(b.id);
   });
 });

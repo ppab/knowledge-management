@@ -142,16 +142,16 @@ export interface PluginApi {
   list(filters?: ListFilters): Promise<Result<ScopedEntry[], AppError>>;
   byField(key: string, value?: string): Promise<Result<ScopedEntry[], AppError>>;
   search(query: string, options?: SearchOptions): Promise<Result<SearchResult[], AppError>>;
-  read(query: string): Promise<Result<LocatedNote, AppError>>;
+  read(query: string): Promise<Result<IndexedEntry, AppError>>;
   // Writes (every one goes through the M3 mutation path, dry-run included):
-  create(input: CreateEntryInput & { in?: string }): Promise<Result<Entry, AppError>>;
+  capture(input: CaptureEntryInput & { in?: string }): Promise<Result<Entry, AppError>>;
   setFields(
     query: string,
     fields: Record<string, FieldValue | null>,
     options?: { dryRun?: boolean },
   ): Promise<Result<MutationOutcome, AppError>>;
   bindDate(input: BindDateInput): Promise<Result<MutationOutcome, AppError>>;
-  addReference(input: AddReferenceInput): Promise<Result<MutationOutcome, AppError>>;
+  linkReference(input: LinkReferenceInput): Promise<Result<MutationOutcome, AppError>>;
   insertSnippet(input: InsertSnippetInput): Promise<Result<MutationOutcome, AppError>>;
 }
 ```

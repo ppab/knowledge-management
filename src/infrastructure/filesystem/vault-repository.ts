@@ -59,7 +59,7 @@ export const createVaultRepository = (): VaultRepository => ({
       await writeFile(join(dir, CONFIG_FILE), stringifyYaml(toVaultConfigFile(config)), {
         flag: 'wx',
       });
-      // The directory new notes go to exists from the start, so `create` and editors find it.
+      // The directory new notes go to exists from the start, so `capture` and editors find it.
       const entriesDir = globStaticPrefix(config.include[0] ?? '');
       if (entriesDir !== '') await mkdir(join(root, entriesDir), { recursive: true });
     } catch (cause) {

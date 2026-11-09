@@ -2,10 +2,10 @@ import { Box, Text, useInput } from 'ink';
 import { Spinner, StatusMessage, TextInput } from '@inkjs/ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  createEntry,
+  captureEntry,
   previewTemplates,
   type TemplatePreview,
-} from '../../../application/entries/create-entry.js';
+} from '../../../application/entries/capture-entry.js';
 import { resolveWriteTarget } from '../../../domain/scope/scope.js';
 import { Dialog, DIALOG_CHROME } from '../components/Dialog.js';
 import type { Hint } from '../components/Frame.js';
@@ -141,7 +141,7 @@ export const useCreateFlow = (): CreateFlow => {
     const write = async () => {
       const target = resolveWriteTarget(scope, { cwd });
       if (!target.ok) return target;
-      return createEntry(
+      return captureEntry(
         deps,
         target.value,
         { title, ...(template !== undefined && { template }) },

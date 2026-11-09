@@ -5,7 +5,7 @@ import {
   type EntryHistory,
   type RevisionDiff,
 } from '../../../application/history/history.js';
-import { saveEntry, type SavedEntry } from '../../../application/history/save-entry.js';
+import { snapshotEntry, type SnapshotResult } from '../../../application/history/snapshot-entry.js';
 import { isEntry } from '../../../domain/entry/entry.js';
 import {
   abbreviate,
@@ -63,7 +63,7 @@ const diffText = (diff: RevisionDiff): string =>
     ? `No differences between ${endText(diff.from)} and ${endText(diff.to)} for ${diff.entry.path}`
     : diff.patch.trimEnd();
 
-const saveText = (saved: SavedEntry): string => {
+const snapshotText = (saved: SnapshotResult): string => {
   const path = saved.entry.path;
   switch (saved.outcome.kind) {
     case 'saved':
@@ -125,12 +125,12 @@ export const registerHistoryCommands = (program: Command, io: CliIo, exit: Exit)
     });
 
   program
-    .command('save')
-    .description('record the current file as a new revision of the note')
-    .argument('<query>', 'note id, title or alias')
+    .command('snapshot')
+    .description('record the current file as a new revision of the entry')
+    .argument('<query>', 'entry id, title or alias')
     .option(
       '-m, --message <message>',
-      'revision message, recorded as "note: <message>" (default: "note: save <title>")',
+      'revision message, recorded as "note: <message>" (default: "note: snapshot <title>")',
     )
     .action(async (query: string, opts: { message?: string }, cmd: Command) => {
       const ctx = contextFor(io, cmd);
@@ -138,7 +138,7 @@ export const registerHistoryCommands = (program: Command, io: CliIo, exit: Exit)
         await emit(
           ctx,
           inScope(ctx, (scope) =>
-            saveEntry(
+            snapshotEntry(
               ctx.deps,
               scope,
               { query },
@@ -147,7 +147,7 @@ export const registerHistoryCommands = (program: Command, io: CliIo, exit: Exit)
               },
             ),
           ),
-          saveText,
+          snapshotText,
           (saved) => ({
             ...entryJson(saved),
             status: saved.outcome.kind,

@@ -5,7 +5,7 @@ import { err, ok, type Result } from '../../domain/result.js';
 import { isComposite } from '../../domain/scope/scope.js';
 import type { PluginApi, PluginCommand } from '../../application/plugin/plugin.js';
 import type { IndexedEntry } from '../../application/scope/session.js';
-import { isoDate } from '../../application/entries/create-entry.js';
+import { isoDate } from '../../application/entries/capture-entry.js';
 import {
   collect,
   COURSE_TYPE,
@@ -20,7 +20,7 @@ import { DEFAULT_UNIT, minutesBetween, parseUnit, TIME_UNITS } from './units.js'
 
 /*
  * The courses commands (docs/plans/courses.md, delivery B). Reads go through `api.list()` and
- * `collect`; the two creating verbs (`new`, `log`) write typed fields through `api.create`, the
+ * `collect`; the two creating verbs (`new`, `log`) write typed fields through `api.capture`, the
  * number a template can only render as a string; `done` is a frontmatter mutation like todos'.
  * A `--dry-run` on a creating verb describes the note instead of writing it.
  */
@@ -170,7 +170,7 @@ const log: PluginCommand = {
         json: { course: course.value.note.id, amount, unit, day: on, lesson: lessonId },
       });
     }
-    const created = await api.create({
+    const created = await api.capture({
       title,
       template: 'courses/study',
       variables: { course: course.value.note.id },
@@ -258,7 +258,7 @@ const newEntry: PluginCommand = {
         json: { type, title, variables, fields },
       });
     }
-    const created = await api.create({
+    const created = await api.capture({
       title,
       template: `courses/${type}`,
       ...(Object.keys(variables).length > 0 && { variables }),
@@ -315,7 +315,7 @@ const start: PluginCommand = {
         json: { course: courseId, lesson: lessonId },
       });
     }
-    const created = await api.create({
+    const created = await api.capture({
       title: `${note.title}, ${isoDate(api.clock.now())}`,
       template: 'courses/study',
       variables: { course: courseId },

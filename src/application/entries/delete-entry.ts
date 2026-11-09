@@ -3,7 +3,7 @@ import { isEntry, type AnyEntry } from '../../domain/entry/entry.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Revision } from '../../domain/revision/revision.js';
 import type { Scope } from '../../domain/scope/scope.js';
-import { SAVE_SCOPE } from '../history/save-entry.js';
+import { REVISION_SCOPE } from '../history/snapshot-entry.js';
 import type { AppDeps } from '../ports.js';
 import { withScope, type ScopeSession } from '../scope/session.js';
 import type { VaultHandle } from '../vault/vault.js';
@@ -58,7 +58,7 @@ export interface DeletePreview {
 export const deleteMessage = (entry: AnyEntry, message?: string): string => {
   const text = message?.trim();
   const body = text === undefined || text === '' ? `delete ${entry.title}` : text;
-  return body.toLowerCase().startsWith(`${SAVE_SCOPE}:`) ? body : `${SAVE_SCOPE}: ${body}`;
+  return body.toLowerCase().startsWith(`${REVISION_SCOPE}:`) ? body : `${REVISION_SCOPE}: ${body}`;
 };
 
 /** Every note across the scope that links to `located` by id; deduped per source note. */
