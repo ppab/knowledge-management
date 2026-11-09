@@ -5,15 +5,18 @@ import { useTui } from '../context.js';
 /** A one-line text input; `Enter` submits, `Esc` cancels. Owns the keyboard while shown. */
 export const Prompt = ({
   label,
+  initial,
   onSubmit,
   onCancel,
 }: {
   readonly label: string;
+  /** Pre-filled, editable text (e.g. a note's current tags). Empty when absent. */
+  readonly initial?: string;
   readonly onSubmit: (value: string) => void;
   readonly onCancel: () => void;
 }) => {
   const { theme } = useTui();
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initial ?? '');
   useInput((input, key) => {
     if (key.escape) onCancel();
     else if (key.return) onSubmit(value);

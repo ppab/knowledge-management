@@ -72,9 +72,10 @@ const registerPluginCommand = (
       dryRun?: boolean;
       [key: string]: unknown;
     };
+    // An omitted optional positional arrives as `undefined`; drop it rather than pass "undefined".
     const args = invocation
       .slice(0, -2)
-      .flatMap((a) => (Array.isArray(a) ? (a as string[]) : [String(a)]));
+      .flatMap((a) => (a === undefined ? [] : Array.isArray(a) ? (a as string[]) : [a as string]));
     const ctx = contextFor(io, cmd);
     exit(
       await emit(

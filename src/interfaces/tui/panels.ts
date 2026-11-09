@@ -1,8 +1,8 @@
-import type { MutationOutcome } from '../../application/mutations/mutate.js';
 import { createPluginApi } from '../../application/plugin/api.js';
 import type {
   EnabledPlugin,
   NotePlugin,
+  PanelActionResult,
   PanelData,
   PanelNoteRef,
   PanelSpec,
@@ -54,6 +54,7 @@ export const rowCount = (data: PanelData | undefined): number => {
       return data.items.length;
     case 'table':
       return data.rows.length;
+    case 'tree': // the visible count depends on collapse state; PanelScreen computes it.
     case 'text':
       return 0;
   }
@@ -67,6 +68,7 @@ export const rowAt = (data: PanelData | undefined, cursor: number): unknown => {
       return data.items[cursor];
     case 'table':
       return data.rows[cursor];
+    case 'tree':
     case 'text':
       return undefined;
   }
@@ -79,13 +81,15 @@ export const noteAt = (data: PanelData | undefined, cursor: number): PanelNoteRe
       return data.items[cursor]?.note;
     case 'table':
       return data.rows[cursor]?.note;
+    case 'tree':
     case 'text':
       return undefined;
   }
 };
 
-export const outcomeText = (outcome: MutationOutcome | null): string => {
+export const outcomeText = (outcome: PanelActionResult): string => {
   if (outcome === null) return 'Nothing to do';
+  if ('message' in outcome) return outcome.message;
   if (outcome.dryRun) return `Would change ${outcome.path}`;
   return outcome.written ? `Updated ${outcome.path}` : `No change to ${outcome.path}`;
 };

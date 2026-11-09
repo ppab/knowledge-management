@@ -106,7 +106,7 @@ describe('NoteView', () => {
     });
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'T' })], { columns: 100 });
     await term.waitFor('Target · monitor · T');
-    expect(term.frame()).toContain('Space menu');
+    expect(term.frame()).toContain('o edit'); // the note hint bar is shown
 
     await term.press(' ');
     const menu = await term.waitFor('Space …');
@@ -132,5 +132,43 @@ describe('NoteView', () => {
     await term.press(KEYS.escape);
     await term.waitFor((f) => !f.includes('Backlinks'));
     expect(term.frame()).toContain('Target · monitor · T');
+  });
+
+  it('t picks tags from the scope: existing ones are checked, and a new one can be created', async () => {
+    const h = harness((f) => {
+      f.fs.files.set('a.md', '---\nid: A\ntitle: Alpha\ntags: [work]\n---\n\nbody\n');
+      // Another note contributes a tag the picker should offer for reuse.
+      f.fs.files.set('b.md', '---\nid: B\ntitle: Beta\ntags: [reading]\n---\n\nbody\n');
+    });
+    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'A' })]);
+    await term.waitFor('Alpha · monitor · A');
+    expect(term.frame()).toContain('t tag'); // the hint next to save
+
+    // t opens the picker: the note's own tag is checked, the other note's tag is offered.
+    await term.press('t');
+    const picker = await term.waitFor('[x] work');
+    expect(picker).toContain('tags:');
+    expect(picker).toContain('[ ] reading');
+
+    // Filter to the existing tag and toggle it on (no typing the string into a blank field).
+    await term.type('reading');
+    await term.waitFor('[ ] reading');
+    await term.press(' ');
+    await term.waitFor('[x] reading');
+
+    // Clear the filter, type a brand-new name, and add it via the create row.
+    await term.press(...Array.from({ length: 7 }, () => KEYS.backspace));
+    await term.type('math');
+    await term.waitFor('+ create "math"');
+    await term.press(' ');
+    await term.waitFor('3 selected');
+
+    // Enter writes the whole set to the note's frontmatter.
+    await term.press(KEYS.enter);
+    await term.waitFor('Updated tags');
+    const file = h.f.fs.files.get('a.md') ?? '';
+    expect(file).toContain('- work');
+    expect(file).toContain('- reading');
+    expect(file).toContain('- math');
   });
 });
