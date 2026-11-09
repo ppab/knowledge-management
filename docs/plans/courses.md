@@ -162,11 +162,36 @@ No core change beyond B.
 ## Delivery D — the courses tree screen
 
 Not a generic home table: a **dedicated screen**, opened by `Space → C`, the way the calendar opens
-its own screen (`chords.tsx:24`, `openHomePanel`). The courses view it shows is a collapsible
-course → chapter → lesson tree with inline actions. Split into two increments so a usable screen
-lands before the harder renderer.
+its own screen (`chords.tsx:24`, `openHomePanel`). The courses view it shows is a collapsible,
+two-branch tree with inline actions. Split into two increments so a usable screen lands before the
+harder renderer. Tree decisions settled 2026-11-08 are marked inline.
 
-### Core extension — an interactive `tree` kind of `PanelData`
+### Node model — two branches per course
+
+A course node has two **synthetic grouping nodes** beneath it (no `PanelNoteRef`, not openable, pure
+expand/collapse containers), **Chapters first, Sessions second**:
+
+```
+CS50  ·  3/24 lessons · 6h30m · active
+├─ Chapters
+│  ├─ Week 0 — Scratch   1/3
+│  │  ├─ ✓ Functions
+│  │  └─ ○ Loops          [start]
+│  └─ Week 1 — C          2/5
+└─ Sessions  (12)
+   ├─ ⏱ running · 0h42m          ← the open study, highlighted; `stop` acts on it
+   ├─ 90m · 2026-11-08
+   └─ 45m · 2026-11-07
+```
+
+- **Chapters branch**: chapter → lesson, the content hierarchy, glyphs `✓ · ○`.
+- **Sessions branch**: every study of the course (all carry `study_course`), newest first; **not**
+  nested under the lesson a session names — a session's `detail` mentions its lesson instead, to
+  avoid double-showing. The one open study is highlighted with `⏱` and live elapsed.
+- This mirrors the contract's own content-vs-sessions split. `Space` on a grouping node offers no
+  verbs (they have no note type).
+
+### Core extension — an interactive `tree` kind of `PanelData` (decision 5: generic)
 
 A plugin cannot ship an Ink screen (layer boundary, `docs/plugins.md`), so the designed view is
 delivered as data the core renders. Add a `tree` kind alongside `list | table | text`:
@@ -178,36 +203,61 @@ interface TreeNode {
   readonly id: string;
   readonly label: string;           // "✓ Functions" — glyph + title
   readonly detail?: string;         // "3/24 lessons · 6h30m" on a course row
-  readonly note?: PanelNoteRef;     // Enter opens it; also the node's type for scoped verbs
-  readonly collapsed?: boolean;     // default-collapsed below the course level, so it scales
-  readonly actions?: readonly { readonly key: string; readonly label: string }[]; // inline [done]/[start]
+  readonly note?: PanelNoteRef;     // Enter opens it; its type scopes the leader verbs. Absent = grouping node
+  readonly expanded?: boolean;      // initial state; see expansion rule. Grouping/leaf nodes ignore it
+  readonly actions?: readonly { readonly key: string; readonly label: string }[]; // inline [done]/[start] spans
   readonly children?: readonly TreeNode[];
 }
 ```
 
-The core renders it collapsibly (expand/collapse on a node), tracks a cursor over nodes **and** their
-inline action spans (reusing the reference cursor machinery — `referenceAt`/`referencePositions`),
-and dispatches: Enter on a node → open its note; Enter on an action span → run the matching
-`PanelAction`. This `tree` kind is generic — `goals` (goal → sessions) can render in it too.
+The `tree` kind is generic — `goals` (goal → sessions) can render in it too, so it lives in the core,
+not in `courses`.
+
+**Cursor and actions (decision 1a).** The core renders collapsibly and tracks a cursor over nodes
+**and** their inline action spans, reusing the reference cursor machinery
+(`referenceAt`/`referencePositions`). Dispatch:
+
+- `j`/`k` move between visible nodes; `h`/`l` collapse/expand the node (`Space` is the leader,
+  `Enter` opens — so neither can toggle); `Tab`/`→` steps the cursor onto a node's action spans.
+- **`Enter` on a node body → open its note; `Enter` on an action span → run that action** against
+  *that* node (no query, no ambiguity — the per-child verb targets where the cursor is).
+- **Division of labor:** inline spans carry **per-child verbs** (`done`/`start` on this lesson); the
+  **`Space` leader menu** carries **note-level verbs** (`log`/`set target`/`stop`) scoped to the
+  focused node's type.
+
+**Expansion rule (decision 3 — derived, no field).** A node's initial `expanded` is derived, never
+stored in frontmatter: a course with `course_status: active` starts **expanded**, `completed`/
+`paused`/`dropped` **collapsed**; a chapter starts expanded if it holds the `in-progress` lesson.
+The viewer's `h`/`l` overrides it, and expansion is **remembered per session** across the reload an
+action triggers, so `done` does not re-collapse the tree.
 
 ### D1 — the tree screen + leader menu
 
 - `courses.home` (placement `home`, chord `C` — verify free in ADR 0003) returns `kind: 'tree'`:
-  roots are courses (`label` = title, `detail` = `formatProgress` text; `ProgressBar` cell is the
-  decision-4 extension, added with `goals` D), children are chapters, grandchildren lessons, each
-  with the status glyph and a `PanelNoteRef`. Collapsed below the course row, so N courses are N
-  lines until expanded.
+  roots are courses (`detail` = `formatProgress` text; `ProgressBar` cell is the decision-4
+  extension, added with `goals` D), under each the Chapters and Sessions branches above. Collapsed
+  per the expansion rule, so inactive courses are one line until expanded.
 - **Leader menu scoped by the focused node's type** (decision 6): `Space` opens the which-key popup
-  built from `registry.ownerOf(node.note.type)` → that type's verbs. On a course: `l log · s start ·
-  t set target`; on a study: `x stop · v void`; on a lesson: `d done · s start`. Verbs with no value
-  run on the key; `log`/`set target` open an input form (see below). No key collisions — everything
-  is behind the leader and scoped to one node's type.
+  built from `registry.ownerOf(node.note.type)` → that type's note-level verbs. On a course:
+  `l log · s start · t set target`; on a study: `x stop · v void`. Verbs with no value run on the
+  key; `log`/`set target` open an input form (see below).
 
-### D2 — inline action links
+### D2 — inline action spans
 
-The per-child verbs rendered **on the node**: a lesson row shows `[done]`/`[start]`, focusable like a
-reference; Enter on the span runs the action against *that* node — no query, no ambiguity. This is
-the `TreeNode.actions` spans from the core extension; D1 can ship with them empty and D2 fills them.
+Fills `TreeNode.actions`: a lesson row shows `[done]`/`[start]`, a running-session row `[stop]`,
+each a focusable span activated by `Enter` (decision 1a). D1 can ship with `actions` empty and D2
+adds the spans; both are the same `tree` renderer.
+
+### Declaring node actions (decision 4)
+
+`PanelAction` gains the fields that drive both surfaces from one list, filtered by the focused node's
+type:
+
+```ts
+readonly appliesTo?: readonly string[];   // node/note types this verb is offered for
+readonly surface?: 'inline' | 'menu';     // a span on the node, or an entry in the Space menu
+readonly inputs?: readonly PanelInput[];   // the log / set-target form
+```
 
 ### Note panel `courses.note` (placement `note`, `appliesTo: 'owned'`)
 
@@ -215,9 +265,10 @@ Inside a single note, a **focused subtree** of the same `tree` renderer: a cours
 subtree; a chapter/lesson shows its branch and the course's progress; a study shows what it counts
 toward. Same nodes, same inline actions, scoped to one note.
 
-**Core extension D needs**: the `tree` `PanelData` kind above; `PanelAction.inputs` — a declarative
-input spec the core TUI renders for `log`'s amount/unit and `set target`'s date (no `inputs` on
-`PanelAction` today); and the `ProgressBar` cell for the `detail` bar (shared with `goals` D).
+**Core extensions D needs**, gathered: the generic `tree` `PanelData` kind with a cursor over nodes
+and focusable action spans; the `appliesTo`/`surface`/`inputs` fields on `PanelAction` (none exist
+today); and the `ProgressBar` cell for the `detail` bar (shared with `goals` D). The `tree` renderer
+is the one substantial build; the rest are small and partly shared with `goals`.
 
 ## Deliveries and core extensions
 
