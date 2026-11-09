@@ -57,8 +57,9 @@ export const courseProgress = (
   const all = chapterProgress.flatMap((c) => c.lessons);
   const totalLessons = all.length;
   const doneLessons = all.filter((l) => l.status === 'done').length;
+  // Only completed sessions count; a running timer has no amount yet.
   const studyMinutes = studiesOf(course, studies).reduce(
-    (sum, s) => sum + toMinutes(s.amount, s.unit),
+    (sum, s) => sum + (s.amount === undefined ? 0 : toMinutes(s.amount, s.unit)),
     0,
   );
   return {

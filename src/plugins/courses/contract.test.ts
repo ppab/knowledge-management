@@ -115,7 +115,8 @@ describe('courses contract', () => {
         'course_status must be one of active, completed, paused, dropped, got undefined',
       'invalid/lesson-bad-status.md':
         'lesson_status must be one of todo, in-progress, done, got "meh"',
-      'invalid/study-no-amount.md': 'a study session needs study_amount',
+      'invalid/study-no-amount.md':
+        'a study session needs study_amount (or study_started while the timer runs)',
     });
   });
 

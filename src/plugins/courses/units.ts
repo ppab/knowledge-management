@@ -26,6 +26,23 @@ export const parseUnit = (raw: unknown): TimeUnit | null => {
 /** `amount` of `unit` expressed in minutes. */
 export const toMinutes = (amount: number, unit: TimeUnit): number => amount * MINUTES_PER[unit];
 
+/** An instant on the timeline, from an ISO 8601 string with offset (the timer's start/end). */
+export interface Instant {
+  readonly iso: string;
+  readonly epochMs: number;
+}
+
+/** A parsed instant, or `null` when the value is not a usable ISO 8601 timestamp. */
+export const parseInstant = (raw: unknown): Instant | null => {
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+  const epochMs = Date.parse(raw);
+  return Number.isNaN(epochMs) ? null : { iso: raw, epochMs };
+};
+
+/** Whole minutes from `from` to `toEpochMs`, never below zero. */
+export const minutesBetween = (from: Instant, toEpochMs: number): number =>
+  Math.max(0, Math.round((toEpochMs - from.epochMs) / 60000));
+
 /** `3h30m`, `45m`, `2h`, `0m`; rounded to whole minutes for display only. */
 export const formatMinutes = (minutes: number): string => {
   const whole = Math.round(minutes);

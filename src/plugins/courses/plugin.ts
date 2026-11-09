@@ -12,6 +12,7 @@ import {
   COURSE_TYPE,
   FIELDS,
   LESSON_TYPE,
+  STALE_OPEN_HOURS,
   STUDY_TYPE,
   type CoursesEntries,
 } from './model.js';
@@ -105,6 +106,31 @@ const orphanCheck: PluginCheck = {
   },
 };
 
+/** Study timers left running far too long (docs/plans/courses.md, delivery C). */
+const openCheck: PluginCheck = {
+  kind: 'open',
+  description: `study timers running longer than ${String(STALE_OPEN_HOURS)} hours`,
+  async run(api) {
+    const loaded = await load(api);
+    if (!loaded.ok) return loaded;
+    const now = api.clock.now().getTime();
+    const results: CheckResult[] = [];
+    for (const study of loaded.value.studies) {
+      if (!study.open || study.started === undefined) continue;
+      const hours = (now - study.started.epochMs) / 3_600_000;
+      if (hours <= STALE_OPEN_HOURS) continue;
+      results.push({
+        severity: 'info',
+        vault: study.vault,
+        path: study.path,
+        message: `${study.title}: study timer running for ${String(Math.floor(hours))}h`,
+        details: { id: study.id, started: study.started.iso },
+      });
+    }
+    return ok(results);
+  },
+};
+
 export const coursesPlugin: NotePlugin = {
   name: NAME,
   description: 'an online course as chapters and lessons, with study sessions and derived progress',
@@ -117,5 +143,5 @@ export const coursesPlugin: NotePlugin = {
     study: STUDY_TEMPLATE,
   },
   commands: COMMANDS,
-  checks: [invalidCheck, orphanCheck],
+  checks: [invalidCheck, orphanCheck, openCheck],
 };

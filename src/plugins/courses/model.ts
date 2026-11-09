@@ -4,7 +4,7 @@ import { parseIsoDate, type IsoDate } from '../../domain/calendar/date-binding.j
 import type { FieldValue } from '../../domain/note/fields.js';
 import type { NoteId } from '../../domain/note/note-id.js';
 import { parseFieldReference } from '../../domain/reference/reference.js';
-import { DEFAULT_UNIT, parseUnit, type TimeUnit } from './units.js';
+import { DEFAULT_UNIT, parseInstant, parseUnit, type Instant, type TimeUnit } from './units.js';
 
 /*
  * The Courses schema (docs/courses.md §1): four owned types and strict readers from index
@@ -23,6 +23,9 @@ export type CourseStatus = (typeof COURSE_STATUSES)[number];
 
 export const LESSON_STATUSES = ['todo', 'in-progress', 'done'] as const;
 export type LessonStatus = (typeof LESSON_STATUSES)[number];
+
+/** A running study (timer started, not yet stopped) older than this is flagged by `doctor`. */
+export const STALE_OPEN_HOURS = 12;
 
 export const COURSE_FIELDS: readonly FieldSpec[] = [
   {
@@ -192,10 +195,15 @@ export interface Lesson extends Identity {
 export interface Study extends Identity {
   readonly course: NoteId;
   readonly lesson?: NoteId;
-  readonly amount: number;
+  /** Minutes/hours studied; absent only while the timer is running. */
+  readonly amount?: number;
   readonly unit: TimeUnit;
   /** The work day: the first `dates:` binding. */
   readonly day: IsoDate;
+  readonly started?: Instant;
+  readonly ended?: Instant;
+  /** The timer is running: `study_started` is set, with no `study_ended` and no `study_amount`. */
+  readonly open: boolean;
 }
 
 export type OwnedType =
@@ -343,13 +351,14 @@ const readStudy = (
     else problems.push('study_lesson must be a note link ("[[id]]")');
   }
   let amount: number | undefined;
-  if (!present(fields.study_amount)) problems.push('a study session needs study_amount');
-  else if (finiteNumber(fields.study_amount) && fields.study_amount >= 0) {
-    amount = fields.study_amount;
-  } else {
-    problems.push(
-      `study_amount must be a number of zero or more, got ${JSON.stringify(fields.study_amount)}`,
-    );
+  if (present(fields.study_amount)) {
+    if (finiteNumber(fields.study_amount) && fields.study_amount >= 0) {
+      amount = fields.study_amount;
+    } else {
+      problems.push(
+        `study_amount must be a number of zero or more, got ${JSON.stringify(fields.study_amount)}`,
+      );
+    }
   }
   let unit: TimeUnit = DEFAULT_UNIT;
   if (present(fields.study_unit)) {
@@ -357,13 +366,46 @@ const readStudy = (
     if (parsed) unit = parsed;
     else problems.push('study_unit must be minutes or hours');
   }
+  let started: Instant | undefined;
+  if (present(fields.study_started)) {
+    const parsed = parseInstant(fields.study_started);
+    if (parsed) started = parsed;
+    else problems.push('study_started must be an ISO 8601 instant');
+  }
+  let ended: Instant | undefined;
+  if (present(fields.study_ended)) {
+    const parsed = parseInstant(fields.study_ended);
+    if (parsed) ended = parsed;
+    else problems.push('study_ended must be an ISO 8601 instant');
+  }
+  // A session is a running timer when it has a start, no end and no amount; otherwise it is a
+  // completed record and must carry study_amount.
+  const open = started !== undefined && ended === undefined && amount === undefined;
+  if (!open && amount === undefined) {
+    problems.push('a study session needs study_amount (or study_started while the timer runs)');
+  }
+  if (ended !== undefined && started === undefined) {
+    problems.push('study_ended needs study_started');
+  }
+  if (started && ended && ended.epochMs < started.epochMs) {
+    problems.push('study_ended is before study_started');
+  }
   const day = dates[0];
   if (day === undefined) problems.push('a study session needs its day in dates:');
-  if (problems.length > 0 || !course || amount === undefined || day === undefined) {
+  if (problems.length > 0 || !course || day === undefined) {
     return { study: null, problems };
   }
   return {
-    study: { course: course.target, amount, unit, day, ...(lesson !== undefined && { lesson }) },
+    study: {
+      course: course.target,
+      unit,
+      day,
+      open,
+      ...(amount !== undefined && { amount }),
+      ...(lesson !== undefined && { lesson }),
+      ...(started !== undefined && { started }),
+      ...(ended !== undefined && { ended }),
+    },
     problems,
   };
 };

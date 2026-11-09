@@ -50,6 +50,7 @@ const study = (
   amount,
   unit,
   day: '2026-11-08',
+  open: false,
   ...overrides,
 });
 

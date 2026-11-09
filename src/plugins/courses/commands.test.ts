@@ -2,11 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { createPluginApi } from '../../application/plugin/api.js';
 import type { PluginApi, PluginCommand } from '../../application/plugin/plugin.js';
 import { buildRegistry, enabledPlugin } from '../../application/plugin/registry.js';
+import { diagnose } from '../../application/doctor/diagnose.js';
 import { unwrap } from '../../domain/result.js';
 import { asNoteId } from '../../domain/note/note-id.js';
 import { fixture, type Fixture } from '../../../test/fakes/index.js';
 import { collect } from './model.js';
 import { coursesPlugin } from './plugin.js';
+
+/** The fake clock's instant; the timer measures elapsed time against it. */
+const NOW = new Date(2026, 9, 27, 12, 0, 0).getTime();
+const agoIso = (minutes: number): string => new Date(NOW - minutes * 60000).toISOString();
+const openStudy = (id: string, startedMinutesAgo: number): string =>
+  [
+    '---',
+    `id: "${id}"`,
+    `title: "${id}"`,
+    'type: study',
+    'study_course: "[[CS]]"',
+    `study_started: "${agoIso(startedMinutesAgo)}"`,
+    'dates: ["2026-10-27"]',
+    '---',
+    '',
+  ].join('\n');
 
 /*
  * The courses commands (docs/plans/courses.md, delivery B), exercised against the real
@@ -231,6 +248,71 @@ describe('courses show', () => {
     expect(lines[0]).toContain('CS50');
     expect(lines).toContain('Study log:');
     expect(lines.some((l) => l.includes('2026-11-08') && l.includes('1h30m'))).toBe(true);
+  });
+});
+
+describe('courses start / stop', () => {
+  it('starts a timer on a course, as an open study with no amount', async () => {
+    const { f, api } = setup();
+    const out = unwrap(await run('start', api, ['CS']));
+    const file = createdFile(f, out);
+    expect(file).toContain('type: study');
+    expect(file).toContain('study_course: "[[CS]]"');
+    expect(file).toContain('study_started:');
+    expect(file).not.toContain('study_amount');
+  });
+
+  it('starts a timer on a lesson, resolving its course and linking the lesson', async () => {
+    const { f, api } = setup();
+    const out = unwrap(await run('start', api, ['L1']));
+    const file = createdFile(f, out);
+    expect(file).toContain('study_course: "[[CS]]"');
+    expect(file).toContain('study_lesson: "[[L1]]"');
+  });
+
+  it('refuses a second timer, and refuses a non-course/lesson target', async () => {
+    const { f, api } = setup();
+    f.fs.files.set('open.md', openStudy('OP', 30));
+    expect(await run('start', api, ['CS'])).toMatchObject({ ok: false, error: { code: 'USAGE' } });
+    const { api: api2 } = setup();
+    expect(await run('start', api2, ['ST0'])).toMatchObject({
+      ok: false,
+      error: { code: 'USAGE' },
+    });
+  });
+
+  it('stops the running timer, recording the elapsed minutes', async () => {
+    const { f, api } = setup();
+    f.fs.files.set('open.md', openStudy('OP', 90));
+    const out = unwrap(await run('stop', api, []));
+    expect(out).toMatchObject({ kind: 'mutation', outcome: { written: true } });
+    expect(f.fs.files.get('open.md')).toContain('study_amount: 90');
+    expect(f.fs.files.get('open.md')).toContain('study_ended:');
+  });
+
+  it('errors with no timer running and with more than one', async () => {
+    const { api } = setup();
+    expect(await run('stop', api, [])).toMatchObject({ ok: false, error: { code: 'USAGE' } });
+    const { f, api: api2 } = setup();
+    f.fs.files.set('o1.md', openStudy('O1', 10));
+    f.fs.files.set('o2.md', openStudy('O2', 20));
+    expect(await run('stop', api2, [])).toMatchObject({ ok: false, error: { code: 'USAGE' } });
+  });
+});
+
+describe('courses:open doctor check', () => {
+  it('reports a timer left running past the stale threshold', async () => {
+    const f = fixture({ plugins: { courses: {} } });
+    f.fs.files.set(
+      'course.md',
+      '---\nid: "CS"\ntitle: "CS50"\ntype: course\ncourse_status: active\n---\n',
+    );
+    f.fs.files.set('stale.md', openStudy('OLD', 13 * 60));
+    const registry = unwrap(buildRegistry([coursesPlugin], f.scope));
+    const { findings } = unwrap(await diagnose(f.deps, f.scope, registry));
+    const open = findings.filter((x) => x.kind === 'courses:open');
+    expect(open).toHaveLength(1);
+    expect(open[0]).toMatchObject({ severity: 'info', details: { path: 'stale.md' } });
   });
 });
 

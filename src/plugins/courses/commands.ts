@@ -11,11 +11,12 @@ import {
   COURSE_TYPE,
   CHAPTER_TYPE,
   LESSON_TYPE,
+  STUDY_TYPE,
   type CoursesEntries,
   type OwnedType,
 } from './model.js';
 import { courseView, courseViews, formatCourse, formatStudies } from './outline.js';
-import { DEFAULT_UNIT, parseUnit, TIME_UNITS } from './units.js';
+import { DEFAULT_UNIT, minutesBetween, parseUnit, TIME_UNITS } from './units.js';
 
 /*
  * The courses commands (docs/plans/courses.md, delivery B). Reads go through `api.list()` and
@@ -273,6 +274,108 @@ const newNote: PluginCommand = {
   },
 };
 
+const start: PluginCommand = {
+  name: 'start',
+  description: 'start a study timer on a course or lesson',
+  args: [{ name: 'target', description: 'the course or lesson to study: id, title or alias' }],
+  async run(api, input) {
+    const [query] = input.args;
+    if (query === undefined) return err(usage('courses start needs a course or lesson'));
+    const located = await api.read(query);
+    if (!located.ok) return located;
+    const note = located.value.note;
+    const entries = await loadEntries(api);
+    if (!entries.ok) return entries;
+    const running = entries.value.studies.find((s) => s.open);
+    if (running) {
+      return err(usage(`a timer is already running (${running.title}); stop it first`));
+    }
+
+    let courseId: string;
+    let lessonId: string | undefined;
+    if (note.type === COURSE_TYPE) {
+      courseId = note.id;
+    } else if (note.type === LESSON_TYPE) {
+      const lesson = entries.value.lessons.find((l) => l.id === note.id);
+      const chapter = lesson && entries.value.chapters.find((c) => c.id === lesson.chapter);
+      const course = chapter && entries.value.courses.find((c) => c.id === chapter.course);
+      if (!course) return err(usage(`${note.title}'s course is not in this scope`));
+      courseId = course.id;
+      lessonId = note.id;
+    } else {
+      return err(
+        usage(`${note.title} is a ${note.type ?? 'note'}; start a timer on a course or lesson`),
+      );
+    }
+
+    if (input.dryRun) {
+      return ok({
+        kind: 'lines',
+        lines: [`Would start a timer on ${note.title}`],
+        json: { course: courseId, lesson: lessonId },
+      });
+    }
+    const created = await api.create({
+      title: `${note.title}, ${isoDate(api.clock.now())}`,
+      template: 'courses/study',
+      variables: { course: courseId },
+      fields: {
+        study_started: api.clock.now().toISOString(),
+        ...(lessonId !== undefined && { study_lesson: `[[${lessonId}]]` }),
+      },
+      in: located.value.vault.config.name,
+    });
+    if (!created.ok) return created;
+    return ok({
+      kind: 'lines',
+      lines: [`Started a timer on ${note.title}`],
+      json: { id: created.value.id, path: created.value.path },
+    });
+  },
+};
+
+const stop: PluginCommand = {
+  name: 'stop',
+  description: 'stop the running study timer, recording the elapsed time',
+  args: [
+    {
+      name: 'study',
+      description: 'the session to stop, if ambiguous: id, title or alias',
+      optional: true,
+    },
+  ],
+  async run(api, input) {
+    const entries = await loadEntries(api);
+    if (!entries.ok) return entries;
+    const open = entries.value.studies.filter((s) => s.open && s.started !== undefined);
+    const [query] = input.args;
+    let target = open[0];
+    if (query !== undefined) {
+      const located = await resolveOwned(api, query, STUDY_TYPE);
+      if (!located.ok) return located;
+      const match = open.find((s) => s.id === located.value.note.id);
+      if (!match) return err(usage(`${located.value.note.title} is not a running timer`));
+      target = match;
+    } else if (open.length === 0) {
+      return err(usage('no study timer is running'));
+    } else if (open.length > 1) {
+      return err(
+        usage(`more than one timer is running: ${open.map((s) => s.title).join(', ')}; name one`),
+      );
+    }
+    if (!target?.started) return err(usage('no study timer is running'));
+
+    const minutes = minutesBetween(target.started, api.clock.now().getTime());
+    const outcome = await api.setFields(
+      target.id,
+      { study_ended: api.clock.now().toISOString(), study_amount: minutes },
+      { dryRun: input.dryRun },
+    );
+    if (!outcome.ok) return outcome;
+    return ok({ kind: 'mutation', outcome: outcome.value });
+  },
+};
+
 const show: PluginCommand = {
   name: 'show',
   description: "show one course's outline and its study log",
@@ -301,4 +404,4 @@ const show: PluginCommand = {
   },
 };
 
-export const COMMANDS: readonly PluginCommand[] = [outline, newNote, log, done, show];
+export const COMMANDS: readonly PluginCommand[] = [outline, newNote, log, done, start, stop, show];

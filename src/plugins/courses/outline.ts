@@ -70,6 +70,10 @@ export const formatCourse = (view: CourseView, options: OutlineOptions = {}): st
   return lines;
 };
 
-/** The study sessions of one course as display lines, newest first. */
+/** The study sessions of one course as display lines, newest first; a running timer shows `⏱`. */
 export const formatStudies = (view: CourseView): string[] =>
-  view.studies.map((s) => `  ${s.day}  ${formatMinutes(toMinutes(s.amount, s.unit))}`);
+  view.studies.map((s) =>
+    s.amount === undefined
+      ? `  ${s.day}  ⏱ running`
+      : `  ${s.day}  ${formatMinutes(toMinutes(s.amount, s.unit))}`,
+  );

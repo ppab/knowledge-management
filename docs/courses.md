@@ -100,12 +100,15 @@ dates: ['2026-11-08']
 # C basics, afternoon
 ```
 
-A study session is a completed record of time spent. `study_course` (reference, required) is stored
-directly so per-course totals are a single filter even when no lesson is named; `study_lesson`
-(reference) is optional. `study_amount` is a number in `study_unit` (default `minutes`; `hours` and
-`minutes` convert). The work day is the first `dates:` entry. `study_started` / `study_ended` (ISO 8601
-instants with offset) are optional scaffolding for a future start/stop timer and are unused by this
-delivery.
+A study session is either a completed record of time spent or a running timer. `study_course`
+(reference, required) is stored directly so per-course totals are a single filter even when no lesson
+is named; `study_lesson` (reference) is optional. `study_amount` is a number in `study_unit` (default
+`minutes`; `hours` and `minutes` convert) and is required for a completed record. The work day is the
+first `dates:` entry. `study_started` / `study_ended` (ISO 8601 instants with offset) drive the
+start/stop timer (delivery C): a session with `study_started` and no `study_ended` or `study_amount`
+is a **running timer** — valid, but it counts no time until `stop` fills `study_ended` and the
+computed `study_amount`. A timer left running past a threshold is reported by the `courses:open`
+doctor check.
 
 ## 2. Progress (derived)
 
