@@ -261,31 +261,40 @@ readonly inputs?: readonly PanelInput[];   // the log / set-target form
 
 ### Note panel `courses.note` (placement `note`, `appliesTo: 'owned'`)
 
-Inside a single note, a **focused subtree** of the same `tree` renderer: a course shows its own
-subtree; a chapter/lesson shows its branch and the course's progress; a study shows what it counts
-toward. Same nodes, same inline actions, scoped to one note.
+Inside a single note, a **navigable list** of the note's course: a progress header, then the
+course's chapters and lessons in order, the note being viewed marked `here`. It auto-shows beside
+any owned note (it is the unkeyed auto panel); `Space p` steps focus into it, `j`/`k` walk the
+rows, `Enter` jumps to a lesson's note, and `Esc`/`Space p` steps back out (the panel stays shown).
+This reuses `NoteView`'s existing note-panel cursor — a flat `list`, not the `tree` renderer, since
+`NoteView` has no collapse cursor — turning the panel into a course **navbar** for moving between
+sibling lessons without leaving the course.
 
 **Core extensions D needs**, gathered: the generic `tree` `PanelData` kind with a cursor over nodes
 and focusable action spans; the `appliesTo`/`surface`/`inputs` fields on `PanelAction` (none exist
 today); and the `ProgressBar` cell for the `detail` bar (shared with `goals` D). The `tree` renderer
-is the one substantial build; the rest are small and partly shared with `goals`.
+is the one substantial build; the rest are small and partly shared with `goals`. D3 later adds a
+generic `Space p` chord in `NoteView` that focuses whatever note-side panel is shown — reusable by
+every plugin, not courses-specific.
 
 ## Deliveries and core extensions
 
-| Delivery        | Ships                                                                                                                                           | Core change                                                                                                                         |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.                                                          | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).                                            |
-| A′ ✓            | `course_target` field (schema addendum).                                                                                                        | Typed `create` (`CreateNoteInput.fields`).                                                                                          |
-| B ✓             | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                                                                         | Typed `create` (above); readers reject on any field problem.                                                                        |
-| C ✓             | `courses start` / `stop`; `courses:open` doctor check; open-study model.                                                                        | None beyond B.                                                                                                                      |
-| D1 ✓            | The courses **tree screen** (`Space → C`), collapsible with derived expansion; inline `[done]`/`[stop]` verbs; leader menu scoped by node type. | A generic `tree` `PanelData` kind + `TreeNode`; `PanelAction.appliesTo`/`surface`/`inputs`; tree renderer.                          |
-| D2 ✓            | The creating verbs from the tree (`start`/`log`/`set target`) via the leader menu + input form; the `courses.note` outline panel.               | `PanelAction.run` result widened (a `{ message }` variant) for creates; `PanelAction.inputs` rendered by the core (`ActionInputs`). |
+| Delivery        | Ships                                                                                                                                           | Core change                                                                                                                                |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.                                                          | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).                                                   |
+| A′ ✓            | `course_target` field (schema addendum).                                                                                                        | Typed `create` (`CreateNoteInput.fields`).                                                                                                 |
+| B ✓             | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                                                                         | Typed `create` (above); readers reject on any field problem.                                                                               |
+| C ✓             | `courses start` / `stop`; `courses:open` doctor check; open-study model.                                                                        | None beyond B.                                                                                                                             |
+| D1 ✓            | The courses **tree screen** (`Space → C`), collapsible with derived expansion; inline `[done]`/`[stop]` verbs; leader menu scoped by node type. | A generic `tree` `PanelData` kind + `TreeNode`; `PanelAction.appliesTo`/`surface`/`inputs`; tree renderer.                                 |
+| D2 ✓            | The creating verbs from the tree (`start`/`log`/`set target`) via the leader menu + input form; the `courses.note` outline panel.               | `PanelAction.run` result widened (a `{ message }` variant) for creates; `PanelAction.inputs` rendered by the core (`ActionInputs`).        |
+| D3 ✓            | The `courses.note` panel made a navigable lesson list (a course **navbar**): focus it, `j`/`k`, `Enter` to jump between the course's lessons.   | Generic `Space p` chord in `NoteView` to focus/leave the shown note-side panel (auto panel stays shown on leave). No plugin-facing change. |
 
-A′–D2 are shipped. D1's inline verbs are the mutation ones (`done` on a lesson, `stop` on a running
+A′–D3 are shipped. D1's inline verbs are the mutation ones (`done` on a lesson, `stop` on a running
 study); D2 adds the creating verbs through the leader menu, collecting values in the core-rendered
 `ActionInputs` form (the `log` amount/unit, the `set target` date) and reporting a plain message
-since `create` returns a note, not a `MutationOutcome`. The `courses.note` panel is a text outline
-of the focused note's course (a tree there would need the collapse cursor `NoteView` lacks). Left
+since `create` returns a note, not a `MutationOutcome`. The `courses.note` panel is a navigable
+`list` of the focused note's course — a progress header and the course's lessons, the current note
+marked `here` — focused with the generic `Space p` chord so `j`/`k` walk it and `Enter` jumps
+between sibling lessons (D3; a `tree` there would need the collapse cursor `NoteView` lacks). Left
 for later: the `ProgressBar` cell for the course headline (shared with `goals` D), and an inline
 focusable-span cursor so `Enter` on a `[done]` span runs it (today the inline key does). The generic
 `tree` panel kind is the one substantial core build, reusable beyond `courses`.
@@ -301,8 +310,9 @@ Against the `test/` fakes, exactly as `goals`/`todos` test (`contract.test.ts`, 
   errors; `stop` with two open studies errors naming both.
 - **Tree screen.** `courses.home` returns a `tree` whose nodes carry resolvable `PanelNoteRef`s and
   collapse below the course row; the leader menu offers a course's verbs but not a study's; an inline
-  `[done]` span on a lesson node round-trips through `api.setFields`; `courses.note` renders the
-  focused subtree for a course and the branch for a lesson.
+  `[done]` span on a lesson node round-trips through `api.setFields`; `courses.note` returns a
+  navigable `list` of the course's lessons, each carrying its note, the current note marked `here`;
+  `Space p` focuses the panel and `Enter` on a row opens that lesson.
 - **Capabilities.** `notes capabilities --json` lists every new command (the plan.md definition of
   done).
 

@@ -205,17 +205,22 @@ describe('courses.home panel actions', () => {
 });
 
 describe('courses.note panel', () => {
-  it('shows the focused note’s course as a text outline', async () => {
+  it('shows the focused note’s course as a navigable lesson list, marking the current note', async () => {
     const { api } = setup();
     const notePanel = coursesPlugin.panels?.find((p) => p.id === 'courses.note');
     if (!notePanel) throw new Error('no note panel');
     const located = unwrap(await api.read('L1'));
     const data = unwrap(await notePanel.load(api, { note: located })) as Extract<
       PanelData,
-      { kind: 'text' }
+      { kind: 'list' }
     >;
-    expect(data.kind).toBe('text');
-    expect(data.lines[0]).toContain('CS50');
-    expect(data.lines.some((l) => l.includes('L1'))).toBe(true);
+    expect(data.kind).toBe('list');
+    // The header is the course; every row carries its note so Enter can jump to it.
+    expect(data.items[0]).toMatchObject({ title: 'CS50', note: { id: 'CS' } });
+    expect(data.items.map((i) => i.note?.id)).toEqual(
+      expect.arrayContaining(['CS', 'CH0', 'L0', 'L1']),
+    );
+    // The note being viewed is marked so you can orient inside the course.
+    expect(data.items.find((i) => i.note?.id === 'L1')?.detail).toBe('here');
   });
 });

@@ -66,6 +66,31 @@ describe('courses tree screen', () => {
     expect(done).toContain('Updated l1.md');
   });
 
+  it('focuses the Course side panel with Space p and jumps between the course’s lessons', async () => {
+    const h = harness(
+      (f) => {
+        for (const [path, source] of Object.entries(files)) f.fs.files.set(path, source);
+      },
+      { plugins: [coursesPlugin] },
+    );
+    term = h.start();
+    await term.waitFor('notes');
+
+    // Open a lesson's note through the tree; the Course panel auto-shows beside it.
+    await term.press(' ', 'C');
+    await term.waitFor('CS50');
+    await term.press('j', 'j', 'j', KEYS.enter); // course, Chapters, Week 0, Functions → open
+    const note = await term.waitFor('Course'); // the side-panel title
+    expect(note).toContain('Loops'); // the panel lists the course's lessons
+    expect(note).toContain('here'); // the lesson being viewed is marked
+
+    // Space p steps focus into the panel; j to the Loops row; Enter jumps to that lesson's note.
+    await term.press(' ', 'p');
+    await term.press('j', 'j', 'j', KEYS.enter);
+    const jumped = await term.waitFor((f) => f.includes('Loops') && f.includes('L1'));
+    expect(jumped).toContain('lesson'); // the Loops note view's frame title (title · vault · L1 · lesson)
+  });
+
   it('logs time from the leader menu through the input form', async () => {
     const h = harness(
       (f) => {

@@ -6,12 +6,14 @@ import type {
   PanelAction,
   PanelContext,
   PanelData,
+  PanelNoteRef,
   PanelSpec,
   PluginApi,
   TreeNode,
 } from '../../application/plugin/plugin.js';
 import { collect, type CoursesEntries } from './model.js';
-import { courseView, formatCourse } from './outline.js';
+import { courseView, LESSON_GLYPH, type CourseView } from './outline.js';
+import { formatProgress } from './progress.js';
 import { coursesTree } from './tree.js';
 import { courseOf } from './study.js';
 import { minutesBetween } from './units.js';
@@ -158,21 +160,84 @@ const courseIdOf = (
   return courseOf(entries, id, type)?.course ?? null;
 };
 
+const noteRef = (n: { vault: string; path: string; id: string }): PanelNoteRef => ({
+  vault: n.vault,
+  path: n.path,
+  id: n.id,
+});
+
+interface ListItem {
+  readonly id: string;
+  readonly title: string;
+  readonly detail?: string;
+  readonly note?: PanelNoteRef;
+}
+
+/** `detail`, with a `here` marker appended when the item is the note being viewed. */
+const hereMark = (detail: string | undefined, here: boolean): string | undefined =>
+  here ? [detail, 'here'].filter((part) => part !== undefined && part !== '').join(' · ') : detail;
+
+const item = (
+  id: string,
+  title: string,
+  note: PanelNoteRef,
+  detail: string | undefined,
+): ListItem => ({
+  id,
+  title,
+  note,
+  ...(detail !== undefined && { detail }),
+});
+
 /**
- * The note-side panel: the focused note's course as a text outline, for context. A tree would
- * need the collapse cursor `NoteView` does not have, so this stays a view (text), not interactive.
+ * The focused note's course as a navigable list — a progress header, then the course's chapters
+ * and lessons, the note being viewed marked `here`. Each item carries its note, so `Space p`
+ * focuses the panel and `Enter` jumps between the course's lessons without leaving the course.
  */
+const courseNavbar = (view: CourseView, hereId: string): PanelData => {
+  const items: ListItem[] = [
+    item(
+      view.course.id,
+      view.course.title,
+      noteRef(view.course),
+      hereMark(formatProgress(view.progress), view.course.id === hereId),
+    ),
+  ];
+  for (const { chapter, lessons, done } of view.progress.chapters) {
+    items.push(
+      item(
+        chapter.id,
+        chapter.title,
+        noteRef(chapter),
+        hereMark(`${String(done)}/${String(lessons.length)}`, chapter.id === hereId),
+      ),
+    );
+    for (const lesson of lessons) {
+      items.push(
+        item(
+          lesson.id,
+          `  ${LESSON_GLYPH[lesson.status]} ${lesson.title}`,
+          noteRef(lesson),
+          lesson.id === hereId ? 'here' : undefined,
+        ),
+      );
+    }
+  }
+  return { kind: 'list', items };
+};
+
+/** The note-side panel: the focused note's course as a navigable list of its lessons. */
 const loadNoteOutline = async (
   api: PluginApi,
   context: PanelContext,
 ): Promise<Result<PanelData, AppError>> => {
   const located = context.note;
-  if (!located) return ok({ kind: 'text', lines: [] });
+  if (!located) return ok({ kind: 'list', items: [] });
   const entries = await load(api);
   if (!entries.ok) return entries;
   const courseId = courseIdOf(entries.value, located.note.id, located.note.type);
   const view = courseId === null ? undefined : courseView(entries.value, courseId);
-  return ok({ kind: 'text', lines: view ? formatCourse(view) : [] });
+  return ok(view ? courseNavbar(view, located.note.id) : { kind: 'list', items: [] });
 };
 
 export const PANELS: readonly PanelSpec[] = [

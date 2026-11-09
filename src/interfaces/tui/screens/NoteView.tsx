@@ -288,8 +288,40 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       );
     },
   };
+  // Leaving panel focus keeps the auto panel on screen (drop `panel` to revert to its unkeyed
+  // auto-show); a chord-opened panel closes (`panel: null`).
+  const leavePanel = () => {
+    navigate({
+      type: 'update',
+      update: (s) => {
+        if (s.kind !== 'note') return s;
+        if (panel?.id === autoPanel?.id) {
+          const { panel: _panel, ...rest } = s;
+          return { ...rest, panelCursor: 0 };
+        }
+        return { ...s, panel: null, panelCursor: 0 };
+      },
+    });
+  };
+  // `Space p`: step focus into the note's side panel (j/k over its rows, Enter opens one); again
+  // to step back out.
+  const focusPanelChord: Chord = {
+    key: 'p',
+    label: panelFocused ? 'leave panel' : 'focus panel',
+    run: () => {
+      if (!panel) {
+        notify('No side panel on this note');
+        return;
+      }
+      if (panelFocused) leavePanel();
+      else update({ panel: panel.id, panelCursor: 0 });
+    },
+  };
   const leader = useLeader(
-    screenChords(tui, { back: true, extra: [...panelChords, dateChord, relabelChord] }),
+    screenChords(tui, {
+      back: true,
+      extra: [...panelChords, dateChord, relabelChord, focusPanelChord],
+    }),
     flow === null && !selection,
   );
   const half = Math.max(1, Math.floor(height / 2));
@@ -646,7 +678,7 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
         return;
       }
       if (key.escape && panelFocused) {
-        update({ panel: null, panelCursor: 0 });
+        leavePanel();
         return;
       }
       if (isBack(input, key)) {
