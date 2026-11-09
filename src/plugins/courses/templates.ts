@@ -51,6 +51,8 @@ title: "{{title}}"
 type: study
 study_course: "[[{{course}}]]"
 dates: ["{{date}}"]
+template:
+  path: "studies/{{date}}-{{id}}.md"
 ---
 
 # {{title}}

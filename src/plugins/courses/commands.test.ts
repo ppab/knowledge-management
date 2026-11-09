@@ -167,6 +167,17 @@ describe('courses log', () => {
     expect(file).not.toContain('study_unit');
   });
 
+  it('does not collide when logging twice on the same day (unique study paths)', async () => {
+    const { f, api } = setup();
+    const path = (out: unknown): string => (out as { json: { path: string } }).json.path;
+    const p1 = path(unwrap(await run('log', api, ['CS', '30'])));
+    const p2 = path(unwrap(await run('log', api, ['CS', '25'])));
+    expect(p1).not.toBe(p2);
+    expect(p1.startsWith('studies/')).toBe(true);
+    expect(f.fs.files.get(p1)).toBeDefined();
+    expect(f.fs.files.get(p2)).toBeDefined();
+  });
+
   it('honours --unit, --on and --lesson', async () => {
     const { f, api } = setup();
     const out = unwrap(

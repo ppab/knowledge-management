@@ -108,7 +108,8 @@ first `dates:` entry. `study_started` / `study_ended` (ISO 8601 instants with of
 start/stop timer (delivery C): a session with `study_started` and no `study_ended` or `study_amount`
 is a **running timer** — valid, but it counts no time until `stop` fills `study_ended` and the
 computed `study_amount`. A timer left running past a threshold is reported by the `courses:open`
-doctor check.
+doctor check. Many sessions may count toward one course or lesson; each is its own note, written to a
+unique `studies/<day>-<id>.md` so two sessions for the same lesson on the same day never collide.
 
 ## 2. Progress (derived)
 
