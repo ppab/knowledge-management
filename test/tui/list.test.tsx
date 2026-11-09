@@ -20,6 +20,7 @@ describe('NoteList', () => {
     expect(frame).toContain('private     A1');
     expect(frame).toContain('Alpha');
     expect(frame).toContain('Gamma'); // unidentified files are listed too
+    expect(frame).toContain('type'); // the type column header (untyped notes show `-`)
     expect(frame).toContain('j/k move');
 
     await term.press('j', KEYS.enter);

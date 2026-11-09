@@ -8,6 +8,7 @@ import {
   wrapSelectionAsReference,
 } from '../../../application/mutations/wrap-selection.js';
 import { previewDelete } from '../../../application/notes/delete-note.js';
+import { setTags } from '../../../application/notes/set-tags.js';
 import {
   referenceDisplay,
   renderNote,
@@ -51,6 +52,7 @@ import { LocationPrompt } from '../components/LocationPrompt.js';
 import { actionHints, PanelView } from '../components/PanelView.js';
 import { Picker, type Picked } from '../components/Picker.js';
 import { Prompt } from '../components/Prompt.js';
+import { TagPicker } from '../components/TagPicker.js';
 import { useLoad, useTui, type Loaded } from '../context.js';
 import { deleteWarnings, runDelete } from '../delete-actions.js';
 import { isBack, isDown, isUp } from '../keys.js';
@@ -84,6 +86,8 @@ type Flow =
   | { readonly kind: 'save' }
   /** `Space d`: a date to add under `dates:`. */
   | { readonly kind: 'date' }
+  /** `t`: edit the note's `tags:` as a set, pre-filled with the current tags. */
+  | { readonly kind: 'tags' }
   /** `D`: confirm removing the note, listing the links the deletion would orphan. */
   | { readonly kind: 'delete'; readonly title: string; readonly warnings: readonly string[] };
 
@@ -627,6 +631,21 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
     });
   };
 
+  /** `t`: replace the note's `tags:` with the set chosen in the picker; an empty set clears them. */
+  const onTags = (tags: readonly string[]) => {
+    setFlow(null);
+    if (!located) return;
+    void setTags(deps, scope, { note: located.note.id, tags }).then((outcome) => {
+      if (!outcome.ok) {
+        if (outcome.error.code === 'CONFLICT') clearSelection();
+        report(outcome.error);
+        return;
+      }
+      notify(outcome.value.written ? 'Updated tags' : 'Tags unchanged');
+      reload();
+    });
+  };
+
   /** `D`: preview what deletion would orphan, then open the confirmation. */
   const startDelete = () => {
     if (!viewed) return;
@@ -695,6 +714,10 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
       }
       if (input === 's') {
         setFlow({ kind: 'save' });
+        return;
+      }
+      if (input === 't') {
+        if (identified()) setFlow({ kind: 'tags' });
         return;
       }
       if (input === 'D') {
@@ -776,49 +799,54 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
           ? { hints: [['Enter', 'link'], cancel] }
           : flow?.kind === 'save'
             ? { hints: [['Enter', 'save (empty message: "save <title>")'], cancel] }
-            : flow?.kind === 'delete'
+            : flow?.kind === 'tags'
               ? {
-                  hints: [
-                    ['y', 'delete'],
-                    ['n/Esc', 'cancel'],
-                  ],
+                  hints: [['', 'filter / create'], ['Space', 'toggle'], ['Enter', 'save'], cancel],
                 }
-              : selection
+              : flow?.kind === 'delete'
                 ? {
-                    mode: 'select',
                     hints: [
-                      ['hjkl/w/b/e', 'move'],
-                      ['0/$', 'line'],
-                      ['v', 'restart'],
-                      ['r', 'reference'],
-                      ['u', 'url'],
-                      cancel,
+                      ['y', 'delete'],
+                      ['n/Esc', 'cancel'],
                     ],
                   }
-                : focusedPanel
+                : selection
                   ? {
-                      mode: 'panel',
-                      hints: [
-                        ['j/k', 'move'],
-                        ['Enter', 'open'],
-                        ...actionHints(focusedPanel),
-                        ['Esc', 'close'],
-                      ],
-                    }
-                  : {
+                      mode: 'select',
                       hints: [
                         ['hjkl/w/b/e', 'move'],
-                        ['i/a/I', 'ref'],
-                        ['x', 'unref'],
-                        ['v', 'select'],
-                        ['o', 'edit'],
-                        ['s', 'save'],
-                        ['D', 'delete'],
-                        ['H', 'history'],
-                        ['Space', 'menu'],
-                        ['Esc', 'back'],
+                        ['0/$', 'line'],
+                        ['v', 'restart'],
+                        ['r', 'reference'],
+                        ['u', 'url'],
+                        cancel,
                       ],
-                    };
+                    }
+                  : focusedPanel
+                    ? {
+                        mode: 'panel',
+                        hints: [
+                          ['j/k', 'move'],
+                          ['Enter', 'open'],
+                          ...actionHints(focusedPanel),
+                          ['Esc', 'close'],
+                        ],
+                      }
+                    : {
+                        hints: [
+                          ['hjkl/w/b/e', 'move'],
+                          ['i/a/I', 'ref'],
+                          ['x', 'unref'],
+                          ['v', 'select'],
+                          ['o', 'edit'],
+                          ['s', 'save'],
+                          ['t', 'tag'],
+                          ['D', 'delete'],
+                          ['H', 'history'],
+                          ['Space', 'menu'],
+                          ['Esc', 'back'],
+                        ],
+                      };
 
   const visible = lines.slice(scroll, scroll + height);
   const body =
@@ -878,6 +906,15 @@ export const NoteView = ({ screen }: { readonly screen: NoteScreen }) => {
           headings={located?.note.headings ?? []}
           height={height}
           onPick={onLocated}
+          onCancel={() => {
+            setFlow(null);
+          }}
+        />
+      ) : flow?.kind === 'tags' ? (
+        <TagPicker
+          current={located?.note.tags ?? []}
+          height={height}
+          onSubmit={onTags}
           onCancel={() => {
             setFlow(null);
           }}

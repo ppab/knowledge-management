@@ -62,7 +62,7 @@ describe('deleting notes', () => {
     });
     term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'A1' })]);
     await term.waitFor('Alpha · monitor · A1');
-    expect(term.frame()).toContain('s save  D delete');
+    expect(term.frame()).toContain('s save  t tag  D delete');
 
     await term.press('D');
     await term.waitFor('Delete "Alpha"?');
