@@ -23,7 +23,7 @@ non-public notes "unless an explicit include matches it", which lets a glob over
 
 ### Named publications with a destination
 
-A **publication** is a named entry under `publications:` in `.notes/config.yaml`: a selection
+A **publication** is a named entry under `publications:` in `.ofl/config.yaml`: a selection
 (include/exclude globs), a route template, a reference policy, an output directory, and a
 **destination**. No ad-hoc `--format/--output` flags; the CLI verb is `publish [<name>]`
 (ADR 0005), and a bare `publish` lists them.

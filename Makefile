@@ -1,4 +1,4 @@
-# Makefile for `notes`.
+# Makefile for `ofl`.
 #
 # Thin, discoverable wrappers over the bun scripts in package.json, plus a
 # `release` target that compiles every binary and publishes a GitHub release.
@@ -15,7 +15,7 @@ VERSION ?= v$(shell sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' package.json | h
 
 # Compiled binaries produced by scripts/compile.ts (all release targets).
 TARGETS := linux-x64 linux-arm64 darwin-arm64 darwin-x64
-BINARIES := $(addprefix release/notes-,$(TARGETS))
+BINARIES := $(addprefix release/ofl-,$(TARGETS))
 
 .DEFAULT_GOAL := help
 .PHONY: help install check compile compile-all load clean bump release
@@ -38,7 +38,7 @@ compile: ## Compile the host binary into release/
 compile-all: ## Compile binaries for every release target
 	$(BUN) run compile:all
 
-load: ## Compile and install the host binary to ~/.local/bin/notes
+load: ## Compile and install the host binary to ~/.local/bin/ofl
 	$(BUN) run load
 
 clean: ## Remove build output

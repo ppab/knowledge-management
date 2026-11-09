@@ -181,7 +181,7 @@ describe('createNote', () => {
 
     const escape = await createNote(f.deps, f.vault, { title: 'T', path: '../outside.md' });
     expect(escape).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
-    const hidden = await createNote(f.deps, f.vault, { title: 'T', path: '.notes/x.md' });
+    const hidden = await createNote(f.deps, f.vault, { title: 'T', path: '.ofl/x.md' });
     expect(hidden).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
     expect(f.fs.writes).toEqual([]);
   });

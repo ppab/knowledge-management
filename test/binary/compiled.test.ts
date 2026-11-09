@@ -15,7 +15,7 @@ import { VERSION } from '../../src/interfaces/cli/version.js';
 const run = promisify(execFile);
 const binary = resolve(
   import.meta.dirname,
-  `../../release/notes-${process.platform}-${process.arch}`,
+  `../../release/ofl-${process.platform}-${process.arch}`,
 );
 
 interface Outcome {
@@ -29,7 +29,7 @@ let repo: string;
 let vault: string;
 let env: NodeJS.ProcessEnv;
 
-const notes = async (cwd: string, ...args: string[]): Promise<Outcome> => {
+const ofl = async (cwd: string, ...args: string[]): Promise<Outcome> => {
   try {
     const { stdout, stderr } = await run(binary, args, { cwd, env });
     return { code: 0, stdout, stderr };
@@ -66,16 +66,16 @@ describe.skipIf(!existsSync(binary))('compiled notes binary', () => {
   afterAll(() => rm(base, { recursive: true, force: true }));
 
   it('reports its version', async () => {
-    const version = await notes(base, '--version');
+    const version = await ofl(base, '--version');
     expect(version.code).toBe(0);
     expect(version.stdout.trim()).toBe(VERSION);
   });
 
   it('init, create, list and search work, so the bundled SQLite index runs under Bun', async () => {
-    const init = json(await notes(vault, 'init', '--name', 'demo', '--json')) as { name: string };
+    const init = json(await ofl(vault, 'init', '--name', 'demo', '--json')) as { name: string };
     expect(init.name).toBe('demo');
 
-    const created = json(await notes(vault, 'create', '--title', 'Kumquat Harvest', '--json')) as {
+    const created = json(await ofl(vault, 'create', '--title', 'Kumquat Harvest', '--json')) as {
       id: string;
       path: string;
     };
@@ -83,24 +83,24 @@ describe.skipIf(!existsSync(binary))('compiled notes binary', () => {
     const file = join(vault, created.path);
     await writeFile(file, (await readFile(file, 'utf8')) + 'The kumquats ripened early.\n');
 
-    const listed = json(await notes(vault, 'list', '--json')) as { notes: { id: string }[] };
+    const listed = json(await ofl(vault, 'list', '--json')) as { notes: { id: string }[] };
     expect(listed.notes.map((n) => n.id)).toEqual([created.id]);
 
-    const search = json(await notes(vault, 'search', 'kumquats', '--json')) as {
+    const search = json(await ofl(vault, 'search', 'kumquats', '--json')) as {
       hits: { id: string }[];
     };
     expect(search.hits.map((h) => h.id)).toEqual([created.id]);
   });
 
   it('saves a note to git', async () => {
-    const saved = await notes(vault, 'save', 'kumquat harvest', '-m', 'first words');
+    const saved = await ofl(vault, 'save', 'kumquat harvest', '-m', 'first words');
     expect(saved.code, saved.stderr).toBe(0);
     const log = await run('git', ['log', '--format=%s'], { cwd: repo, env });
     expect(log.stdout.trim()).toBe('note: first words');
   });
 
   it('refuses to open the TUI without a terminal, which shows Ink is bundled and loads', async () => {
-    const bare = await notes(vault);
+    const bare = await ofl(vault);
     expect(bare.code).toBe(2);
     expect(bare.stdout + bare.stderr).toMatch(/terminal/i);
   });

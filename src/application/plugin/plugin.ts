@@ -103,7 +103,7 @@ export type CommandOutput =
   | { readonly kind: 'mutation'; readonly outcome: MutationOutcome };
 
 export interface PluginCommand {
-  /** `notes <plugin> <name>`. */
+  /** `ofl <plugin> <name>`. */
   readonly name: string;
   readonly description: string;
   readonly args?: readonly CommandArg[];
@@ -225,7 +225,7 @@ export interface PanelSpec {
 }
 
 export interface NotePlugin {
-  /** Unique; also the CLI namespace (`notes todos …`) and the config key. */
+  /** Unique; also the CLI namespace (`ofl todos …`) and the config key. */
   readonly name: string;
   readonly description: string;
   /** Frontmatter `type` values this plugin owns. A type belongs to at most one plugin. */
@@ -240,7 +240,7 @@ export interface NotePlugin {
   readonly destinations?: readonly Destination[];
   /** Astro theme profiles this plugin adds to the built-in `astro` kind; a name belongs to one. */
   readonly astroThemes?: readonly AstroTheme[];
-  /** Validates `plugins.<name>` from `.notes/config.yaml`; `{}` when the key is bare. */
+  /** Validates `plugins.<name>` from `.ofl/config.yaml`; `{}` when the key is bare. */
   readonly settings?: (raw: unknown) => Result<unknown, AppError>;
 }
 

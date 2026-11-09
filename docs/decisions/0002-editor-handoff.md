@@ -38,13 +38,13 @@ The frame was redrawn after resume without any extra bookkeeping on our side.
   vault's `editor:` setting, else `$VISUAL`, else `$EDITOR`, else `nvim`; it is split on
   whitespace, never run through a shell.
 - The TUI calls `suspendTerminal(() => editor.open(...))` and reloads the note afterwards. The
-  CLI's `notes edit` calls the same adapter directly; there is nothing to suspend.
+  CLI's `ofl edit` calls the same adapter directly; there is nothing to suspend.
 - The TUI renders on the alternate screen, so the user's scrollback is untouched and nvim's
   own alternate screen nests cleanly.
 
 ## Manual checklist (run before tagging a release)
 
-1. `notes` → open a note → `e` → nvim opens with the file, cooked mode (arrow keys work in
+1. `ofl` → open a note → `e` → nvim opens with the file, cooked mode (arrow keys work in
    insert mode, `Ctrl-C` is nvim's).
 2. Edit a line, `:wq` → the TUI is back, the body shows the change, the header is intact, no
    stray lines above or below the frame.

@@ -313,7 +313,7 @@ Against the `test/` fakes, exactly as `goals`/`todos` test (`contract.test.ts`, 
   `[done]` span on a lesson node round-trips through `api.setFields`; `courses.note` returns a
   navigable `list` of the course's lessons, each carrying its note, the current note marked `here`;
   `Space p` focuses the panel and `Enter` on a row opens that lesson.
-- **Capabilities.** `notes capabilities --json` lists every new command (the plan.md definition of
+- **Capabilities.** `ofl capabilities --json` lists every new command (the plan.md definition of
   done).
 
 ## Out of scope

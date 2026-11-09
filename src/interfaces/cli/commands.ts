@@ -16,7 +16,7 @@ import { emit } from './output.js';
 export type Exit = (code: number) => void;
 
 export const registerCommands = (program: Command, io: CliIo, exit: Exit): void => {
-  // `notes` alone opens the TUI on the current scope (docs/plan.md M5).
+  // `ofl` alone opens the TUI on the current scope (docs/plan.md M5).
   program.action(async (_opts: unknown, cmd: Command) => {
     const ctx = contextFor(io, cmd);
     exit(
@@ -26,9 +26,7 @@ export const registerCommands = (program: Command, io: CliIo, exit: Exit): void 
           io.tui
             ? io.tui(scope, ctx.cwd)
             : Promise.resolve(
-                err(
-                  usage('The TUI needs an interactive terminal; run `notes --help` for commands'),
-                ),
+                err(usage('The TUI needs an interactive terminal; run `ofl --help` for commands')),
               ),
         ),
         () => '',

@@ -1,8 +1,8 @@
 /*
- * Compiles `notes` into single-file executables with Bun's bundler (`bun scripts/compile.ts`).
+ * Compiles `ofl` into single-file executables with Bun's bundler (`bun scripts/compile.ts`).
  * It runs under Bun, not Node, because the build API is Bun's; the program itself keeps Node as
  * its development runtime. Without arguments it builds every release target; `--host` builds
- * only the target this machine runs. Output: `release/notes-<os>-<arch>`.
+ * only the target this machine runs. Output: `release/ofl-<os>-<arch>`.
  *
  * Ink imports `react-devtools-core` when `DEV=true` is set at run time. The package is not a
  * dependency, and a bundle cannot leave a dynamic import unresolved, so a plugin replaces it
@@ -31,7 +31,7 @@ const stubDevtools = {
 };
 
 for (const target of targets) {
-  const outfile = `release/notes-${target.replace(/^bun-/, '')}`;
+  const outfile = `release/ofl-${target.replace(/^bun-/, '')}`;
   const result = await Bun.build({
     entrypoints: [ENTRY],
     compile: { target, outfile },

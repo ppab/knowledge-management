@@ -5,8 +5,8 @@ import { VERSION } from './version.js';
 
 /** The commander program with every command registered; `main.ts` parses it, tests drive it. */
 export const buildProgram = (io: CliIo, exit: (code: number) => void): Command => {
-  const program = new Command('notes')
-    .description('Local-first, Git-native knowledge management')
+  const program = new Command('ofl')
+    .description('OpenFormLink — local-first, Git-native knowledge management')
     .version(VERSION)
     .option('--json', 'machine-readable output')
     .option('--cwd <dir>', 'run as if started in <dir>')

@@ -36,7 +36,7 @@ const cli = (answers: string[] | null) => {
   };
 };
 
-describe('notes init', () => {
+describe('ofl init', () => {
   it('asks for the notes directory when interactive and no --dir was given', async () => {
     const t = cli(['notes']);
     expect(await t.run('init', '--name', 'demo')).toBe(0);

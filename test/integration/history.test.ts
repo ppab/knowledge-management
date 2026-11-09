@@ -21,7 +21,7 @@ let repo: string;
 let vault: string;
 let env: NodeJS.ProcessEnv;
 
-const notes = async (cwd: string, ...args: string[]): Promise<Outcome> => {
+const ofl = async (cwd: string, ...args: string[]): Promise<Outcome> => {
   try {
     const { stdout, stderr } = await run(tsx, [main, ...args], { cwd, env });
     return { code: 0, stdout, stderr };
@@ -51,23 +51,23 @@ beforeAll(async () => {
 });
 afterAll(() => rm(base, { recursive: true, force: true }));
 
-describe('notes history / diff / save / show --at (M7)', () => {
+describe('ofl history / diff / save / show --at (M7)', () => {
   let id: string;
   let path: string;
   let firstRevision: string;
 
   it('save records one note and only that note; unchanged notes have nothing to save', async () => {
-    expect((await notes(vault, 'init', '--name', 'demo')).code).toBe(0);
-    const created = await notes(vault, 'create', '--title', 'Hello', '--json');
+    expect((await ofl(vault, 'init', '--name', 'demo')).code).toBe(0);
+    const created = await ofl(vault, 'create', '--title', 'Hello', '--json');
     ({ id, path } = JSON.parse(created.stdout) as { id: string; path: string });
 
-    const before = await notes(vault, 'history', id);
+    const before = await ofl(vault, 'history', id);
     expect(before.code).toBe(0);
     expect(before.stdout.trim()).toBe(`No revisions recorded for ${path}`);
 
     await writeFile(join(repo, 'unrelated.txt'), 'staged\n');
     await git('add', 'unrelated.txt');
-    const saved = await notes(vault, 'save', id, '-m', 'first words', '--json');
+    const saved = await ofl(vault, 'save', id, '-m', 'first words', '--json');
     expect(saved.code).toBe(0);
     const outcome = JSON.parse(saved.stdout) as {
       status: string;
@@ -79,10 +79,10 @@ describe('notes history / diff / save / show --at (M7)', () => {
     expect((await git('show', '--name-only', '--format=', 'HEAD')).trim()).toBe(`vault/${path}`);
     expect((await git('diff', '--cached', '--name-only')).trim()).toBe('unrelated.txt');
 
-    const again = await notes(vault, 'save', id);
+    const again = await ofl(vault, 'save', id);
     expect(again.code).toBe(0);
     expect(again.stdout).toContain('Nothing to save');
-    const againJson = await notes(vault, 'save', id, '--json');
+    const againJson = await ofl(vault, 'save', id, '--json');
     expect(JSON.parse(againJson.stdout)).toMatchObject({ status: 'nothing-to-save' });
   });
 
@@ -91,26 +91,26 @@ describe('notes history / diff / save / show --at (M7)', () => {
     const original = await readFile(file, 'utf8');
     await writeFile(file, `${original}\nAdded later.\n`);
 
-    const diff = await notes(vault, 'diff', id);
+    const diff = await ofl(vault, 'diff', id);
     expect(diff.code).toBe(0);
     expect(diff.stdout).toContain(`--- a/${path}`);
     expect(diff.stdout).toContain('+Added later.');
 
-    const at = await notes(vault, 'show', id, '--at', firstRevision.slice(0, 7));
+    const at = await ofl(vault, 'show', id, '--at', firstRevision.slice(0, 7));
     expect(at.code).toBe(0);
     expect(at.stdout).toContain(`revision: ${firstRevision.slice(0, 7)} (`);
     expect(at.stdout).not.toContain('Added later.');
-    const raw = await notes(vault, 'show', id, '--at', firstRevision, '--raw');
+    const raw = await ofl(vault, 'show', id, '--at', firstRevision, '--raw');
     expect(raw.stdout).toBe(`${original}\n`); // `out` ends every print with a newline
-    const current = await notes(vault, 'show', id, '--raw');
+    const current = await ofl(vault, 'show', id, '--raw');
     expect(current.stdout).toContain('Added later.');
 
-    const history = await notes(vault, 'history', id);
+    const history = await ofl(vault, 'history', id);
     expect(history.stdout).toContain('first words');
     expect(history.stdout).toContain(
       `(${path} has changed since its last revision (${firstRevision.slice(0, 7)}))`,
     );
-    const missing = await notes(vault, 'show', id, '--at', 'ffffffff', '--json');
+    const missing = await ofl(vault, 'show', id, '--at', 'ffffffff', '--json');
     expect(missing.code).toBe(3);
   });
 
@@ -119,17 +119,17 @@ describe('notes history / diff / save / show --at (M7)', () => {
     await writeFile(hook, '#!/bin/sh\necho "hook says no" >&2\nexit 1\n');
     await chmod(hook, 0o755);
     try {
-      const rejected = await notes(vault, 'save', id, '-m', 'second words');
+      const rejected = await ofl(vault, 'save', id, '-m', 'second words');
       expect(rejected.code).toBe(1);
       expect(rejected.stderr).toContain('hook says no');
       expect((await git('log', '--format=%s')).trim()).toBe('note: first words');
     } finally {
       await rm(hook);
     }
-    const saved = await notes(vault, 'save', id, '-m', 'second words');
+    const saved = await ofl(vault, 'save', id, '-m', 'second words');
     expect(saved.code).toBe(0);
     expect(saved.stdout).toContain('second words');
-    const between = await notes(vault, 'diff', id, '--from', firstRevision.slice(0, 7), '--json');
+    const between = await ofl(vault, 'diff', id, '--from', firstRevision.slice(0, 7), '--json');
     expect(JSON.parse(between.stdout)).toMatchObject({ to: 'working' });
     expect((JSON.parse(between.stdout) as { patch: string }).patch).toContain('+Added later.');
   });
@@ -137,7 +137,7 @@ describe('notes history / diff / save / show --at (M7)', () => {
   it('history follows a rename', async () => {
     await git('mv', `vault/${path}`, 'vault/renamed.md');
     await git('commit', '-q', '-m', 'move', '--', `vault/${path}`, 'vault/renamed.md');
-    const history = await notes(vault, 'history', id, '--json');
+    const history = await ofl(vault, 'history', id, '--json');
     expect(history.code).toBe(0);
     const parsed = JSON.parse(history.stdout) as {
       path: string;
@@ -156,19 +156,19 @@ describe('notes history / diff / save / show --at (M7)', () => {
   it('handles a vault outside any repository gracefully', async () => {
     const plain = join(base, 'plain');
     await mkdir(plain);
-    expect((await notes(plain, 'init', '--name', 'plain')).code).toBe(0);
-    const created = await notes(plain, 'create', '--title', 'Loose', '--json');
+    expect((await ofl(plain, 'init', '--name', 'plain')).code).toBe(0);
+    const created = await ofl(plain, 'create', '--title', 'Loose', '--json');
     const loose = JSON.parse(created.stdout) as { id: string };
 
-    const saved = await notes(plain, 'save', loose.id, '--json');
+    const saved = await ofl(plain, 'save', loose.id, '--json');
     expect(saved.code).toBe(0);
     expect(JSON.parse(saved.stdout)).toMatchObject({ status: 'not-under-version-control' });
-    const text = await notes(plain, 'save', loose.id);
+    const text = await ofl(plain, 'save', loose.id);
     expect(text.stdout).toContain('is not under version control');
-    const history = await notes(plain, 'history', loose.id);
+    const history = await ofl(plain, 'history', loose.id);
     expect(history.code).toBe(0);
     expect(history.stdout).toContain('is not under version control');
-    const diff = await notes(plain, 'diff', loose.id, '--json');
+    const diff = await ofl(plain, 'diff', loose.id, '--json');
     expect(diff.code).toBe(3);
     expect(JSON.parse(diff.stdout)).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });

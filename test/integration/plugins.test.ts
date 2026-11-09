@@ -18,7 +18,7 @@ interface Outcome {
 
 let root: string;
 
-const notes = async (...args: string[]): Promise<Outcome> => {
+const ofl = async (...args: string[]): Promise<Outcome> => {
   try {
     const { stdout, stderr } = await run(tsx, [main, ...args], { cwd: root });
     return { code: 0, stdout, stderr };
@@ -38,18 +38,18 @@ const today = (): string => {
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'notes-plugins-'));
-  expect((await notes('init', '--name', 'demo')).code).toBe(0);
+  expect((await ofl('init', '--name', 'demo')).code).toBe(0);
 });
 afterAll(() => rm(root, { recursive: true, force: true }));
 
 describe('todos plugin (M4.5)', () => {
   it('is an unknown command and an unknown template until the vault enables it', async () => {
-    const disabled = await notes('todos', 'list');
+    const disabled = await ofl('todos', 'list');
     expect(disabled.code).toBe(2);
     expect(disabled.stderr).toContain('not enabled');
-    expect((await notes('create', '--template', 'todos/task', '--title', 'X')).code).toBe(3);
+    expect((await ofl('create', '--template', 'todos/task', '--title', 'X')).code).toBe(3);
     const caps = json<{ plugins: { name: string; enabled: boolean }[] }>(
-      await notes('capabilities', '--json'),
+      await ofl('capabilities', '--json'),
     );
     expect(caps.plugins).toEqual([
       expect.objectContaining({ name: 'todos', enabled: false }),
@@ -59,9 +59,9 @@ describe('todos plugin (M4.5)', () => {
   });
 
   it('creates, lists, closes and checks todos once enabled', async () => {
-    await appendFile(join(root, '.notes', 'config.yaml'), 'plugins:\n  todos:\n');
+    await appendFile(join(root, '.ofl', 'config.yaml'), 'plugins:\n  todos:\n');
 
-    const created = await notes('create', '--template', 'todos/task', '--title', 'Ship', '--json');
+    const created = await ofl('create', '--template', 'todos/task', '--title', 'Ship', '--json');
     expect(created.code).toBe(0);
     const { id, path, frontmatter } = json<{
       id: string;
@@ -76,17 +76,17 @@ describe('todos plugin (M4.5)', () => {
     );
 
     const due = json<{ todos: { id: string; due: string }[] }>(
-      await notes('todos', 'list', '--due', 'today', '--json'),
+      await ofl('todos', 'list', '--due', 'today', '--json'),
     );
     expect(due.todos).toEqual([expect.objectContaining({ id, due: today() })]);
-    expect((await notes('todos', 'list')).stdout).toContain('Ship');
+    expect((await ofl('todos', 'list')).stdout).toContain('Ship');
 
     // show prints the declared fields with their types.
-    const shown = await notes('show', id);
+    const shown = await ofl('show', id);
     expect(shown.stdout).toContain('fields:\n  status: open (enum)\n  due:');
     const { declaredFields } = json<{
       declaredFields: { declared: { name: string; type: string; value?: unknown }[] };
-    }>(await notes('show', id, '--json'));
+    }>(await ofl('show', id, '--json'));
     expect(declaredFields.declared.map((f) => [f.name, f.type, f.value])).toEqual([
       ['status', 'enum', 'open'],
       ['due', 'date', today()],
@@ -95,24 +95,24 @@ describe('todos plugin (M4.5)', () => {
 
     // done: dry-run shows the diff and writes nothing; the real run goes through the mutation path.
     const before = await readFile(file, 'utf8');
-    const dry = await notes('todos', 'done', id, '--dry-run');
+    const dry = await ofl('todos', 'done', id, '--dry-run');
     expect(dry.code).toBe(0);
     expect(dry.stdout).toContain('-status: open\n+status: done');
     expect(await readFile(file, 'utf8')).toBe(before);
-    expect((await notes('todos', 'done', 'Ship')).stdout).toBe(`Updated ${path}\n`);
+    expect((await ofl('todos', 'done', 'Ship')).stdout).toBe(`Updated ${path}\n`);
     expect(await readFile(file, 'utf8')).toContain('status: done');
-    expect((await notes('todos', 'list', '--json')).stdout).toContain('"todos": []');
+    expect((await ofl('todos', 'list', '--json')).stdout).toContain('"todos": []');
 
     // Unknown option and unknown subcommand are usage errors.
-    expect((await notes('todos', 'list', '--bogus')).code).toBe(2);
-    expect((await notes('todos', 'nope')).code).toBe(2);
+    expect((await ofl('todos', 'list', '--bogus')).code).toBe(2);
+    expect((await ofl('todos', 'nope')).code).toBe(2);
 
     // A bad status is a field warning naming the allowed values; doctor still exits 0.
     await writeFile(
       join(root, 'later.md'),
       '---\nid: LATER\ntitle: Later\ntype: todo\nstatus: later\n---\n',
     );
-    const doctor = await notes('doctor', '--json');
+    const doctor = await ofl('doctor', '--json');
     expect(doctor.code).toBe(0);
     const { findings } = json<{
       findings: { kind: string; severity: string; details: Record<string, unknown> }[];
@@ -127,11 +127,11 @@ describe('todos plugin (M4.5)', () => {
         }) as unknown,
       }),
     ]);
-    expect((await notes('doctor')).stdout).toContain('"status" must be one of open, done');
+    expect((await ofl('doctor')).stdout).toContain('"status" must be one of open, done');
 
     const caps = json<{
       plugins: { name: string; enabled: boolean; commands: { name: string }[] }[];
-    }>(await notes('capabilities', '--json'));
+    }>(await ofl('capabilities', '--json'));
     expect(caps.plugins[0]).toMatchObject({
       name: 'todos',
       enabled: true,
@@ -141,19 +141,19 @@ describe('todos plugin (M4.5)', () => {
 
   it('runs a plugin command whose optional positional is omitted', async () => {
     // courses `outline [course]` has an optional arg; omitting it must not pass "undefined".
-    await appendFile(join(root, '.notes', 'config.yaml'), '  courses:\n');
-    expect((await notes('courses', 'new', 'course', 'Algorithms')).code).toBe(0);
-    const outline = await notes('courses', 'outline');
+    await appendFile(join(root, '.ofl', 'config.yaml'), '  courses:\n');
+    expect((await ofl('courses', 'new', 'course', 'Algorithms')).code).toBe(0);
+    const outline = await ofl('courses', 'outline');
     expect(outline.code).toBe(0);
     expect(outline.stdout).toContain('Algorithms');
     expect(outline.stdout).not.toContain('undefined');
     // Naming the course still works (the arg is passed through).
-    expect((await notes('courses', 'outline', 'Algorithms')).stdout).toContain('Algorithms');
+    expect((await ofl('courses', 'outline', 'Algorithms')).stdout).toContain('Algorithms');
   });
 
   it('refuses to open a vault that enables an unknown plugin (exit 6)', async () => {
-    await appendFile(join(root, '.notes', 'config.yaml'), '  expenses: {}\n');
-    const listing = await notes('list', '--json');
+    await appendFile(join(root, '.ofl', 'config.yaml'), '  expenses: {}\n');
+    const listing = await ofl('list', '--json');
     expect(listing.code).toBe(6);
     expect(json<{ error: { details: unknown } }>(listing).error.details).toMatchObject({
       plugin: 'expenses',

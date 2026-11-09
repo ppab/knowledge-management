@@ -115,7 +115,7 @@ export const registerMutationCommands = (
   const snippet = program.command('snippet').description('insert reusable fragments');
   snippet
     .command('insert')
-    .description('render a snippet from .notes/snippets/ into a note')
+    .description('render a snippet from .ofl/snippets/ into a note')
     .argument('<query>', 'note to edit: id, title or alias')
     .requiredOption('--snippet <name>', 'snippet name')
     .option('--at <location>', `${AT_HELP} (default: the snippet's own, else end)`, parseAt)

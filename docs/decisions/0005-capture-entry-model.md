@@ -144,7 +144,7 @@ never widens `capture`, it only aliases it.
   collision-checking trivial:
 
   ```yaml
-  # .notes/config.yaml
+  # .ofl/config.yaml
   shortcuts:
     track: time # `track …`  ≡  `capture time …`
     spend: expense
@@ -195,7 +195,7 @@ never widens `capture`, it only aliases it.
   `export → publish`, new `classify`; `relabel`, `delete`, `adopt`, `show`, `list`, `search`,
   `edit`, `history`, `diff`, `backlinks` keep their names. `bind` and `snippet insert` are
   untouched for now.
-- **Config:** `.notes/config.yaml` gains an optional `shortcuts` map (inverse `verb: type`),
+- **Config:** `.ofl/config.yaml` gains an optional `shortcuts` map (inverse `verb: type`),
   validated like the other config sections, with load-time collision rejection. Not built yet.
 - **Binary name** (`notes`) is intentionally not decided here.
 - **Not scheduled.** Status is _proposed_; this records the agreed target so later work renames

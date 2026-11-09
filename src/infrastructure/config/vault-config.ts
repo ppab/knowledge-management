@@ -37,7 +37,7 @@ const publicationSchema = z.object({
     ),
 });
 
-/** On-disk shape of `.notes/config.yaml`. */
+/** On-disk shape of `.ofl/config.yaml`. */
 const schema = z.object({
   vault: z.object({ id: z.string().min(1), name: z.string().min(1) }),
   notes: z

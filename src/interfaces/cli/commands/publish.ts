@@ -110,7 +110,7 @@ const publishJson = (outcome: PublishOutcome): unknown => {
 
 const listText = (publications: readonly ResolvedPublication[]): string =>
   publications.length === 0
-    ? 'No publications defined in .notes/config.yaml'
+    ? 'No publications defined in .ofl/config.yaml'
     : table([
         ['name', 'vault', 'kind', 'output', 'route'],
         ...publications.map((p) => [

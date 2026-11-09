@@ -1,6 +1,6 @@
 /*
  * Built-in templates, reachable as `--template goals/goal` and `--template goals/session`; a
- * vault's own `.notes/templates/goals/*.md` takes precedence. Numeric fields are left out on
+ * vault's own `.ofl/templates/goals/*.md` takes precedence. Numeric fields are left out on
  * purpose: a `{{placeholder}}` always substitutes as a YAML string, so `goal_target` and
  * `session_amount` are written as numbers by the plugin's commands (docs/goals.md §2).
  */

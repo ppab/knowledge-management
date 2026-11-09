@@ -16,7 +16,7 @@ Decisions taken in conversation (2026-11-07), on top of the written spec:
   TUI **renders a visibility badge** (list column + note header) so eligibility is always visible;
   configuring publications from the TUI is the post-MVP end state.
 - **Named publications from the start**, declared per vault under `publications:` in
-  `.notes/config.yaml`. No ad-hoc `--format/--output` flags.
+  `.ofl/config.yaml`. No ad-hoc `--format/--output` flags.
 - **Destinations.** A publication = _selection_ + _route template_ + _reference policy_ + a
   **destination**. The plan is pure and destination-agnostic; the destination only decides how to
   render and lay files out. Destinations are **plugin-like modules**: a code contract, built-in
@@ -106,7 +106,7 @@ route, path, dates, tags, source:{vault,path} }] }`; no timestamp (golden files 
   — raw HTML in notes passes through verbatim (no `rehype-raw`; fragments are for an SSG to embed).
   Spread into `createMarkdownParser` (`parser.ts`). New deps: `remark-rehype`, `rehype-stringify`.
 - `src/infrastructure/filesystem/output-store.ts` — `createOutputStore()`: lexical containment of
-  `path` within `dir` (reuse the `resolveInside` idea from `note-store.ts` minus the `.notes` rule),
+  `path` within `dir` (reuse the `resolveInside` idea from `note-store.ts` minus the `.ofl` rule),
   mkdir -p, temp file + `rename`. Wire in `src/infrastructure/deps.ts`.
 - `src/infrastructure/config/vault-config.ts` — zod:
   `destination: z.union([z.string().min(1), z.looseObject({ kind: z.string().min(1) })])`
@@ -252,7 +252,7 @@ route, path, dates, tags, source:{vault,path} }] }`; no timestamp (golden files 
 
 - New `src/interfaces/cli/commands/publish.ts` — `publish [name] [--dry-run]` ("print the
   publication plan and write nothing"). No name → `table` of publications (name, vault, kind,
-  output, route) or "No publications defined in .notes/config.yaml". With name →
+  output, route) or "No publications defined in .ofl/config.yaml". With name →
   `inScopeWithPlugins(ctx, (scope, registry) => publish(…))`; after `emit`, exit 6 when a dry-run
   plan is not publishable. Wire in `commands.ts`.
 - `output.ts` — `publishText(outcome)`: header `publication: site (monitor, html) → <outputDir>`,
@@ -292,7 +292,7 @@ end state after the MVP is configuring publications from the TUI; for now, only 
 
 - `docs/architecture.md`: §1 tree (`domain/publishing`, `application/publishing`), §2
   `Publication` row, invariant 9 reworded to the two-layer rule, ports table (`OutputStore`,
-  `toHtml`), config example (below), §5 synopsis `notes publish [<name>] [--dry-run]`, §7 rewritten
+  `toHtml`), config example (below), §5 synopsis `ofl publish [<name>] [--dry-run]`, §7 rewritten
   around destinations, §8 integration row.
   ```yaml
   publications:
@@ -383,7 +383,7 @@ content` → `[Label](./…md)` + frontmatter kept → two notes with the same `
 
 - `bun run check` (lint, format, typecheck, `vitest run`); locally the full suite needs
   `NODE_OPTIONS=--max-old-space-size=3072`.
-- By hand in a scratch vault: add a `publications:` block → `notes publish` (lists) → `notes publish
-site --dry-run` → `notes publish site` → inspect `dist/` fragments + `manifest.json`; `notes publish
+- By hand in a scratch vault: add a `publications:` block → `ofl publish` (lists) → `ofl publish
+site --dry-run` → `ofl publish site` → inspect `dist/` fragments + `manifest.json`; `ofl publish
 content` into a folder outside the vault and open it in Obsidian to confirm relative links
-  resolve; `notes doctor` shows `publication` findings when a selected note lacks a declared field.
+  resolve; `ofl doctor` shows `publication` findings when a selected note lacks a declared field.

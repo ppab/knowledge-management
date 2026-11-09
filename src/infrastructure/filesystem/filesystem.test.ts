@@ -16,16 +16,16 @@ afterEach(() => rm(root, { recursive: true, force: true }));
 describe('vault repository', () => {
   const vaults = createVaultRepository();
 
-  it('creates .notes with a self-ignoring cache and finds the nearest vault', async () => {
+  it('creates .ofl with a self-ignoring cache and finds the nearest vault', async () => {
     const config = defaultVaultConfig(asVaultId('V1'), 'test');
     unwrap(await vaults.create(root, config));
-    expect((await readdir(join(root, '.notes'))).sort()).toEqual([
+    expect((await readdir(join(root, '.ofl'))).sort()).toEqual([
       'cache',
       'config.yaml',
       'snippets',
       'templates',
     ]);
-    expect(await readFile(join(root, '.notes', 'cache', '.gitignore'), 'utf8')).toBe('*\n');
+    expect(await readFile(join(root, '.ofl', 'cache', '.gitignore'), 'utf8')).toBe('*\n');
     expect(unwrap(await vaults.load(root))).toEqual(config);
 
     await mkdir(join(root, 'a', 'b'), { recursive: true });
@@ -36,16 +36,16 @@ describe('vault repository', () => {
     const nested = join(root, 'nested');
     await mkdir(nested);
     unwrap(await vaults.create(nested, { ...config, include: ['journal/**/*.md'] }));
-    expect((await readdir(nested)).sort()).toEqual(['.notes', 'journal']);
+    expect((await readdir(nested)).sort()).toEqual(['.ofl', 'journal']);
   });
 
   it('rejects invalid configuration with details', async () => {
-    await mkdir(join(root, '.notes'));
-    await writeFile(join(root, '.notes', 'config.yaml'), 'vault:\n  name: x\n');
+    await mkdir(join(root, '.ofl'));
+    await writeFile(join(root, '.ofl', 'config.yaml'), 'vault:\n  name: x\n');
     const loaded = await vaults.load(root);
     expect(loaded).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
     await writeFile(
-      join(root, '.notes', 'config.yaml'),
+      join(root, '.ofl', 'config.yaml'),
       'vault: {id: v, name: x}\nidentity: {strategy: formatted, format: "{vault}"}\n',
     );
     expect(await vaults.load(root)).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
@@ -55,16 +55,16 @@ describe('vault repository', () => {
 describe('note store', () => {
   const store = createNoteStore();
 
-  it('lists by include/exclude globs and never looks inside .notes', async () => {
+  it('lists by include/exclude globs and never looks inside .ofl', async () => {
     await mkdir(join(root, 'docs', 'sub'), { recursive: true });
     await mkdir(join(root, 'node_modules', 'pkg'), { recursive: true });
-    await mkdir(join(root, '.notes', 'templates'), { recursive: true });
+    await mkdir(join(root, '.ofl', 'templates'), { recursive: true });
     for (const p of [
       'docs/a.md',
       'docs/sub/b.md',
       'docs/c.txt',
       'node_modules/pkg/r.md',
-      '.notes/templates/t.md',
+      '.ofl/templates/t.md',
       'top.md',
     ]) {
       await writeFile(join(root, p), p);
@@ -138,7 +138,7 @@ describe('note store', () => {
       ok: false,
       error: { code: 'VALIDATION' },
     });
-    expect(await store.read(root, '.notes/config.yaml')).toMatchObject({
+    expect(await store.read(root, '.ofl/config.yaml')).toMatchObject({
       ok: false,
       error: { code: 'VALIDATION' },
     });
@@ -154,7 +154,7 @@ describe('note store symlink containment', () => {
   let external: string;
   beforeEach(async () => {
     external = await mkdtemp(join(tmpdir(), 'notes-ext-'));
-    await mkdir(join(root, '.notes'), { recursive: true });
+    await mkdir(join(root, '.ofl'), { recursive: true });
   });
   afterEach(() => rm(external, { recursive: true, force: true }));
 
@@ -207,9 +207,9 @@ describe('note store symlink containment', () => {
     expect((await lstat(join(root, 'alias.md'))).isSymbolicLink()).toBe(true); // link preserved
   });
 
-  it('rejects a symlink that resolves into the reserved .notes area', async () => {
-    await writeFile(join(root, '.notes', 'config.yaml'), 'x');
-    if (!(await linked(join(root, '.notes', 'config.yaml'), join(root, 'sneak.md')))) return;
+  it('rejects a symlink that resolves into the reserved .ofl area', async () => {
+    await writeFile(join(root, '.ofl', 'config.yaml'), 'x');
+    if (!(await linked(join(root, '.ofl', 'config.yaml'), join(root, 'sneak.md')))) return;
     expect(await store.read(root, 'sneak.md')).toMatchObject({
       ok: false,
       error: { code: 'VALIDATION' },

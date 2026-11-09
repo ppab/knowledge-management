@@ -10,7 +10,7 @@ describe('user config', () => {
     const config = unwrap(
       parseUserConfig(
         { scopes: { work: { vaults: ['~/notes', '../team', '/abs'] } } },
-        '/home/u/.config/notes',
+        '/home/u/.config/ofl',
         '/home/u',
       ),
     );
@@ -25,19 +25,19 @@ describe('user config', () => {
   describe('repository', () => {
     let home: string;
     beforeEach(async () => {
-      home = await mkdtemp(join(tmpdir(), 'notes-cfg-'));
+      home = await mkdtemp(join(tmpdir(), 'ofl-cfg-'));
     });
     afterEach(() => rm(home, { recursive: true, force: true }));
 
-    it('reads $XDG_CONFIG_HOME/notes/config.yaml and treats a missing file as empty', async () => {
+    it('reads $XDG_CONFIG_HOME/ofl/config.yaml and treats a missing file as empty', async () => {
       const repo = createUserConfigRepository({ XDG_CONFIG_HOME: join(home, 'xdg') }, home);
-      expect(repo.path()).toBe(join(home, 'xdg', 'notes', 'config.yaml'));
+      expect(repo.path()).toBe(join(home, 'xdg', 'ofl', 'config.yaml'));
       expect(unwrap(await repo.load())).toEqual({ scopes: {} });
 
-      await mkdir(join(home, 'xdg', 'notes'), { recursive: true });
+      await mkdir(join(home, 'xdg', 'ofl'), { recursive: true });
       await writeFile(repo.path(), 'scopes:\n  all:\n    vaults: [~/a, b]\n');
       expect(unwrap(await repo.load())).toEqual({
-        scopes: { all: { vaults: [join(home, 'a'), join(home, 'xdg', 'notes', 'b')] } },
+        scopes: { all: { vaults: [join(home, 'a'), join(home, 'xdg', 'ofl', 'b')] } },
       });
 
       await writeFile(repo.path(), 'scopes: [not, a, map]\n');
@@ -48,7 +48,7 @@ describe('user config', () => {
 
     it('defaults to ~/.config when XDG_CONFIG_HOME is unset', () => {
       expect(createUserConfigRepository({}, '/home/u').path()).toBe(
-        '/home/u/.config/notes/config.yaml',
+        '/home/u/.config/ofl/config.yaml',
       );
     });
   });

@@ -21,7 +21,7 @@ let home: string;
 let one: string;
 let two: string;
 
-const notes = async (cwd: string, ...args: string[]): Promise<Outcome> => {
+const ofl = async (cwd: string, ...args: string[]): Promise<Outcome> => {
   const env = { ...process.env, XDG_CONFIG_HOME: join(home, 'xdg') };
   try {
     const { stdout, stderr } = await run(tsx, [main, ...args], { cwd, env });
@@ -40,15 +40,15 @@ beforeAll(async () => {
   home = join(base, 'home');
   one = join(base, 'one');
   two = join(base, 'two');
-  await mkdir(join(home, 'xdg', 'notes'), { recursive: true });
+  await mkdir(join(home, 'xdg', 'ofl'), { recursive: true });
   await mkdir(one);
   await mkdir(two);
   await writeFile(
-    join(home, 'xdg', 'notes', 'config.yaml'),
+    join(home, 'xdg', 'ofl', 'config.yaml'),
     `scopes:\n  both:\n    vaults: [${one}, ${two}]\n  broken:\n    vaults: [${one}, ${join(base, 'missing')}]\n`,
   );
-  expect((await notes(one, 'init', '--name', 'one')).code).toBe(0);
-  expect((await notes(two, 'init', '--name', 'two')).code).toBe(0);
+  expect((await ofl(one, 'init', '--name', 'one')).code).toBe(0);
+  expect((await ofl(two, 'init', '--name', 'two')).code).toBe(0);
   await writeFile(
     join(one, 'a.md'),
     '---\nid: A\ntitle: Alpha\naliases: [shared]\n---\nkumquat one\n',
@@ -65,28 +65,28 @@ afterAll(() => rm(base, { recursive: true, force: true }));
 describe('scopes (M4)', () => {
   it('federates search, backlinks and listing across a named scope', async () => {
     const search = json<{ hits: { vault: string; id: string; rankInVault: number }[] }>(
-      await notes(base, '--scope', 'both', 'search', 'kumquat', '--json'),
+      await ofl(base, '--scope', 'both', 'search', 'kumquat', '--json'),
     );
     expect(search.hits.map((h) => [h.vault, h.id, h.rankInVault])).toEqual([
       ['one', 'A', 1],
       ['two', 'B', 1],
     ]);
-    const text = await notes(base, '--scope', 'both', 'list');
+    const text = await ofl(base, '--scope', 'both', 'list');
     expect(text.stdout).toMatch(/^one\s+A\s+Alpha\s+a\.md$/m);
     expect(text.stdout).toMatch(/^two\s+B\s+Beta\s+b\.md$/m);
 
     const back = json<{ backlinks: { vault: string; source: { id: string } }[] }>(
-      await notes(base, '--scope', 'both', 'backlinks', 'Alpha', '--json'),
+      await ofl(base, '--scope', 'both', 'backlinks', 'Alpha', '--json'),
     );
     expect(back.backlinks.map((b) => [b.vault, b.source.id])).toEqual([['two', 'B']]);
     // The same query through explicit --vault paths builds the same scope.
-    const viaPaths = await notes(base, '--vault', one, '--vault', two, 'backlinks', 'A', '--json');
+    const viaPaths = await ofl(base, '--vault', one, '--vault', two, 'backlinks', 'A', '--json');
     expect(json<{ backlinks: unknown[] }>(viaPaths).backlinks).toHaveLength(1);
   });
 
   it('refuses ambiguity: a duplicate id or shared alias across vaults exits 4, by id succeeds', async () => {
-    expect((await notes(base, '--scope', 'both', 'show', 'DUP')).code).toBe(4);
-    const shared = await notes(
+    expect((await ofl(base, '--scope', 'both', 'show', 'DUP')).code).toBe(4);
+    const shared = await ofl(
       base,
       '--scope',
       'both',
@@ -104,7 +104,7 @@ describe('scopes (M4)', () => {
         shared,
       ).error.details.candidates.map((c) => c.vault),
     ).toEqual(['one', 'two']);
-    const byId = await notes(
+    const byId = await ofl(
       base,
       '--scope',
       'both',
@@ -116,32 +116,32 @@ describe('scopes (M4)', () => {
       'B',
     );
     expect(byId.code).toBe(0);
-    expect((await notes(base, '--scope', 'both', 'reference', 'list', 'A')).stdout).toContain(
+    expect((await ofl(base, '--scope', 'both', 'reference', 'list', 'A')).stdout).toContain(
       '[[B|Beta]] -> Beta (two:b.md)',
     );
   });
 
   it('keeps working with a missing vault and says so where it matters', async () => {
-    expect((await notes(base, '--scope', 'broken', 'show', 'A')).code).toBe(0);
-    const miss = await notes(base, '--scope', 'broken', 'show', 'nothing', '--json');
+    expect((await ofl(base, '--scope', 'broken', 'show', 'A')).code).toBe(0);
+    const miss = await ofl(base, '--scope', 'broken', 'show', 'nothing', '--json');
     expect(miss.code).toBe(7);
-    const show = await notes(base, '--scope', 'broken', 'scope', 'show');
+    const show = await ofl(base, '--scope', 'broken', 'scope', 'show');
     expect(show.stdout).toContain('unavailable');
     expect(show.stdout).toContain(join(base, 'missing'));
-    const doctor = await notes(base, '--scope', 'broken', 'doctor', '--json');
+    const doctor = await ofl(base, '--scope', 'broken', 'doctor', '--json');
     expect(doctor.code).toBe(6);
     expect(json<{ findings: { kind: string }[] }>(doctor).findings[0]?.kind).toBe(
       'unavailable-vault',
     );
-    expect((await notes(base, 'scope', 'list')).stdout).toMatch(/^both\s/m);
+    expect((await ofl(base, 'scope', 'list')).stdout).toMatch(/^both\s/m);
   });
 
   it('writes need one vault: --in, or a cwd inside exactly one member', async () => {
-    expect((await notes(base, '--scope', 'both', 'create', '--title', 'Nowhere')).code).toBe(2);
-    const inside = await notes(one, '--scope', 'both', 'create', '--title', 'Inside', '--json');
+    expect((await ofl(base, '--scope', 'both', 'create', '--title', 'Nowhere')).code).toBe(2);
+    const inside = await ofl(one, '--scope', 'both', 'create', '--title', 'Inside', '--json');
     expect(inside.code).toBe(0);
     expect(json<{ vault: string }>(inside).vault).toBe('one');
-    const named = await notes(
+    const named = await ofl(
       base,
       '--scope',
       'both',
@@ -157,7 +157,7 @@ describe('scopes (M4)', () => {
       path: 'named.md',
     });
     expect(
-      (await notes(base, '--scope', 'both', 'create', '--title', 'X', '--in', 'nope')).code,
+      (await ofl(base, '--scope', 'both', 'create', '--title', 'X', '--in', 'nope')).code,
     ).toBe(2);
   });
 });

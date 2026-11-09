@@ -8,11 +8,11 @@ import { err, ok, type Result } from '../../domain/result.js';
 import type { UserConfig, UserConfigRepository } from '../../application/ports.js';
 
 /*
- * `$XDG_CONFIG_HOME/notes/config.yaml` (default `~/.config/notes/config.yaml`):
+ * `$XDG_CONFIG_HOME/ofl/config.yaml` (default `~/.config/ofl/config.yaml`):
  *
  *   scopes:
  *     work:
- *       vaults: [~/notes/work, ~/notes/team]
+ *       vaults: [~/vaults/work, ~/vaults/team]
  *
  * Vault paths may be absolute, `~`-relative, or relative to the config file's directory.
  */
@@ -27,7 +27,7 @@ const errno = (cause: unknown): string | undefined =>
   typeof cause === 'object' && cause !== null && 'code' in cause ? String(cause.code) : undefined;
 
 export const userConfigPath = (env: NodeJS.ProcessEnv, home: string): string =>
-  join(env.XDG_CONFIG_HOME ?? join(home, '.config'), 'notes', 'config.yaml');
+  join(env.XDG_CONFIG_HOME ?? join(home, '.config'), 'ofl', 'config.yaml');
 
 export const parseUserConfig = (
   data: unknown,

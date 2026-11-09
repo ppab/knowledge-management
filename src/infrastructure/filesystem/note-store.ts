@@ -36,7 +36,7 @@ const resolveInside = (root: string, path: string): Result<string, AppError> => 
 
 /**
  * Whether a resolved real path lies outside the vault's note area — either beyond the real root
- * or inside the reserved `.notes` directory. `allowRoot` lets a parent directory *be* the root;
+ * or inside the reserved `.ofl` directory. `allowRoot` lets a parent directory *be* the root;
  * a file target may not.
  */
 const outside = (realRoot: string, real: string, allowRoot: boolean): boolean => {
@@ -83,7 +83,7 @@ interface Located {
 /**
  * Resolves a vault-relative path against the *real* vault root, defeating symlink escape. The
  * lexical check runs first; then the real target (or, when missing, the deepest existing
- * ancestor) must stay inside the vault and out of `.notes`. A symlink loop is a `VALIDATION`
+ * ancestor) must stay inside the vault and out of `.ofl`. A symlink loop is a `VALIDATION`
  * failure, never treated as missing.
  */
 const locate = async (
