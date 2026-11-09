@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { listReferences } from '../../src/application/references/references.js';
 import { unwrap } from '../../src/domain/result.js';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { harness, KEYS, type Terminal } from './harness.js';
 
 const TARGET = '---\nid: PIPE\ntitle: Pipeline notes\n---\n\npipeline body\n';
@@ -12,7 +12,7 @@ afterEach(() => term?.unmount());
 /** Everything below the title line, so the open note's own title does not count as a row. */
 const rowsOf = (frame: string): string => frame.split('\n').slice(1).join('\n');
 
-describe('NoteView references (M6)', () => {
+describe('EntryView references (M6)', () => {
   it('I: picks a note from another vault, chooses a heading, inserts exactly one reference', async () => {
     const original =
       '---\nid: SRC\ntitle: Origin\n---\n\n# Intro\n\nintro text\n\n## Design\n\ndesign text\n\n## Other\n\nother text\n';
@@ -24,7 +24,7 @@ describe('NoteView references (M6)', () => {
       },
       { scope: (f) => f.scopeOf('/vault', '/work') },
     );
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
 
     await term.press('I');
@@ -61,7 +61,7 @@ describe('NoteView references (M6)', () => {
       f.fs.files.set('src.md', original);
       f.fs.files.set('pipe.md', TARGET);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
 
     await term.press(' ');
@@ -80,7 +80,7 @@ describe('NoteView references (M6)', () => {
       f.fs.files.set('src.md', original);
       f.fs.files.set('pipe.md', TARGET);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
 
     // The cursor rests on the heading text: no reference may go there.
@@ -115,7 +115,7 @@ describe('NoteView references (M6)', () => {
     const h = harness((f) => {
       f.fs.files.set('src.md', '---\nid: SRC\ntitle: Origin\n---\n\nbody\n');
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
     await term.press('i');
     await term.waitFor('find:');
@@ -131,7 +131,7 @@ describe('NoteView references (M6)', () => {
       f.fs.files.set('src.md', original);
       f.fs.files.set('pipe.md', TARGET);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
 
     await term.press('v');
@@ -160,7 +160,7 @@ describe('NoteView references (M6)', () => {
     const h = harness((f) => {
       f.fs.files.set('src.md', original);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
     await term.press('v', 'w', 'r');
     await term.waitFor('validation: Selection crosses formatting');
@@ -178,7 +178,7 @@ describe('NoteView references (M6)', () => {
     const h = harness((f) => {
       f.fs.files.set('src.md', original);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
     await term.press('v', 'w', 'v', 'w', 'l', 'l', 'l', 'u');
     await term.waitFor('url:');
@@ -201,7 +201,7 @@ describe('NoteView references (M6)', () => {
     const h = harness((f) => {
       f.fs.files.set('src.md', original);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]);
     await term.waitFor('Origin · monitor · SRC');
 
     // Changed on disk and noticed by the watcher: the selection goes away at once.
@@ -229,7 +229,10 @@ describe('NoteView references (M6)', () => {
     const h = harness((f) => {
       f.fs.files.set('raw.md', 'just text\n');
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ vault: 'monitor', path: 'raw.md' })]);
+    term = h.start([
+      { kind: 'list', cursor: 0 },
+      entryScreen({ vault: 'monitor', path: 'raw.md' }),
+    ]);
     await term.waitFor('· unidentified');
     await term.press('i');
     await term.waitFor('This file has no id; adopt it before adding references');

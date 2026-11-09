@@ -1,20 +1,20 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
-import { isoDate } from '../../../application/notes/create-note.js';
-import { listNotes, type ScopedEntry } from '../../../application/notes/list-notes.js';
-import { viewNote } from '../../../application/notes/view-note.js';
+import { isoDate } from '../../../application/entries/create-entry.js';
+import { listEntries, type ScopedEntry } from '../../../application/entries/list-entries.js';
+import { viewEntry } from '../../../application/entries/view-entry.js';
 import { shiftDays } from '../../../domain/calendar/month-grid.js';
 import { ok } from '../../../domain/result.js';
 import { isComposite } from '../../../domain/scope/scope.js';
 import { lineText } from '../../../domain/text/rendered.js';
-import { bindNote } from '../calendar-actions.js';
+import { bindEntry } from '../calendar-actions.js';
 import { screenChords, useLeader } from '../chords.js';
 import { CURSOR_MARK } from '../components/Rows.js';
 import { Frame, useBodyHeight } from '../components/Frame.js';
 import { Picker, type Picked } from '../components/Picker.js';
 import { useLoad, useTui } from '../context.js';
 import { isBack, isDown, isUp } from '../keys.js';
-import { clamp, locatorOfEntry, noteScreen, windowStart, type Screen } from '../model.js';
+import { clamp, locatorOfEntry, entryScreen, windowStart, type Screen } from '../model.js';
 
 type DayScreen = Extract<Screen, { kind: 'day' }>;
 
@@ -22,7 +22,7 @@ type DayScreen = Extract<Screen, { kind: 'day' }>;
 const EXCERPT_LINES = 2;
 const NO_MARK = ' '.repeat(CURSOR_MARK.length);
 
-interface DayNote {
+interface DayEntry {
   readonly entry: ScopedEntry;
   readonly excerpt: readonly string[];
 }
@@ -45,11 +45,11 @@ export const Day = ({ screen }: { readonly screen: DayScreen }) => {
   const width = Math.max(10, columns - CURSOR_MARK.length - 2);
 
   const loaded = useLoad(async () => {
-    const listed = await listNotes(deps, scope, { date: screen.date });
+    const listed = await listEntries(deps, scope, { date: screen.date });
     if (!listed.ok) return listed;
-    const notes: DayNote[] = [];
+    const notes: DayEntry[] = [];
     for (const entry of listed.value) {
-      const read = await viewNote(deps, scope, locatorOfEntry(entry));
+      const read = await viewEntry(deps, scope, locatorOfEntry(entry));
       const excerpt = read.ok
         ? deps.markdown
             .render(read.value.entry.source, read.value.entry.body.start, { width })
@@ -72,7 +72,7 @@ export const Day = ({ screen }: { readonly screen: DayScreen }) => {
   };
   const onPicked = (picked: Picked) => {
     setPicking(false);
-    void bindNote(tui, picked, screen.date).then((written) => {
+    void bindEntry(tui, picked, screen.date).then((written) => {
       if (written) reload();
     });
   };
@@ -82,11 +82,11 @@ export const Day = ({ screen }: { readonly screen: DayScreen }) => {
       notify(`No notes bound to ${screen.date}`);
       return;
     }
-    if (entry.kind !== 'note') {
+    if (entry.kind !== 'entry') {
       notify(`${entry.path} has no id; adopt it before changing its dates`, 'error');
       return;
     }
-    void bindNote(tui, entry, screen.date, true).then((written) => {
+    void bindEntry(tui, entry, screen.date, true).then((written) => {
       if (written) reload();
     });
   };
@@ -105,7 +105,7 @@ export const Day = ({ screen }: { readonly screen: DayScreen }) => {
       else if (input === 'x') unbindSelected();
       else if (key.return) {
         const entry = notes[cursor]?.entry;
-        if (entry) navigate({ type: 'push', screen: noteScreen(locatorOfEntry(entry)) });
+        if (entry) navigate({ type: 'push', screen: entryScreen(locatorOfEntry(entry)) });
       }
     },
     { isActive: !picking && !leader.pending },

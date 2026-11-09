@@ -60,8 +60,8 @@ export const createVaultRepository = (): VaultRepository => ({
         flag: 'wx',
       });
       // The directory new notes go to exists from the start, so `create` and editors find it.
-      const notesDir = globStaticPrefix(config.include[0] ?? '');
-      if (notesDir !== '') await mkdir(join(root, notesDir), { recursive: true });
+      const entriesDir = globStaticPrefix(config.include[0] ?? '');
+      if (entriesDir !== '') await mkdir(join(root, entriesDir), { recursive: true });
     } catch (cause) {
       return err(unavailable(`Cannot initialize vault at ${root}`, { cause: String(cause) }));
     }

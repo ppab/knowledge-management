@@ -4,11 +4,11 @@ import { createExternalEditor } from './editor/external-editor.js';
 import { createFileWatcher } from './watch/file-watcher.js';
 import { createGitRevisionProvider } from './git/revision-provider.js';
 import { createVaultRepository } from './filesystem/vault-repository.js';
-import { createNoteStore } from './filesystem/note-store.js';
+import { createEntryStore } from './filesystem/entry-store.js';
 import { createOutputStore } from './filesystem/output-store.js';
 import { createUniqueSource } from './identity/unique-source.js';
 import { createMarkdownParser } from './markdown/parser.js';
-import { createSqliteIndexProvider } from './sqlite/note-index.js';
+import { createSqliteIndexProvider } from './sqlite/entry-index.js';
 import { createTemplateRepository } from './templates/template-repository.js';
 import { createFrontmatterCodec } from './yaml/frontmatter-codec.js';
 
@@ -17,7 +17,7 @@ export const createDeps = (): AppDeps => ({
   clock: { now: () => new Date() },
   unique: createUniqueSource(),
   vaults: createVaultRepository(),
-  notes: createNoteStore(),
+  entries: createEntryStore(),
   markdown: createMarkdownParser(),
   frontmatter: createFrontmatterCodec(),
   templates: createTemplateRepository(),

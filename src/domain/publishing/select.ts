@@ -1,6 +1,6 @@
 import type { Reference } from '../reference/reference.js';
-import type { FieldValue } from '../note/fields.js';
-import type { Visibility } from '../note/note.js';
+import type { FieldValue } from '../entry/fields.js';
+import type { Visibility } from '../entry/entry.js';
 import { matchesGlob } from '../vault/glob.js';
 import type { Publication } from './publication.js';
 

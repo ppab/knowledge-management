@@ -4,7 +4,7 @@ import {
   listReferences,
   type OutgoingReference,
 } from '../../../application/references/references.js';
-import { searchNotes } from '../../../application/search/search-notes.js';
+import { searchEntries } from '../../../application/search/search-entries.js';
 import { ok } from '../../../domain/result.js';
 import { isComposite } from '../../../domain/scope/scope.js';
 import type { Exit } from '../commands.js';
@@ -45,7 +45,7 @@ export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): 
         await emit(
           ctx,
           inScope(ctx, async (scope) => {
-            const hits = await searchNotes(ctx.deps, scope, words.join(' '), {
+            const hits = await searchEntries(ctx.deps, scope, words.join(' '), {
               ...(opts.limit !== undefined && { limit: opts.limit }),
             });
             if (!hits.ok) return hits;

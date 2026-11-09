@@ -1,5 +1,5 @@
-import { deleteNote, type Referrer } from '../../application/notes/delete-note.js';
-import type { NoteLocator } from '../../application/notes/view-note.js';
+import { deleteEntry, type Referrer } from '../../application/entries/delete-entry.js';
+import type { EntryLocator } from '../../application/entries/view-entry.js';
 import type { TuiState } from './context.js';
 
 /** One warn line per note that links in, so the confirmation shows what deletion would orphan. */
@@ -18,10 +18,10 @@ export const deleteWarnings = (referrers: readonly Referrer[]): string[] =>
  */
 export const runDelete = async (
   tui: TuiState,
-  locator: NoteLocator,
+  locator: EntryLocator,
   title: string,
 ): Promise<boolean> => {
-  const outcome = await deleteNote(tui.deps, tui.scope, locator, { force: true });
+  const outcome = await deleteEntry(tui.deps, tui.scope, locator, { force: true });
   if (!outcome.ok) {
     tui.report(outcome.error);
     return false;

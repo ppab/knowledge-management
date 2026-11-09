@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNoteId } from '../../domain/note/note-id.js';
+import { asEntryId } from '../../domain/entry/entry-id.js';
 import { unwrap } from '../../domain/result.js';
 import type { Goal, Session } from './model.js';
 import {
@@ -21,7 +21,7 @@ const NOW = new Date(Date.UTC(2026, 9, 27, 11));
 const goal = (overrides: Partial<Goal> = {}): Goal => ({
   vault: 'v',
   path: 'goal.md',
-  id: asNoteId('G'),
+  id: asEntryId('G'),
   title: 'Goal',
   version: '1',
   target: 160,
@@ -33,10 +33,10 @@ const goal = (overrides: Partial<Goal> = {}): Goal => ({
 const session = (id: string, overrides: Partial<Session> = {}): Session => ({
   vault: 'v',
   path: `${id}.md`,
-  id: asNoteId(id),
+  id: asEntryId(id),
   title: id,
   version: '1',
-  goal: asNoteId('G'),
+  goal: asEntryId('G'),
   status: 'confirmed',
   day: '2026-10-20',
   ...overrides,
@@ -53,11 +53,11 @@ describe('progress', () => {
     session('elsewhere', { amount: 5, vault: 'w' }),
     session('open', { status: 'open', started: at('2026-10-27T08:00:00Z') }),
     session('forgotten', { status: 'open', started: at('2026-10-26T08:00:00Z') }),
-    session('other-goal', { amount: 99, goal: asNoteId('H') }),
+    session('other-goal', { amount: 99, goal: asEntryId('H') }),
   ];
 
   it('sums confirmed, compatible sessions of the goal in the goal unit', () => {
-    const p = progressOf(goal({ openSession: asNoteId('open') }), sessions, NOW);
+    const p = progressOf(goal({ openSession: asEntryId('open') }), sessions, NOW);
     expect(p.counted.map((s) => s.id)).toEqual(['manual', 'minutes']);
     expect(p.confirmed).toBe(3.5);
     expect(p.remaining).toBe(156.5);
@@ -77,7 +77,7 @@ describe('progress', () => {
   });
 
   it('separates open sessions into registered, detached and stale', () => {
-    const registered = progressOf(goal({ openSession: asNoteId('open') }), sessions, NOW);
+    const registered = progressOf(goal({ openSession: asEntryId('open') }), sessions, NOW);
     expect(registered.open.map((s) => s.id)).toEqual(['open', 'forgotten']);
     expect(registered.detached.map((s) => s.id)).toEqual(['forgotten']);
     expect(registered.stale.map((s) => s.id)).toEqual(['forgotten']);
@@ -107,8 +107,8 @@ describe('progress', () => {
     expect(inMinutes.confirmed).toBe(92); // 2 is in the goal's unit now: minutes
     expect(formatProgress(inMinutes)).toBe('1h32m / 10h');
     const reading = progressOf(
-      goal({ id: asNoteId('R'), unit: pages, target: 300 }),
-      [session('ch1', { goal: asNoteId('R'), amount: 40 })],
+      goal({ id: asEntryId('R'), unit: pages, target: 300 }),
+      [session('ch1', { goal: asEntryId('R'), amount: 40 })],
       NOW,
     );
     expect(formatProgress(reading)).toBe('40 pages / 300 pages');

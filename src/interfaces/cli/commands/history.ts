@@ -2,11 +2,11 @@ import type { Command } from 'commander';
 import {
   diffRevisions,
   listRevisions,
-  type NoteHistory,
+  type EntryHistory,
   type RevisionDiff,
 } from '../../../application/history/history.js';
-import { saveNote, type SavedNote } from '../../../application/history/save-note.js';
-import { isNote } from '../../../domain/note/note.js';
+import { saveEntry, type SavedEntry } from '../../../application/history/save-entry.js';
+import { isEntry } from '../../../domain/entry/entry.js';
 import {
   abbreviate,
   type Revision,
@@ -40,7 +40,7 @@ const statusText = (path: string, status: RevisionStatus): string => {
   }
 };
 
-const historyText = (history: NoteHistory): string => {
+const historyText = (history: EntryHistory): string => {
   const path = history.entry.path;
   if (history.revisions.length === 0) return statusText(path, history.status);
   const rows = table(history.revisions.map(revisionRow));
@@ -49,10 +49,10 @@ const historyText = (history: NoteHistory): string => {
     : rows;
 };
 
-const entryJson = (found: { entry: NoteHistory['entry']; vault: NoteHistory['vault'] }) => ({
+const entryJson = (found: { entry: EntryHistory['entry']; vault: EntryHistory['vault'] }) => ({
   vault: found.vault.config.name,
   path: found.entry.path,
-  ...(isNote(found.entry) && { id: found.entry.id }),
+  ...(isEntry(found.entry) && { id: found.entry.id }),
 });
 
 const endText = (end: Revision | 'working'): string =>
@@ -63,7 +63,7 @@ const diffText = (diff: RevisionDiff): string =>
     ? `No differences between ${endText(diff.from)} and ${endText(diff.to)} for ${diff.entry.path}`
     : diff.patch.trimEnd();
 
-const saveText = (saved: SavedNote): string => {
+const saveText = (saved: SavedEntry): string => {
   const path = saved.entry.path;
   switch (saved.outcome.kind) {
     case 'saved':
@@ -138,7 +138,7 @@ export const registerHistoryCommands = (program: Command, io: CliIo, exit: Exit)
         await emit(
           ctx,
           inScope(ctx, (scope) =>
-            saveNote(
+            saveEntry(
               ctx.deps,
               scope,
               { query },

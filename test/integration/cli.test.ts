@@ -50,8 +50,8 @@ describe('ofl CLI (M1)', () => {
     expect(again.code).toBe(5);
 
     const list = await ofl(root, 'list', '--json');
-    const listed = JSON.parse(list.stdout) as { notes: { id: string }[] };
-    expect(listed.notes.map((n) => n.id)).toEqual([note.id]);
+    const listed = JSON.parse(list.stdout) as { entries: { id: string }[] };
+    expect(listed.entries.map((n) => n.id)).toEqual([note.id]);
 
     const show = await ofl(join(root), 'show', 'hello world');
     expect(show.code).toBe(0);
@@ -67,8 +67,8 @@ describe('ofl CLI (M1)', () => {
     await writeFile(join(root, 'legacy.md'), original);
 
     const list = await ofl(root, 'list', '--unidentified', '--json');
-    const listed = JSON.parse(list.stdout) as { notes: { path: string; kind: string }[] };
-    expect(listed.notes).toEqual([
+    const listed = JSON.parse(list.stdout) as { entries: { path: string; kind: string }[] };
+    expect(listed.entries).toEqual([
       expect.objectContaining({ path: 'legacy.md', kind: 'unidentified' }),
     ]);
 
@@ -229,7 +229,7 @@ describe('ofl CLI (M1)', () => {
     expect((await ofl(root, 'bind', id, '--date', '1999-01-01', '--remove')).code).toBe(0);
     const listed = await ofl(root, 'list', '--date', '2026-10-23', '--json');
     expect(
-      (JSON.parse(listed.stdout) as { notes: { id: string }[] }).notes.map((n) => n.id),
+      (JSON.parse(listed.stdout) as { entries: { id: string }[] }).entries.map((n) => n.id),
     ).toEqual([id]);
 
     // Unknown heading → 3; bad date → 6; usage mistakes → 2.

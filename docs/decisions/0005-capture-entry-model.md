@@ -1,6 +1,9 @@
 # 0005 — Capture, the entry model, and the verb vocabulary
 
-Date: 2026-11-06 · Status: proposed (no implementation milestone yet)
+Date: 2026-11-06 · Status: accepted — implemented 2026-11-09 in three phases (2a substrate
+rename `Note → Entry`, 2b verb vocabulary, 2c two-axis `type`/identity model). Product identity
+was settled separately as **OpenFormLink / `ofl`** (see the 2026-11-09 rename), superseding the
+working product name "Capture" proposed below; the hero verb `capture` still stands.
 
 ## Context
 
@@ -195,8 +198,13 @@ never widens `capture`, it only aliases it.
   `export → publish`, new `classify`; `relabel`, `delete`, `adopt`, `show`, `list`, `search`,
   `edit`, `history`, `diff`, `backlinks` keep their names. `bind` and `snippet insert` are
   untouched for now.
-- **Config:** `.ofl/config.yaml` gains an optional `shortcuts` map (inverse `verb: type`),
-  validated like the other config sections, with load-time collision rejection. Not built yet.
+- **Config:** the vault-config **`notes:` key renames to `entries:`** (it holds `include` /
+  `exclude` — the entry-selection globs — so the key must speak the entry vocabulary). This is an
+  on-disk contract change under the hard-switch policy: every existing `.ofl/config.yaml`,
+  including this repo's, updates its `notes:` block to `entries:` with no fallback. Separately,
+  `.ofl/config.yaml` gains an optional `shortcuts` map (inverse `verb: type`), validated like the
+  other config sections, with load-time collision rejection — not built yet (deferred within this
+  ADR).
 - **Binary name** (`notes`) is intentionally not decided here.
 - **Not scheduled.** Status is _proposed_; this records the agreed target so later work renames
   against a fixed design rather than re-deciding.

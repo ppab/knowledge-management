@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { harness, KEYS, type Terminal } from './harness.js';
 
 const note = (id: string, title: string, body = '') =>
@@ -60,7 +60,7 @@ describe('deleting notes', () => {
     const h = harness((f) => {
       f.fs.files.set('a.md', note('A1', 'Alpha', 'the body'));
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'A1' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'A1' })]);
     await term.waitFor('Alpha · monitor · A1');
     expect(term.frame()).toContain('s save  t tag  D delete');
 

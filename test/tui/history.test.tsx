@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { harness, KEYS, type Terminal } from './harness.js';
 
-const v1 = '---\nid: N1\ntitle: Note\n---\n\nfirst words\n';
-const v2 = '---\nid: N1\ntitle: Note\n---\n\nsecond words\n';
-const v3 = '---\nid: N1\ntitle: Note\n---\n\nthird words\n';
+const v1 = '---\nid: N1\ntitle: Entry\n---\n\nfirst words\n';
+const v2 = '---\nid: N1\ntitle: Entry\n---\n\nsecond words\n';
+const v3 = '---\nid: N1\ntitle: Entry\n---\n\nthird words\n';
 
 let term: Terminal | undefined;
 afterEach(() => term?.unmount());
@@ -15,8 +15,8 @@ describe('history and save in the TUI', () => {
       f.revisions.enable('/vault');
       f.fs.files.set('n.md', v1);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })]);
-    await term.waitFor('Note · monitor · N1 ●');
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })]);
+    await term.waitFor('Entry · monitor · N1 ●');
     expect(term.frame()).toContain('s save  t tag  D delete');
 
     await term.press('s');
@@ -27,7 +27,7 @@ describe('history and save in the TUI', () => {
     expect(h.f.revisions.recorded).toEqual([
       { root: '/vault', path: 'n.md', message: 'note: wording' },
     ]);
-    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
+    await term.waitFor((f) => f.includes('Entry · monitor · N1') && !f.includes('N1 ●'));
 
     // Saving a clean note records nothing; Esc cancels the prompt.
     await term.press('s', KEYS.enter);
@@ -43,11 +43,11 @@ describe('history and save in the TUI', () => {
     expect(term.frame()).not.toContain('▎');
     h.f.fs.files.set('n.md', v2);
     h.changes.fire();
-    await term.waitFor('Note · monitor · N1 ●');
+    await term.waitFor('Entry · monitor · N1 ●');
     await term.waitFor('▎ second words');
     await term.press('s', KEYS.enter);
-    await term.waitFor('Saved revision rev0002: note: save Note');
-    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
+    await term.waitFor('Saved revision rev0002: note: save Entry');
+    await term.waitFor((f) => f.includes('Entry · monitor · N1') && !f.includes('N1 ●'));
     await term.waitFor((f) => !f.includes('▎'));
   });
 
@@ -55,22 +55,22 @@ describe('history and save in the TUI', () => {
     const h = harness((f) => {
       f.fs.files.set('n.md', v1);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })]);
-    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })]);
+    await term.waitFor((f) => f.includes('Entry · monitor · N1') && !f.includes('N1 ●'));
     await term.press('s', KEYS.enter);
     await term.waitFor('Nothing saved: n.md is not under version control');
     await term.press('H');
     await term.waitFor('n.md is not under version control');
     await term.press(KEYS.escape);
-    await term.waitFor((f) => f.includes('Note · monitor · N1') && !f.includes('N1 ●'));
+    await term.waitFor((f) => f.includes('Entry · monitor · N1') && !f.includes('N1 ●'));
 
     h.f.revisions.enable('/vault');
     h.f.revisions.rejectNext('hook says no');
     h.changes.fire();
-    await term.waitFor('Note · monitor · N1 ●');
+    await term.waitFor('Entry · monitor · N1 ●');
     await term.press('s', KEYS.enter);
     await term.waitFor('internal: Revision of n.md was not recorded');
-    expect(term.frame()).toContain('Note · monitor · N1 ●');
+    expect(term.frame()).toContain('Entry · monitor · N1 ●');
   });
 
   it('lists revisions on H, opens one on Enter, and diffs it against the working file on d', async () => {
@@ -80,10 +80,10 @@ describe('history and save in the TUI', () => {
       f.revisions.seed('/vault', 'n.md', v1, 'first');
       f.revisions.seed('/vault', 'n.md', v2, 'second');
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })]);
-    await term.waitFor('Note · monitor · N1 ●');
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })]);
+    await term.waitFor('Entry · monitor · N1 ●');
     await term.press('H');
-    const list = await term.waitFor('history · Note · monitor · N1');
+    const list = await term.waitFor('history · Entry · monitor · N1');
     expect(list).toContain('rev      date              author  summary');
     const rows = list.split('\n').filter((line) => line.includes('Seed'));
     expect(rows.map((r) => r.replace('▸', '').trim())).toEqual([
@@ -97,15 +97,15 @@ describe('history and save in the TUI', () => {
     expect(old).toContain('first words');
     expect(old).not.toContain('third words');
     await term.press(KEYS.escape);
-    await term.waitFor('history · Note');
+    await term.waitFor('history · Entry');
 
     // d diffs the selected revision against the working file.
     await term.press('d');
-    const diff = await term.waitFor('diff · Note · rev0001 → working file');
+    const diff = await term.waitFor('diff · Entry · rev0001 → working file');
     expect(diff).toContain('-first words');
     expect(diff).toContain('+third words');
     await term.press(KEYS.escape, KEYS.escape);
-    await term.waitFor('Note · monitor · N1 ●');
+    await term.waitFor('Entry · monitor · N1 ●');
     expect(term.frame()).toContain('third words');
   });
 
@@ -116,8 +116,8 @@ describe('history and save in the TUI', () => {
       f.revisions.seed('/vault', 'n.md', v1, 'first');
       f.revisions.seed('/vault', 'n.md', v2, 'second');
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })], { columns: 120 });
-    await term.waitFor('Note · monitor · N1 ●');
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })], { columns: 120 });
+    await term.waitFor('Entry · monitor · N1 ●');
     await term.press('H');
     const list = await term.waitFor('rev0002 · 2026-10-27 12:02 · second');
     expect(list).toContain('second words'); // the newest revision's content, beside the list
@@ -149,8 +149,8 @@ describe('history and save in the TUI', () => {
       f.revisions.enable('/vault');
       f.fs.files.set('n.md', v1);
     });
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'N1' })]);
-    await term.waitFor('Note · monitor · N1 ●');
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })]);
+    await term.waitFor('Entry · monitor · N1 ●');
     await term.press('H');
     await term.waitFor('No revisions recorded for n.md; press s in the note to save one');
     await term.press(KEYS.enter);

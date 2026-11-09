@@ -1,17 +1,17 @@
 import { validation, type AppError } from '../../domain/errors.js';
-import type { Note } from '../../domain/note/note.js';
+import type { Entry } from '../../domain/entry/entry.js';
 import { isStandaloneReference } from '../../domain/reference/reference.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import { replaceRange, type SourceRange, type TextEdit } from '../../domain/text/text-edit.js';
-import { checkVersion, mutateNote, type MutationOutcome } from '../mutations/mutate.js';
+import { checkVersion, mutateEntry, type MutationOutcome } from '../mutations/mutate.js';
 import type { AppDeps } from '../ports.js';
-import { readNoteInScope, withScope } from '../scope/session.js';
+import { readEntryInScope, withScope } from '../scope/session.js';
 
 export interface RemoveReferenceInput {
-  /** Note to edit: id, title or alias. */
+  /** Entry to edit: id, title or alias. */
   readonly source: string;
-  /** The exact `[[...]]` span, as `listReferences`/`viewNote` report it. */
+  /** The exact `[[...]]` span, as `listReferences`/`viewEntry` report it. */
   readonly range: SourceRange;
   readonly expectedVersion?: string;
   readonly dryRun?: boolean;
@@ -35,7 +35,7 @@ export interface RemoveReferencePlan {
  * the only thing on a list line, the whole line goes, so a `## References` list stays tidy.
  */
 export const planRemoval = (
-  note: Note,
+  note: Entry,
   range: SourceRange,
 ): Result<RemoveReferencePlan, AppError> => {
   const reference = note.references.find(
@@ -86,14 +86,14 @@ export const removeReference = (
   input: RemoveReferenceInput,
 ): Promise<Result<RemovedReference, AppError>> =>
   withScope(deps, scope, async (session) => {
-    const located = await readNoteInScope(deps, session, input.source);
+    const located = await readEntryInScope(deps, session, input.source);
     if (!located.ok) return located;
     const { vault, index, note } = located.value;
     const fresh = checkVersion(note, input.expectedVersion);
     if (!fresh.ok) return fresh;
     const plan = planRemoval(note, input.range);
     if (!plan.ok) return plan;
-    const outcome = await mutateNote(
+    const outcome = await mutateEntry(
       deps,
       vault,
       index,

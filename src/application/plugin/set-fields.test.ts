@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { listNotes } from '../notes/list-notes.js';
+import { listEntries } from '../entries/list-entries.js';
 import type { WriteOptions } from '../ports.js';
 import { setFields } from './set-fields.js';
 
@@ -22,7 +22,7 @@ describe('setFields', () => {
       '---\nid: T1 # keep\ntitle: Task\ntype: todo\nstatus: done\npriority: 2\npeople:\n  - a\n  - b\n---\n\n# Task\n\n[[A]]\n',
     );
     // The index saw the write.
-    const [entry] = unwrap(await listNotes(f.deps, f.scope));
+    const [entry] = unwrap(await listEntries(f.deps, f.scope));
     expect(entry?.fields).toEqual({ status: 'done', priority: 2, people: ['a', 'b'] });
   });
 
@@ -75,11 +75,11 @@ describe('setFields', () => {
     // Someone edits the file after it was read and before the write lands.
     const deps = {
       ...f.deps,
-      notes: {
-        ...f.deps.notes,
+      entries: {
+        ...f.deps.entries,
         write: (root: string, path: string, source: string, options?: WriteOptions) => {
           f.fs.files.set('t.md', todo.replace('open', 'later'));
-          return f.deps.notes.write(root, path, source, options);
+          return f.deps.entries.write(root, path, source, options);
         },
       },
     };

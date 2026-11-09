@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '../result.js';
 import { validation, type AppError } from '../errors.js';
 import { renderTemplate } from '../template/render.js';
-import { slugify } from '../note/note.js';
+import { slugify } from '../entry/entry.js';
 
 /*
  * A route is the public URL path an entry is published at — the single source of truth for both

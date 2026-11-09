@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '../result.js';
 import { validation, type AppError } from '../errors.js';
-import { parseNoteId, type NoteId } from '../note/note-id.js';
+import { parseEntryId, type EntryId } from '../entry/entry-id.js';
 
 export type IdentityConfig =
   | { readonly strategy: 'ulid' }
@@ -59,16 +59,16 @@ const yyyymmdd = (date: Date): string =>
 /** Removes characters that the reference syntax forbids from a context value. */
 const sanitize = (value: string): string => value.replace(/[\s|[\]]+/g, '-');
 
-export const generateNoteId = (
+export const generateEntryId = (
   config: IdentityConfig,
   context: IdentityContext,
   unique: UniqueSource,
-): Result<NoteId, AppError> => {
+): Result<EntryId, AppError> => {
   switch (config.strategy) {
     case 'ulid':
-      return parseNoteId(unique.ulid());
+      return parseEntryId(unique.ulid());
     case 'uuidv7':
-      return parseNoteId(unique.uuidv7());
+      return parseEntryId(unique.uuidv7());
     case 'formatted': {
       const valid = validateIdentityFormat(config.format);
       if (!valid.ok) return valid;
@@ -82,7 +82,7 @@ export const generateNoteId = (
         type: () => sanitize(context.type ?? ''),
         date: () => yyyymmdd(context.date),
       };
-      return parseNoteId(
+      return parseEntryId(
         config.format.replace(VARIABLE, (_, name: string) => values[name]?.() ?? ''),
       );
     }

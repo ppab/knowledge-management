@@ -3,7 +3,7 @@ import { validation, type AppError } from '../errors.js';
 import { VAULT_DIR } from './vault.js';
 
 /** The file behind a vault-relative path, for tools that need a real path (the editor). */
-export const absoluteNotePath = (root: string, path: string): string =>
+export const absoluteEntryPath = (root: string, path: string): string =>
   `${root.replace(/[\\/]+$/, '')}/${path}`;
 
 /**
@@ -11,10 +11,10 @@ export const absoluteNotePath = (root: string, path: string): string =>
  * glob's literal prefix) unless it starts with `/`, which anchors it at the vault root instead.
  * The leading slash is consumed here so the result is an ordinary vault-relative path.
  */
-export const resolveTemplatePath = (path: string, notesDir: string): string => {
+export const resolveTemplatePath = (path: string, entriesDir: string): string => {
   const text = path.replace(/\\/g, '/').trim();
   if (text.startsWith('/')) return text.replace(/^\/+/, '');
-  return notesDir === '' || text === '' ? text : `${notesDir}/${text}`;
+  return entriesDir === '' || text === '' ? text : `${entriesDir}/${text}`;
 };
 
 /**

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { asVaultId, defaultVaultConfig } from '../../domain/vault/vault.js';
-import { createNoteStore } from './note-store.js';
+import { createEntryStore } from './entry-store.js';
 import { createVaultRepository } from './vault-repository.js';
 
 let root: string;
@@ -53,7 +53,7 @@ describe('vault repository', () => {
 });
 
 describe('note store', () => {
-  const store = createNoteStore();
+  const store = createEntryStore();
 
   it('lists by include/exclude globs and never looks inside .ofl', async () => {
     await mkdir(join(root, 'docs', 'sub'), { recursive: true });
@@ -150,7 +150,7 @@ describe('note store', () => {
 });
 
 describe('note store symlink containment', () => {
-  const store = createNoteStore();
+  const store = createEntryStore();
   let external: string;
   beforeEach(async () => {
     external = await mkdtemp(join(tmpdir(), 'notes-ext-'));

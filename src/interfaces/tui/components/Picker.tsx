@@ -1,7 +1,7 @@
 import { Text, useInput } from 'ink';
 import { useState } from 'react';
-import { listNotes } from '../../../application/notes/list-notes.js';
-import { searchNotes } from '../../../application/search/search-notes.js';
+import { listEntries } from '../../../application/entries/list-entries.js';
+import { searchEntries } from '../../../application/search/search-entries.js';
 import { ok } from '../../../domain/result.js';
 import { useLoad, useTui } from '../context.js';
 import { clamp } from '../model.js';
@@ -43,19 +43,19 @@ export const Picker = ({
   const loaded = useLoad(async () => {
     const typed = query.trim();
     if (typed === '') {
-      const all = await listNotes(deps, scope);
+      const all = await listEntries(deps, scope);
       if (!all.ok) return all;
       return ok(
         all.value.flatMap((e): Picked[] =>
-          e.kind === 'note' ? [{ id: e.id, title: e.title, vault: e.vault }] : [],
+          e.kind === 'entry' ? [{ id: e.id, title: e.title, vault: e.vault }] : [],
         ),
       );
     }
-    const hits = await searchNotes(deps, scope, pickerQuery(typed));
+    const hits = await searchEntries(deps, scope, pickerQuery(typed));
     if (!hits.ok) return hits;
     return ok(
       hits.value.flatMap((hit): Picked[] =>
-        hit.entry.kind === 'note'
+        hit.entry.kind === 'entry'
           ? [{ id: hit.entry.id, title: hit.entry.title, vault: hit.vault }]
           : [],
       ),

@@ -1,23 +1,23 @@
 import type { AppError } from '../../domain/errors.js';
-import type { FieldValue } from '../../domain/note/fields.js';
-import type { Note } from '../../domain/note/note.js';
+import type { FieldValue } from '../../domain/entry/fields.js';
+import type { Entry } from '../../domain/entry/entry.js';
 import type { Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import type { BindDateInput } from '../calendar/bind-date.js';
 import type { MutationOutcome } from '../mutations/mutate.js';
-import type { CreateNoteInput } from '../notes/create-note.js';
-import type { ListFilters, ScopedEntry } from '../notes/list-notes.js';
+import type { CreateEntryInput } from '../entries/create-entry.js';
+import type { ListFilters, ScopedEntry } from '../entries/list-entries.js';
 import type { Clock } from '../ports.js';
 import type { AddReferenceInput } from '../references/add-reference.js';
-import type { LocatedNote } from '../scope/session.js';
-import type { SearchOptions, SearchResult } from '../search/search-notes.js';
+import type { IndexedEntry } from '../scope/session.js';
+import type { SearchOptions, SearchResult } from '../search/search-entries.js';
 import type { InsertSnippetInput } from '../snippets/insert-snippet.js';
 import type { Destination, ResolvedPublication } from '../publishing/destination.js';
 import type { AstroTheme } from '../publishing/destinations/astro.js';
 
 /*
- * The plugin contract (docs/plugins.md). A plugin gives meaning to a kind of note: it owns
- * frontmatter `type` values, declares the fields those notes carry, and contributes commands,
+ * The plugin contract (docs/plugins.md). A plugin gives meaning to a kind of entry: it owns
+ * frontmatter `type` values, declares the fields those entries carry, and contributes commands,
  * doctor checks and TUI panels as data plus pure functions. It reaches the system only through
  * `PluginApi`; the core never imports a plugin.
  */
@@ -56,9 +56,9 @@ export interface PluginApi {
   list(filters?: ListFilters): Promise<Result<ScopedEntry[], AppError>>;
   byField(key: string, value?: string): Promise<Result<ScopedEntry[], AppError>>;
   search(query: string, options?: SearchOptions): Promise<Result<SearchResult[], AppError>>;
-  read(query: string): Promise<Result<LocatedNote, AppError>>;
+  read(query: string): Promise<Result<IndexedEntry, AppError>>;
   // Writes; every one goes through the mutation path, dry-run included.
-  create(input: CreateNoteInput & { readonly in?: string }): Promise<Result<Note, AppError>>;
+  create(input: CreateEntryInput & { readonly in?: string }): Promise<Result<Entry, AppError>>;
   setFields(
     query: string,
     fields: Readonly<Record<string, FieldValue | null>>,
@@ -128,10 +128,10 @@ export interface PluginCheck {
 
 export type Placement =
   | 'home' // a top-level screen, listed on the start screen and reachable by key
-  | 'note' // a side panel inside NoteView, shown for notes the plugin owns (or always)
-  | 'list'; // an extra column set / filter in NoteList
+  | 'entry' // a side panel inside EntryView, shown for entries the plugin owns (or always)
+  | 'list'; // an extra column set / filter in EntryList
 
-export interface PanelNoteRef {
+export interface PanelEntryRef {
   readonly vault: string;
   readonly path: string;
   readonly id?: string;
@@ -146,7 +146,7 @@ export interface TreeNode {
   readonly id: string;
   readonly label: string;
   readonly detail?: string;
-  readonly note?: PanelNoteRef;
+  readonly note?: PanelEntryRef;
   /** The owned type of the node's note, for scoping its verbs; absent on a grouping node. */
   readonly type?: string;
   readonly expanded?: boolean;
@@ -162,20 +162,23 @@ export type PanelData =
         readonly id: string;
         readonly title: string;
         readonly detail?: string;
-        readonly note?: PanelNoteRef;
+        readonly note?: PanelEntryRef;
       }[];
     }
   | {
       readonly kind: 'table';
       readonly header: readonly string[];
-      readonly rows: readonly { readonly cells: readonly string[]; readonly note?: PanelNoteRef }[];
+      readonly rows: readonly {
+        readonly cells: readonly string[];
+        readonly note?: PanelEntryRef;
+      }[];
     }
   | { readonly kind: 'tree'; readonly roots: readonly TreeNode[] }
   | { readonly kind: 'text'; readonly lines: readonly string[] };
 
 export interface PanelContext {
   /** Set for `note` placement. */
-  readonly note?: LocatedNote;
+  readonly note?: IndexedEntry;
   /** The row the cursor is on, as the panel's own data gave it. */
   readonly selection?: unknown;
   /** Values the core collected from the action's `inputs` before running it. */
@@ -218,13 +221,13 @@ export interface PanelSpec {
   readonly placement: Placement;
   /** The key after the leader that opens (home) or toggles (note) the panel; absent = unkeyed. */
   readonly chord?: string;
-  /** Note panels: show only for owned types (default) or for every note. */
+  /** Entry panels: show only for owned types (default) or for every note. */
   readonly appliesTo?: 'owned' | 'all';
   load(api: PluginApi, context: PanelContext): Promise<Result<PanelData, AppError>>;
   readonly actions?: readonly PanelAction[];
 }
 
-export interface NotePlugin {
+export interface EntryPlugin {
   /** Unique; also the CLI namespace (`ofl todos …`) and the config key. */
   readonly name: string;
   readonly description: string;
@@ -246,7 +249,7 @@ export interface NotePlugin {
 
 /** A plugin enabled for a scope, with the vaults that enable it and their validated settings. */
 export interface EnabledPlugin {
-  readonly plugin: NotePlugin;
+  readonly plugin: EntryPlugin;
   /** Members of the caller's scope that enable the plugin, in scope order. */
   readonly scope: Scope;
   /** Validated settings per enabling vault root. */
@@ -255,14 +258,14 @@ export interface EnabledPlugin {
 
 export interface PluginRegistry {
   readonly enabled: readonly EnabledPlugin[];
-  readonly plugins: readonly NotePlugin[];
-  ownerOf(type: string): NotePlugin | undefined;
+  readonly plugins: readonly EntryPlugin[];
+  ownerOf(type: string): EntryPlugin | undefined;
   /** The owner's specs that apply to notes of `type`; empty for an unowned type. */
   fieldsFor(type: string): readonly FieldSpec[];
   /** Core panels first, then plugin panels in plugin order. */
   panels(placement: Placement): readonly PanelSpec[];
-  commands(): readonly { readonly plugin: NotePlugin; readonly command: PluginCommand }[];
-  checks(): readonly { readonly plugin: NotePlugin; readonly check: PluginCheck }[];
+  commands(): readonly { readonly plugin: EntryPlugin; readonly command: PluginCommand }[];
+  checks(): readonly { readonly plugin: EntryPlugin; readonly check: PluginCheck }[];
   /** Built-in templates of enabled plugins keyed `<plugin>/<name>`. */
   templates(): Readonly<Record<string, string>>;
   /** Destination kinds available to a vault: the built-ins plus those its enabled plugins add. */

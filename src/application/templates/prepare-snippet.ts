@@ -1,5 +1,5 @@
 import { validation, type AppError } from '../../domain/errors.js';
-import { splitFrontmatter } from '../../domain/note/frontmatter.js';
+import { splitFrontmatter } from '../../domain/entry/frontmatter.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { templateVariables } from '../../domain/template/render.js';
 import { parseInsertionLocation, type InsertionLocation } from '../../domain/text/insertion.js';

@@ -3,11 +3,11 @@ import { createPluginApi } from '../../application/plugin/api.js';
 import type { PluginApi, PluginCommand } from '../../application/plugin/plugin.js';
 import { buildRegistry, enabledPlugin } from '../../application/plugin/registry.js';
 import { diagnose } from '../../application/doctor/diagnose.js';
-import { asNoteId } from '../../domain/note/note-id.js';
+import { asEntryId } from '../../domain/entry/entry-id.js';
 import { unwrap } from '../../domain/result.js';
 import { fixture, type Fixture } from '../../../test/fakes/index.js';
 
-const X = asNoteId('X');
+const X = asEntryId('X');
 import { todosPlugin } from './plugin.js';
 import { filterTodos, overdue, parseDue, sortTodos, todoOf, type Todo } from './queries.js';
 
@@ -67,7 +67,7 @@ describe('todos queries', () => {
 
   it('reads todos leniently from index entries', () => {
     const base = {
-      kind: 'note' as const,
+      kind: 'entry' as const,
       vault: 'v',
       path: 'x.md',
       title: 'X',

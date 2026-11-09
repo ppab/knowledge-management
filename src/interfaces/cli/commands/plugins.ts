@@ -3,7 +3,7 @@ import { createPluginApi } from '../../../application/plugin/api.js';
 import type {
   CommandOption,
   CommandOutput,
-  NotePlugin,
+  EntryPlugin,
   PluginCommand,
 } from '../../../application/plugin/plugin.js';
 import { enabledPlugin } from '../../../application/plugin/registry.js';
@@ -53,7 +53,7 @@ const outputJson = (output: CommandOutput): unknown =>
 
 const registerPluginCommand = (
   group: Command,
-  plugin: NotePlugin,
+  plugin: EntryPlugin,
   command: PluginCommand,
   io: CliIo,
   exit: Exit,

@@ -1,8 +1,8 @@
 import type { AppError } from '../../domain/errors.js';
-import type { NoteEntry } from '../../domain/note/note.js';
+import type { AnyEntry } from '../../domain/entry/entry.js';
 import { ok, type Result } from '../../domain/result.js';
-import { loadNoteEntry } from '../notes/load-note.js';
-import type { AppDeps, IndexedFile, NoteDocument, NoteFile, NoteIndex } from '../ports.js';
+import { loadEntry } from '../entries/load-entry.js';
+import type { AppDeps, IndexedFile, EntryDocument, EntryFile, EntryIndex } from '../ports.js';
 import type { VaultHandle } from '../vault/vault.js';
 
 /*
@@ -12,8 +12,8 @@ import type { VaultHandle } from '../vault/vault.js';
  */
 
 export interface RefreshPlan {
-  readonly upserts: readonly { readonly entry: NoteEntry; readonly file: NoteFile }[];
-  readonly touches: readonly NoteFile[];
+  readonly upserts: readonly { readonly entry: AnyEntry; readonly file: EntryFile }[];
+  readonly touches: readonly EntryFile[];
   readonly removals: readonly string[];
   readonly unchanged: number;
 }
@@ -39,7 +39,7 @@ export interface PlanOptions {
 }
 
 /** A file's physical identity for dedup: its real-path key, or its own path when unresolved. */
-const keyOf = (file: NoteFile): string => file.physicalKey ?? file.path;
+const keyOf = (file: EntryFile): string => file.physicalKey ?? file.path;
 
 /** Appends `value` to the list at `key`, starting one if absent. */
 const groupInto = <T>(map: Map<string, T[]>, key: string, value: T): void => {
@@ -53,8 +53,8 @@ const groupInto = <T>(map: Map<string, T[]>, key: string, value: T): void => {
  * as canonical. Aliases of one note therefore index once; separate files sharing an id keep
  * distinct keys, stay distinct rows, and remain an `AMBIGUOUS` integrity error for the resolver.
  */
-const canonicalFiles = (present: readonly NoteFile[]): NoteFile[] => {
-  const groups = new Map<string, NoteFile[]>();
+const canonicalFiles = (present: readonly EntryFile[]): EntryFile[] => {
+  const groups = new Map<string, EntryFile[]>();
   for (const file of present) groupInto(groups, keyOf(file), file);
   return [...groups.values()].map((group) =>
     group.reduce((smallest, file) => (file.path < smallest.path ? file : smallest)),
@@ -64,12 +64,12 @@ const canonicalFiles = (present: readonly NoteFile[]): NoteFile[] => {
 export const planRefresh = async (
   deps: AppDeps,
   vault: VaultHandle,
-  index: NoteIndex,
+  index: EntryIndex,
   options: PlanOptions = {},
 ): Promise<Result<RefreshPlan, AppError>> => {
   const indexed = new Map<string, IndexedFile>(index.files().map((f) => [f.path, f]));
-  const upserts: { entry: NoteEntry; file: NoteFile }[] = [];
-  const touches: NoteFile[] = [];
+  const upserts: { entry: AnyEntry; file: EntryFile }[] = [];
+  const touches: EntryFile[] = [];
   const removals: string[] = [];
   let unchanged = 0;
 
@@ -77,14 +77,14 @@ export const planRefresh = async (
   // and current index row. Both the full and targeted passes feed it, so they plan identically.
   const record = (
     path: string,
-    doc: NoteDocument | undefined,
+    doc: EntryDocument | undefined,
     row: IndexedFile | undefined,
   ): void => {
     if (!doc) {
       if (row) removals.push(path);
       return;
     }
-    const next: NoteFile = {
+    const next: EntryFile = {
       path,
       mtime: doc.mtime,
       size: doc.size,
@@ -95,14 +95,14 @@ export const planRefresh = async (
       else unchanged += 1;
       return;
     }
-    upserts.push({ entry: loadNoteEntry(deps, doc), file: next });
+    upserts.push({ entry: loadEntry(deps, doc), file: next });
   };
 
   const consider = async (
-    file: NoteFile,
+    file: EntryFile,
     row: IndexedFile | undefined,
   ): Promise<AppError | null> => {
-    const doc = await deps.notes.read(vault.root, file.path);
+    const doc = await deps.entries.read(vault.root, file.path);
     if (!doc.ok) {
       if (doc.error.code !== 'NOT_FOUND') return doc.error;
       record(file.path, undefined, row);
@@ -116,9 +116,9 @@ export const planRefresh = async (
     // Read the targeted paths once, then decide whether any of them participates in a physical
     // alias group. If so, a targeted plan cannot keep "one row per key" on its own, so we fall
     // back to a full reconciliation of the whole vault (acceptable for this slice).
-    const reads = new Map<string, NoteDocument | undefined>();
+    const reads = new Map<string, EntryDocument | undefined>();
     for (const path of options.paths) {
-      const doc = await deps.notes.read(vault.root, path);
+      const doc = await deps.entries.read(vault.root, path);
       if (doc.ok) reads.set(path, doc.value);
       else if (doc.error.code === 'NOT_FOUND') reads.set(path, undefined);
       else return { ok: false, error: doc.error };
@@ -144,7 +144,7 @@ export const planRefresh = async (
     return ok({ upserts, touches, removals: removals.sort(), unchanged });
   }
 
-  const present = await deps.notes.list(vault.root, vault.config.include, vault.config.exclude);
+  const present = await deps.entries.list(vault.root, vault.config.include, vault.config.exclude);
   const canonical = canonicalFiles(present);
   const seen = new Set(canonical.map((f) => f.path));
   for (const file of canonical) {
@@ -165,7 +165,7 @@ export interface RefreshReport extends StaleReport {
   readonly unchanged: number;
 }
 
-export const applyPlan = (index: NoteIndex, plan: RefreshPlan): RefreshReport => {
+export const applyPlan = (index: EntryIndex, plan: RefreshPlan): RefreshReport => {
   const indexed = new Set(index.files().map((f) => f.path));
   index.batch(() => {
     for (const path of plan.removals) index.remove(path);
@@ -178,7 +178,7 @@ export const applyPlan = (index: NoteIndex, plan: RefreshPlan): RefreshReport =>
 export const refreshIndex = async (
   deps: AppDeps,
   vault: VaultHandle,
-  index: NoteIndex,
+  index: EntryIndex,
   options: PlanOptions = {},
 ): Promise<Result<RefreshReport, AppError>> => {
   const plan = await planRefresh(deps, vault, index, options);
@@ -189,14 +189,14 @@ export const refreshIndex = async (
 export const rebuildIndex = async (
   deps: AppDeps,
   vault: VaultHandle,
-  index: NoteIndex,
+  index: EntryIndex,
 ): Promise<Result<RefreshReport, AppError>> => {
   index.clear();
   return refreshIndex(deps, vault, index);
 };
 
 export interface IndexStatus {
-  readonly stats: ReturnType<NoteIndex['stats']>;
+  readonly stats: ReturnType<EntryIndex['stats']>;
   readonly stale: StaleReport;
 }
 
@@ -204,7 +204,7 @@ export interface IndexStatus {
 export const indexStatus = async (
   deps: AppDeps,
   vault: VaultHandle,
-  index: NoteIndex,
+  index: EntryIndex,
 ): Promise<Result<IndexStatus, AppError>> => {
   const plan = await planRefresh(deps, vault, index);
   if (!plan.ok) return plan;
@@ -219,7 +219,7 @@ export const indexStatus = async (
 export const withFreshIndex = async <T>(
   deps: AppDeps,
   vault: VaultHandle,
-  work: (index: NoteIndex) => Promise<Result<T, AppError>> | Result<T, AppError>,
+  work: (index: EntryIndex) => Promise<Result<T, AppError>> | Result<T, AppError>,
 ): Promise<Result<T, AppError>> => {
   const opened = await deps.indexes.open(vault.root);
   if (!opened.ok) return opened;

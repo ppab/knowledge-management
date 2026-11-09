@@ -53,7 +53,7 @@ export const registerInitCommand = (program: Command, io: CliIo, exit: Exit): vo
               const identity = identityFrom(opts.identity, opts.format);
               if (!identity.ok) return identity;
               // Only a person at a terminal is asked; scripts and `--json` get the default.
-              const notesDir =
+              const entriesDir =
                 opts.dir ??
                 (io.ask && !ctx.json
                   ? await io.ask('Directory for notes, relative to the vault root [.]: ')
@@ -62,12 +62,12 @@ export const registerInitCommand = (program: Command, io: CliIo, exit: Exit): vo
                 dir: ctx.cwd,
                 ...(opts.name !== undefined && { name: opts.name }),
                 ...(identity.value !== undefined && { identity: identity.value }),
-                ...(notesDir !== undefined && { notesDir }),
+                ...(entriesDir !== undefined && { entriesDir }),
               });
             },
             (v) => {
-              const notesDir = globStaticPrefix(v.config.include[0] ?? '');
-              return `Initialized vault "${v.config.name}" (${v.config.id}) at ${v.root}\nNew notes go to ${notesDir === '' ? 'the vault root' : `${notesDir}/`} (include: ${v.config.include.join(', ')})`;
+              const entriesDir = globStaticPrefix(v.config.include[0] ?? '');
+              return `Initialized vault "${v.config.name}" (${v.config.id}) at ${v.root}\nNew notes go to ${entriesDir === '' ? 'the vault root' : `${entriesDir}/`} (include: ${v.config.include.join(', ')})`;
             },
             (v) => ({ root: v.root, ...v.config }),
           ),

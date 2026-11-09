@@ -89,16 +89,16 @@ Libraries:
 | Entity                 | Identity                        | Fields                                                                                                                                               |
 | ---------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Vault`                | `VaultId` (ULID, set at `init`) | name, include/exclude globs, identity strategy. Root path is an infrastructure detail.                                                               |
-| `Note`                 | `NoteId`                        | title, aliases, dates, tags, visibility, references, opaque extra frontmatter, body                                                                  |
-| `UnidentifiedNote`     | path (vault-relative)           | A Markdown file matched by `include` with no `id`. Listed and searchable; read-only.                                                                 |
+| `Entry`                | `EntryId`                       | title, aliases, dates, tags, visibility, references, opaque extra frontmatter, body                                                                  |
+| `UnidentifiedEntry`    | path (vault-relative)           | A Markdown file matched by `include` with no `id`. Listed and searchable; read-only.                                                                 |
 | `Template` / `Snippet` | name                            | variables, content; template adds an output path (under the notes directory, `/` anchors at the vault root), snippet adds default insertion location |
 | `Publication`          | name                            | vault selection, include/exclude, output dir, route template, reference policy, destination (kind + options)                                         |
 
 ### Value objects
 
-- `NoteId` — opaque validated string; equality by value; never rewritten.
+- `EntryId` — opaque validated string; equality by value; never rewritten.
 - `Alias` — string; compared case-insensitively within a scope; never persisted into references.
-- `Reference { target: NoteId, label?: string, range: SourceRange }` — from `[[ID]]` / `[[ID|Label]]`.
+- `Reference { target: EntryId, label?: string, range: SourceRange }` — from `[[ID]]` / `[[ID|Label]]`.
 - `ResolutionResult` — `Resolved {note, vaultId}` | `NotFound` | `Unavailable {vaultIds}` | `Ambiguous {candidates}`.
 - `DateBinding` — ISO date from frontmatter `dates:`; independent of file timestamps. Set semantics.
 - `Scope` — `VaultScope(vaultId)` | `CompositeScope(vaultIds[])`, with per-vault availability.
@@ -111,12 +111,12 @@ Libraries:
 
 ### Invariants (tested in `domain/`)
 
-1. A `NoteId` is assigned once and never rewritten by any operation (rename, move, strategy
+1. A `EntryId` is assigned once and never rewritten by any operation (rename, move, strategy
    change, re-template).
-2. Two documents with the same `NoteId` in one vault ⇒ `DuplicateIdentity`; never a silent pick.
+2. Two documents with the same `EntryId` in one vault ⇒ `DuplicateIdentity`; never a silent pick.
 3. Canonical-ID resolution with more than one match across a composite scope ⇒ `Ambiguous`.
 4. Alias resolution with more than one candidate ⇒ `Ambiguous`.
-5. A reference targets a `NoteId` only; an external URL never becomes a `Reference`.
+5. A reference targets a `EntryId` only; an external URL never becomes a `Reference`.
 6. Applying a `TextEdit` set changes nothing outside the edited ranges (property-tested).
 7. A composite scope is read-only; `resolveWriteTarget(scope, vaultId?)` yields exactly one vault
    or fails.
@@ -151,7 +151,7 @@ Libraries:
 | Area       | Use cases                                                                                                                                                                                     |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | vault      | `initVault`, `locateVault`, `loadScope` (named / explicit vault paths / nearest)                                                                                                              |
-| notes      | `listNotes`, `showNote`, `createNote`, `editNote` (external editor), `adoptNote`, `saveNote`                                                                                                  |
+| notes      | `listNotes`, `showNote`, `createEntry`, `editNote` (external editor), `adoptNote`, `saveNote`                                                                                                 |
 | references | `resolveTarget`, `addReference(source, target, location, label?)`, `removeReference(source, range)`, `wrapSelectionAsReference`, `wrapSelectionAsExternalLink`, `listReferences`, `backlinks` |
 | search     | `searchNotes(query, scope)`, `lookupByTitleOrAlias`                                                                                                                                           |
 | calendar   | `bindDate`, `unbindDate`, `notesOnDate`, `datesInRange`                                                                                                                                       |
@@ -169,11 +169,11 @@ exceptions.
 | Port                 | Adapter    | Contract                                                                                                                                                                         |
 | -------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `VaultLocator`       | filesystem | `findNearest(cwd)`, `open(path)` → validated config                                                                                                                              |
-| `NoteStore`          | filesystem | `list(globs)`, `read(path) → {source, version}`, `write(path, source, {expectedVersion?})` → `Ok                                                                                 | Conflict`, `exists(path)` |
+| `EntryStore`         | filesystem | `list(globs)`, `read(path) → {source, version}`, `write(path, source, {expectedVersion?})` → `Ok                                                                                 | Conflict`, `exists(path)` |
 | `MarkdownDocument`   | remark     | `parse(source) → ParsedNote {frontmatterRange, title, headings[], references[], textSpans[]}`; `locate(parsed, InsertionLocation) → offset`; `render → RenderedLine[]`; `toHtml` |
 | `FrontmatterCodec`   | yaml       | `read(source)`, `set(source, key, value) → TextEdit` preserving everything else                                                                                                  |
-| `NoteIndex`          | sqlite     | `upsert`, `remove`, `clear`, `findById`, `findByAlias`, `findByTitle`, `search`, `byDate`, `outgoing`, `backlinks`, `stats`                                                      |
-| `IdentityStrategy`   | identity   | `generate(ctx) → NoteId` for `ulid` / `uuidv7` / `formatted`                                                                                                                     |
+| `EntryIndex`         | sqlite     | `upsert`, `remove`, `clear`, `findById`, `findByAlias`, `findByTitle`, `search`, `byDate`, `outgoing`, `backlinks`, `stats`                                                      |
+| `IdentityStrategy`   | identity   | `generate(ctx) → EntryId` for `ulid` / `uuidv7` / `formatted`                                                                                                                    |
 | `RevisionProvider`   | git        | `status`, `list` (follows renames), `read(revision)`, `record(path, message)`; an unversioned vault is a status, not an error; diffs are computed in the domain (`unifiedDiff`)  |
 | `TemplateRepository` | filesystem | `getTemplate`, `getSnippet`, `list`                                                                                                                                              |
 | `OutputStore`        | filesystem | `write(dir, path, content)` for publication output: absolute `dir`, relative POSIX `path` validated inside it, mkdir -p, atomic; never reads, lists or deletes                   |
@@ -250,7 +250,7 @@ The vault is plain Markdown and opens in Obsidian unchanged. Two things make our
 work there, since Obsidian resolves a wikilink against a note's **filename** or frontmatter
 **`aliases:`** — never against our `id:` field:
 
-- **Resolution.** `createNote` records each new note's id in its `aliases:` (id first, deduped),
+- **Resolution.** `createEntry` records each new note's id in its `aliases:` (id first, deduped),
   so `[[<id>]]` resolves to that note in Obsidian. This is new-notes-only; pre-existing notes
   stay unresolved until re-created or a future backfill. `adopt` is deliberately left untouched
   (its contract is to add nothing but the id).

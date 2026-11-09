@@ -1,15 +1,16 @@
 import type { DateRange, IsoDate } from '../../domain/calendar/date-binding.js';
 import type { AppError } from '../../domain/errors.js';
-import type { NoteSummary } from '../../domain/note/summary.js';
+import type { EntrySummary } from '../../domain/entry/summary.js';
 import { ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
-import type { DateHit, NoteIndex } from '../ports.js';
+import type { DateHit, EntryIndex } from '../ports.js';
 import type { AppDeps } from '../ports.js';
 import { withScope } from '../scope/session.js';
 
-export const notesOnDate = (index: NoteIndex, date: IsoDate): NoteSummary[] => index.onDate(date);
+export const entriesOnDate = (index: EntryIndex, date: IsoDate): EntrySummary[] =>
+  index.onDate(date);
 
-export const datesInRange = (index: NoteIndex, range: DateRange): DateHit[] =>
+export const datesInRange = (index: EntryIndex, range: DateRange): DateHit[] =>
   index.datesBetween(range.from, range.to);
 
 export type ScopedDateHit = DateHit & { readonly vault: string };

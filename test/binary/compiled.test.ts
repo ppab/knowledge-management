@@ -83,8 +83,8 @@ describe.skipIf(!existsSync(binary))('compiled notes binary', () => {
     const file = join(vault, created.path);
     await writeFile(file, (await readFile(file, 'utf8')) + 'The kumquats ripened early.\n');
 
-    const listed = json(await ofl(vault, 'list', '--json')) as { notes: { id: string }[] };
-    expect(listed.notes.map((n) => n.id)).toEqual([created.id]);
+    const listed = json(await ofl(vault, 'list', '--json')) as { entries: { id: string }[] };
+    expect(listed.entries.map((n) => n.id)).toEqual([created.id]);
 
     const search = json(await ofl(vault, 'search', 'kumquats', '--json')) as {
       hits: { id: string }[];

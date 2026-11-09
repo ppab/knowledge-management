@@ -1,12 +1,12 @@
 import { appError, conflict, type AppError } from '../../domain/errors.js';
-import { splitFrontmatter } from '../../domain/note/frontmatter.js';
-import type { Heading, Note } from '../../domain/note/note.js';
+import { splitFrontmatter } from '../../domain/entry/frontmatter.js';
+import type { Heading, Entry } from '../../domain/entry/entry.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { unifiedDiff } from '../../domain/text/diff.js';
 import { applyEdits, type TextEdit } from '../../domain/text/text-edit.js';
 import { refreshIndex } from '../index/refresh-index.js';
-import { loadNoteEntry } from '../notes/load-note.js';
-import type { AppDeps, NoteIndex } from '../ports.js';
+import { loadEntry } from '../entries/load-entry.js';
+import type { AppDeps, EntryIndex } from '../ports.js';
 import type { VaultHandle } from '../vault/vault.js';
 
 /*
@@ -43,7 +43,7 @@ export interface MutationOutcome {
  * version lets the write path (`expectedVersion`) reject the race, but a clear message beats
  * a partial flow.
  */
-export const checkVersion = (note: Note, expected: string | undefined): Result<void, AppError> =>
+export const checkVersion = (note: Entry, expected: string | undefined): Result<void, AppError> =>
   expected === undefined || expected === note.version
     ? ok(undefined)
     : err(
@@ -58,8 +58,8 @@ const shapes = (headings: readonly HeadingShape[]): string[] =>
   headings.map((h) => `${String(h.depth)}:${h.text}`).sort();
 
 const postConditionFailure = (
-  note: Note,
-  next: Note,
+  note: Entry,
+  next: Entry,
   expect: MutationExpectations,
 ): string | null => {
   const before = splitFrontmatter(note.source);
@@ -84,11 +84,11 @@ const postConditionFailure = (
   return null;
 };
 
-export const mutateNote = async (
+export const mutateEntry = async (
   deps: AppDeps,
   vault: VaultHandle,
-  index: NoteIndex,
-  note: Note,
+  index: EntryIndex,
+  note: Entry,
   edits: readonly TextEdit[],
   expect: MutationExpectations,
   options: { readonly dryRun?: boolean } = {},
@@ -99,9 +99,9 @@ export const mutateNote = async (
   const dryRun = options.dryRun ?? false;
   if (source === note.source) return ok({ path: note.path, written: false, dryRun });
 
-  const next = loadNoteEntry(deps, { path: note.path, source, version: '' });
+  const next = loadEntry(deps, { path: note.path, source, version: '' });
   const failure =
-    next.kind !== 'note' || next.id !== note.id
+    next.kind !== 'entry' || next.id !== note.id
       ? 'the note would lose its identity'
       : postConditionFailure(note, next, expect);
   if (failure !== null) {
@@ -121,7 +121,7 @@ export const mutateNote = async (
       diff: unifiedDiff(note.source, source, note.path),
     });
   }
-  const written = await deps.notes.write(vault.root, note.path, source, {
+  const written = await deps.entries.write(vault.root, note.path, source, {
     expectedVersion: note.version,
   });
   if (!written.ok) return written;

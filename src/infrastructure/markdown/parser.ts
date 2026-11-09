@@ -4,7 +4,7 @@ import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import type { Position } from 'unist';
 import { visitParents } from 'unist-util-visit-parents';
-import type { Heading } from '../../domain/note/note.js';
+import type { Heading } from '../../domain/entry/entry.js';
 import { findReferences, type Reference } from '../../domain/reference/reference.js';
 import type { SourceRange } from '../../domain/text/text-edit.js';
 import type { MarkdownParser, ParsedMarkdown } from '../../application/ports.js';

@@ -2,20 +2,20 @@ import type { AppError } from '../../domain/errors.js';
 import { formatReference } from '../../domain/reference/reference.js';
 import { ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
-import type { Note } from '../../domain/note/note.js';
+import type { Entry } from '../../domain/entry/entry.js';
 import {
   locateInsertion,
   type InsertionLocation,
   type InsertionPlan,
 } from '../../domain/text/insertion.js';
-import { checkVersion, mutateNote, type MutationOutcome } from '../mutations/mutate.js';
+import { checkVersion, mutateEntry, type MutationOutcome } from '../mutations/mutate.js';
 import type { AppDeps } from '../ports.js';
-import { readNoteInScope, resolveInScope, withScope } from '../scope/session.js';
+import { readEntryInScope, resolveInScope, withScope } from '../scope/session.js';
 
 export interface AddReferenceInput {
-  /** Note to edit: id, title or alias. */
+  /** Entry to edit: id, title or alias. */
   readonly source: string;
-  /** Note to point at, anywhere in the scope: id, title or alias; the canonical id is written. */
+  /** Entry to point at, anywhere in the scope: id, title or alias; the canonical id is written. */
   readonly target: string;
   readonly at?: InsertionLocation;
   readonly label?: string;
@@ -27,7 +27,7 @@ export interface AddReferenceInput {
 /** The note is still the one looked at, and `block` has a place at `at`. */
 const planAt = (
   deps: AppDeps,
-  note: Note,
+  note: Entry,
   at: InsertionLocation | undefined,
   block: string,
   expectedVersion: string | undefined,
@@ -63,7 +63,7 @@ export const checkInsertionPoint = (
   input: InsertionPointInput,
 ): Promise<Result<void, AppError>> =>
   withScope(deps, scope, async (session) => {
-    const located = await readNoteInScope(deps, session, input.source);
+    const located = await readEntryInScope(deps, session, input.source);
     if (!located.ok) return located;
     const planned = planAt(deps, located.value.note, input.at, '[[?]]', input.expectedVersion);
     return planned.ok ? ok(undefined) : planned;
@@ -77,7 +77,7 @@ export const addReference = (
   withScope(deps, scope, async (session) => {
     const target = resolveInScope(session, input.target);
     if (!target.ok) return target;
-    const located = await readNoteInScope(deps, session, input.source);
+    const located = await readEntryInScope(deps, session, input.source);
     if (!located.ok) return located;
     const { vault, index, note } = located.value;
     const plan = planAt(
@@ -88,7 +88,7 @@ export const addReference = (
       input.expectedVersion,
     );
     if (!plan.ok) return plan;
-    return mutateNote(
+    return mutateEntry(
       deps,
       vault,
       index,

@@ -1,5 +1,5 @@
 import { parseIsoDate } from '../../domain/calendar/date-binding.js';
-import type { FieldValue } from '../../domain/note/fields.js';
+import type { FieldValue } from '../../domain/entry/fields.js';
 import { parseFieldReference } from '../../domain/reference/reference.js';
 import type { FieldSpec, FieldType } from './plugin.js';
 

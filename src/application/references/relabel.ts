@@ -1,15 +1,15 @@
 import type { AppError } from '../../domain/errors.js';
-import type { Note } from '../../domain/note/note.js';
-import { isNoteSummary } from '../../domain/note/summary.js';
+import type { Entry } from '../../domain/entry/entry.js';
+import { isEntrySummary } from '../../domain/entry/summary.js';
 import { formatReference, isStandaloneReference } from '../../domain/reference/reference.js';
 import { ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import { replaceRange, type TextEdit } from '../../domain/text/text-edit.js';
-import { checkVersion, mutateNote, type MutationOutcome } from '../mutations/mutate.js';
-import { readNoteFile } from '../notes/show-note.js';
+import { checkVersion, mutateEntry, type MutationOutcome } from '../mutations/mutate.js';
+import { readEntryFile } from '../entries/show-entry.js';
 import type { AppDeps } from '../ports.js';
 import {
-  readNoteInScope,
+  readEntryInScope,
   withScope,
   type OpenedVault,
   type ScopeSession,
@@ -17,7 +17,7 @@ import {
 import { resolveTarget } from './references.js';
 
 export interface RelabelInput {
-  /** Note to relabel: id, title or alias. */
+  /** Entry to relabel: id, title or alias. */
   readonly source: string;
   readonly expectedVersion?: string;
   readonly dryRun?: boolean;
@@ -29,7 +29,7 @@ export interface RelabelInput {
  * alone (position heuristic, see `isStandaloneReference`); so are links whose target no longer
  * resolves in scope, and ones already showing the right title.
  */
-const planRelabel = (session: ScopeSession, note: Note): TextEdit[] => {
+const planRelabel = (session: ScopeSession, note: Entry): TextEdit[] => {
   const edits: TextEdit[] = [];
   for (const ref of note.references) {
     if (!isStandaloneReference(note.source, ref.range)) continue;
@@ -46,7 +46,7 @@ const applyRelabel = (
   deps: AppDeps,
   session: ScopeSession,
   opened: OpenedVault,
-  note: Note,
+  note: Entry,
   dryRun: boolean,
 ): Promise<Result<MutationOutcome, AppError>> => {
   const edits = planRelabel(session, note);
@@ -55,7 +55,7 @@ const applyRelabel = (
   }
   // Relabelling only rewrites the label slot of existing links: the targets, and so the
   // reference count, are unchanged, and the frontmatter is untouched.
-  return mutateNote(
+  return mutateEntry(
     deps,
     opened.vault,
     opened.index,
@@ -73,7 +73,7 @@ export const relabelReferences = (
   input: RelabelInput,
 ): Promise<Result<MutationOutcome, AppError>> =>
   withScope(deps, scope, async (session) => {
-    const located = await readNoteInScope(deps, session, input.source);
+    const located = await readEntryInScope(deps, session, input.source);
     if (!located.ok) return located;
     const fresh = checkVersion(located.value.note, input.expectedVersion);
     if (!fresh.ok) return fresh;
@@ -99,9 +99,9 @@ export const relabelAll = (
     const outcomes: MutationOutcome[] = [];
     let scanned = 0;
     for (const opened of session.opened) {
-      for (const summary of opened.index.all().filter(isNoteSummary)) {
+      for (const summary of opened.index.all().filter(isEntrySummary)) {
         scanned += 1;
-        const note = await readNoteFile(deps, opened.vault, summary);
+        const note = await readEntryFile(deps, opened.vault, summary);
         if (!note.ok) return note;
         const outcome = await applyRelabel(deps, session, opened, note.value, dryRun);
         if (!outcome.ok) return outcome;

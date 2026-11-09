@@ -1,11 +1,11 @@
 import { usage, type AppError } from '../../domain/errors.js';
 import { parseIsoDate } from '../../domain/calendar/date-binding.js';
-import type { FieldValue } from '../../domain/note/fields.js';
+import type { FieldValue } from '../../domain/entry/fields.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { isComposite } from '../../domain/scope/scope.js';
 import type { PluginApi, PluginCommand } from '../../application/plugin/plugin.js';
-import type { LocatedNote } from '../../application/scope/session.js';
-import { isoDate } from '../../application/notes/create-note.js';
+import type { IndexedEntry } from '../../application/scope/session.js';
+import { isoDate } from '../../application/entries/create-entry.js';
 import {
   collect,
   COURSE_TYPE,
@@ -35,7 +35,7 @@ const resolveOwned = async (
   api: PluginApi,
   query: string,
   type: OwnedType,
-): Promise<Result<LocatedNote, AppError>> => {
+): Promise<Result<IndexedEntry, AppError>> => {
   const located = await api.read(query);
   if (!located.ok) return located;
   if (located.value.note.type !== type) {
@@ -188,7 +188,7 @@ const log: PluginCommand = {
 
 const NEW_TYPES = [COURSE_TYPE, CHAPTER_TYPE, LESSON_TYPE] as const;
 
-const newNote: PluginCommand = {
+const newEntry: PluginCommand = {
   name: 'new',
   description: 'create a course, chapter or lesson (study sessions are made with `log`)',
   args: [
@@ -404,4 +404,4 @@ const show: PluginCommand = {
   },
 };
 
-export const COMMANDS: readonly PluginCommand[] = [outline, newNote, log, done, start, stop, show];
+export const COMMANDS: readonly PluginCommand[] = [outline, newEntry, log, done, start, stop, show];

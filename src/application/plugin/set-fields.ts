@@ -1,15 +1,15 @@
 import { appError, validation, type AppError } from '../../domain/errors.js';
-import { extractFields, type FieldValue } from '../../domain/note/fields.js';
-import { KNOWN_KEYS, splitFrontmatter } from '../../domain/note/frontmatter.js';
+import { extractFields, type FieldValue } from '../../domain/entry/fields.js';
+import { KNOWN_KEYS, splitFrontmatter } from '../../domain/entry/frontmatter.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import { replaceRange } from '../../domain/text/text-edit.js';
-import { mutateNote, type MutationOutcome } from '../mutations/mutate.js';
+import { mutateEntry, type MutationOutcome } from '../mutations/mutate.js';
 import type { AppDeps } from '../ports.js';
-import { readNoteInScope, withScope } from '../scope/session.js';
+import { readEntryInScope, withScope } from '../scope/session.js';
 
 export interface SetFieldsInput {
-  /** Note to edit: id, title or alias. */
+  /** Entry to edit: id, title or alias. */
   readonly note: string;
   /** `null` removes the key; anything else sets it through the YAML codec. */
   readonly fields: Readonly<Record<string, FieldValue | null>>;
@@ -45,7 +45,7 @@ export const setFields = (
     return Promise.resolve(err(validation('No fields to set')));
   }
   return withScope(deps, scope, async (session) => {
-    const located = await readNoteInScope(deps, session, input.note);
+    const located = await readEntryInScope(deps, session, input.note);
     if (!located.ok) return located;
     const { vault, index, note } = located.value;
     const current = extractFields(note.frontmatter);
@@ -66,7 +66,7 @@ export const setFields = (
     }
     const yaml = deps.frontmatter.update(block.yaml, { set, remove });
     if (!yaml.ok) return yaml;
-    return mutateNote(
+    return mutateEntry(
       deps,
       vault,
       index,

@@ -1,13 +1,13 @@
 import { usage, type AppError } from '../../domain/errors.js';
-import { summarize } from '../../domain/note/summary.js';
+import { summarize } from '../../domain/entry/summary.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { isComposite } from '../../domain/scope/scope.js';
-import { isoDate } from '../../application/notes/create-note.js';
+import { isoDate } from '../../application/entries/create-entry.js';
 import type {
   CheckResult,
-  NotePlugin,
+  EntryPlugin,
   PanelContext,
-  PanelNoteRef,
+  PanelEntryRef,
   PluginApi,
   PluginCommand,
 } from '../../application/plugin/plugin.js';
@@ -52,7 +52,11 @@ const header = (composite: boolean): string[] => [
   'priority',
 ];
 
-const noteRef = (todo: Todo): PanelNoteRef => ({ vault: todo.vault, path: todo.path, id: todo.id });
+const entryRef = (todo: Todo): PanelEntryRef => ({
+  vault: todo.vault,
+  path: todo.path,
+  id: todo.id,
+});
 
 const parseStatus = (raw: unknown): Result<StatusFilter, AppError> => {
   if (raw === undefined || raw === 'open') return ok('open');
@@ -128,18 +132,18 @@ const openTodosPanel = async (api: PluginApi) => {
   return ok({
     kind: 'table' as const,
     header: header(composite),
-    rows: shown.map((todo) => ({ cells: cells(todo, composite), note: noteRef(todo) })),
+    rows: shown.map((todo) => ({ cells: cells(todo, composite), note: entryRef(todo) })),
   });
 };
 
-const selectedNote = (context: PanelContext): PanelNoteRef | null => {
+const selectedEntry = (context: PanelContext): PanelEntryRef | null => {
   const row = context.selection;
   if (typeof row !== 'object' || row === null || !('note' in row)) return null;
-  const note = (row as { note?: PanelNoteRef }).note;
+  const note = (row as { note?: PanelEntryRef }).note;
   return note?.id === undefined ? null : note;
 };
 
-export const todosPlugin: NotePlugin = {
+export const todosPlugin: EntryPlugin = {
   name: NAME,
   description: 'tasks with a status, a due date and a priority',
   types: [TODO_TYPE],
@@ -165,7 +169,7 @@ export const todosPlugin: NotePlugin = {
           key: 'd',
           label: 'Mark done',
           async run(api, context) {
-            const note = selectedNote(context);
+            const note = selectedEntry(context);
             if (note?.id === undefined) return ok(null);
             return api.setFields(note.id, { status: 'done' });
           },
@@ -175,7 +179,7 @@ export const todosPlugin: NotePlugin = {
     {
       id: 'todos.note',
       title: 'Todo',
-      placement: 'note',
+      placement: 'entry',
       appliesTo: 'owned',
       load: (_api, context) => {
         const located = context.note;

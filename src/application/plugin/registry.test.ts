@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validation } from '../../domain/errors.js';
 import { err, ok, unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import type { NotePlugin, PanelSpec } from './plugin.js';
+import type { EntryPlugin, PanelSpec } from './plugin.js';
 import { buildRegistry, enabledPlugin } from './registry.js';
 
 const panel = (id: string, key: string, placement: PanelSpec['placement'] = 'home'): PanelSpec => ({
@@ -13,7 +13,7 @@ const panel = (id: string, key: string, placement: PanelSpec['placement'] = 'hom
   load: () => Promise.resolve(ok({ kind: 'text', lines: [] })),
 });
 
-const plugin = (name: string, overrides: Partial<NotePlugin> = {}): NotePlugin => ({
+const plugin = (name: string, overrides: Partial<EntryPlugin> = {}): EntryPlugin => ({
   name,
   description: name,
   types: [name.slice(0, -1)],
@@ -172,8 +172,8 @@ describe('buildRegistry', () => {
       error: { details: { chord: 'T', panels: ['core.calendar', 'todos.home'] } },
     });
     // The same chord on another placement is fine.
-    const noteKey = plugin('goals', { panels: [panel('goals.note', 'T', 'note')] });
-    expect(buildRegistry([todos, noteKey], f.scope)).toMatchObject({ ok: true });
+    const entryKey = plugin('goals', { panels: [panel('goals.note', 'T', 'entry')] });
+    expect(buildRegistry([todos, entryKey], f.scope)).toMatchObject({ ok: true });
     const sameId = plugin('goals', { panels: [panel('todos.home', 'G')] });
     expect(buildRegistry([todos, sameId], f.scope)).toMatchObject({
       ok: false,
@@ -235,7 +235,7 @@ describe('buildRegistry', () => {
     const theme = (name: string) => ({
       name,
       contentDir: 'src/content',
-      collections: { notes: { route: '/notes/{{slug}}/', fields: [], frontmatter: () => ({}) } },
+      collections: { notes: { route: '/entries/{{slug}}/', fields: [], frontmatter: () => ({}) } },
     });
 
     it('offers a plugin theme to the vaults that enable the plugin, and not to others', () => {

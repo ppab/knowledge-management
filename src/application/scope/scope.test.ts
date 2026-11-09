@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
 import { diagnose } from '../doctor/diagnose.js';
-import { listNotes } from '../notes/list-notes.js';
-import { showNote } from '../notes/show-note.js';
+import { listEntries } from '../entries/list-entries.js';
+import { showEntry } from '../entries/show-entry.js';
 import { addReference } from '../references/add-reference.js';
 import { backlinks, listReferences } from '../references/references.js';
-import { searchNotes } from '../search/search-notes.js';
+import { searchEntries } from '../search/search-entries.js';
 import { loadScope } from '../vault/vault.js';
 import { describeScope, listScopes } from './scope-info.js';
 
@@ -35,15 +35,15 @@ const twoVaults = () => {
 describe('resolution across a scope', () => {
   it('finds a note in any vault by id and reports which vault owns it', async () => {
     const { f, scope } = twoVaults();
-    const found = unwrap(await showNote(f.deps, scope, 'W'));
+    const found = unwrap(await showEntry(f.deps, scope, 'W'));
     expect(found.vault.config.name).toBe('work');
     expect(found.note.title).toBe('Work note');
-    expect(unwrap(await showNote(f.deps, scope, 'Work note')).vault.root).toBe('/work');
+    expect(unwrap(await showEntry(f.deps, scope, 'Work note')).vault.root).toBe('/work');
   });
 
   it('is ambiguous for an id or alias present in two vaults (invariants 3 and 4)', async () => {
     const { f, scope } = twoVaults();
-    expect(await showNote(f.deps, scope, 'DUP')).toMatchObject({
+    expect(await showEntry(f.deps, scope, 'DUP')).toMatchObject({
       ok: false,
       error: {
         code: 'AMBIGUOUS',
@@ -55,28 +55,28 @@ describe('resolution across a scope', () => {
         },
       },
     });
-    expect(await showNote(f.deps, scope, 'shared')).toMatchObject({
+    expect(await showEntry(f.deps, scope, 'shared')).toMatchObject({
       ok: false,
       error: { code: 'AMBIGUOUS' },
     });
     // Each vault on its own is unambiguous.
-    expect(unwrap(await showNote(f.deps, f.scopeOf('/work'), 'DUP')).note.title).toBe(
+    expect(unwrap(await showEntry(f.deps, f.scopeOf('/work'), 'DUP')).note.title).toBe(
       'Dup in work',
     );
   });
 
   it('reports a miss as unavailable when a vault could not be opened (A6), else not found', async () => {
     const { f, scope, partial } = twoVaults();
-    expect(await showNote(f.deps, partial, 'nope')).toMatchObject({
+    expect(await showEntry(f.deps, partial, 'nope')).toMatchObject({
       ok: false,
       error: { code: 'UNAVAILABLE', details: { vaults: ['/gone'] } },
     });
-    expect(await showNote(f.deps, scope, 'nope')).toMatchObject({
+    expect(await showEntry(f.deps, scope, 'nope')).toMatchObject({
       ok: false,
       error: { code: 'NOT_FOUND' },
     });
     // Reads of the available vault still work.
-    expect(unwrap(await showNote(f.deps, partial, 'A')).note.title).toBe('Alpha');
+    expect(unwrap(await showEntry(f.deps, partial, 'A')).note.title).toBe('Alpha');
   });
 });
 
@@ -84,19 +84,19 @@ describe('federated reads', () => {
   it('lists and searches across vaults, interleaving by rank and tagging each hit', async () => {
     const { f, work, scope } = twoVaults();
     work.fs.files.set('w2.md', note('W2', 'Second work note', '', 'alpha alpha alpha\n'));
-    expect(unwrap(await listNotes(f.deps, scope)).map((e) => [e.vault, e.path])).toEqual([
+    expect(unwrap(await listEntries(f.deps, scope)).map((e) => [e.vault, e.path])).toEqual([
       ['monitor', 'a.md'],
       ['monitor', 'dup.md'],
       ['work', 'dup.md'],
       ['work', 'w.md'],
       ['work', 'w2.md'],
     ]);
-    const hits = unwrap(await searchNotes(f.deps, scope, 'alpha'));
+    const hits = unwrap(await searchEntries(f.deps, scope, 'alpha'));
     expect(hits.map((h) => [h.vault, h.entry.path, h.rankInVault])).toEqual([
       ['monitor', 'a.md', 1],
       ['work', 'w2.md', 1],
     ]);
-    expect(unwrap(await searchNotes(f.deps, scope, 'alpha', { limit: 1 }))).toHaveLength(1);
+    expect(unwrap(await searchEntries(f.deps, scope, 'alpha', { limit: 1 }))).toHaveLength(1);
   });
 
   it('follows references across vaults for backlinks and reference listings', async () => {

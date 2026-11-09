@@ -1,6 +1,6 @@
 import { Text, useInput } from 'ink';
 import { useState } from 'react';
-import type { Heading } from '../../../domain/note/note.js';
+import type { Heading } from '../../../domain/entry/entry.js';
 import { REFERENCES_HEADING, type InsertionLocation } from '../../../domain/text/insertion.js';
 import { isDown, isUp } from '../keys.js';
 import { useTui } from '../context.js';

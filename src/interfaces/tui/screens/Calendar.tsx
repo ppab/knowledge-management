@@ -1,7 +1,7 @@
 import { Box, Text, useInput } from 'ink';
 import { useState } from 'react';
 import { boundDates, type ScopedDateHit } from '../../../application/calendar/calendar.js';
-import { isoDate } from '../../../application/notes/create-note.js';
+import { isoDate } from '../../../application/entries/create-entry.js';
 import type { DateRange, IsoDate } from '../../../domain/calendar/date-binding.js';
 import {
   dayMarker,
@@ -21,7 +21,7 @@ import {
   yearRange,
 } from '../../../domain/calendar/month-grid.js';
 import { isComposite } from '../../../domain/scope/scope.js';
-import { bindNote } from '../calendar-actions.js';
+import { bindEntry } from '../calendar-actions.js';
 import { screenChords, useLeader } from '../chords.js';
 import { Dialog } from '../components/Dialog.js';
 import { Frame, useBodyHeight, type Hint } from '../components/Frame.js';
@@ -30,7 +30,7 @@ import { Prompt } from '../components/Prompt.js';
 import { Rows } from '../components/Rows.js';
 import { useLoad, useTui } from '../context.js';
 import { isBack, isDown, isUp } from '../keys.js';
-import { clamp, noteScreen, type CalendarView, type Screen } from '../model.js';
+import { clamp, entryScreen, type CalendarView, type Screen } from '../model.js';
 
 type CalendarScreen = Extract<Screen, { kind: 'calendar' }>;
 
@@ -134,7 +134,7 @@ export const Calendar = ({ screen }: { readonly screen: CalendarScreen }) => {
 
   const onPicked = (picked: Picked) => {
     setFlow(null);
-    void bindNote(tui, picked, cursor).then((written) => {
+    void bindEntry(tui, picked, cursor).then((written) => {
       if (written) reload();
     });
   };
@@ -150,7 +150,7 @@ export const Calendar = ({ screen }: { readonly screen: CalendarScreen }) => {
       notify(view === 'agenda' ? 'No bindings this month' : `No notes bound to ${cursor}`);
       return;
     }
-    void bindNote(tui, selected.entry, selected.date, true).then((written) => {
+    void bindEntry(tui, selected.entry, selected.date, true).then((written) => {
       if (written) reload();
     });
   };
@@ -158,7 +158,7 @@ export const Calendar = ({ screen }: { readonly screen: CalendarScreen }) => {
     if (selected) {
       navigate({
         type: 'push',
-        screen: noteScreen({ vault: selected.vault, path: selected.entry.path }),
+        screen: entryScreen({ vault: selected.vault, path: selected.entry.path }),
       });
     }
   };

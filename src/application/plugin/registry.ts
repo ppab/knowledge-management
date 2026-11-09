@@ -14,7 +14,7 @@ import { resolvePublications } from '../publishing/resolve-publications.js';
 import type {
   EnabledPlugin,
   FieldSpec,
-  NotePlugin,
+  EntryPlugin,
   PanelSpec,
   Placement,
   PluginRegistry,
@@ -39,7 +39,7 @@ const fieldShape = (spec: FieldSpec): string =>
 
 const enablingMembers = (
   scope: Scope,
-  plugin: NotePlugin,
+  plugin: EntryPlugin,
 ): { members: ScopeMember[]; settings: Map<string, unknown> } | null => {
   const members: ScopeMember[] = [];
   const settings = new Map<string, unknown>();
@@ -59,11 +59,11 @@ const enablingMembers = (
 };
 
 export const buildRegistry = (
-  plugins: readonly NotePlugin[],
+  plugins: readonly EntryPlugin[],
   scope: Scope,
   options: RegistryOptions = {},
 ): Result<PluginRegistry, AppError> => {
-  const byName = new Map<string, NotePlugin>();
+  const byName = new Map<string, EntryPlugin>();
   for (const plugin of plugins) {
     if (byName.has(plugin.name)) {
       return err(
@@ -112,8 +112,8 @@ export const buildRegistry = (
     });
   }
 
-  const owners = new Map<string, NotePlugin>();
-  const fields = new Map<string, { plugin: NotePlugin; spec: FieldSpec }>();
+  const owners = new Map<string, EntryPlugin>();
+  const fields = new Map<string, { plugin: EntryPlugin; spec: FieldSpec }>();
   for (const { plugin } of enabled) {
     for (const type of plugin.types) {
       const other = owners.get(type);

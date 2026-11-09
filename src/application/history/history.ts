@@ -1,6 +1,6 @@
 import type { AppError } from '../../domain/errors.js';
 import { notFound } from '../../domain/errors.js';
-import type { NoteEntry } from '../../domain/note/note.js';
+import type { AnyEntry } from '../../domain/entry/entry.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import {
   findRevision,
@@ -10,19 +10,19 @@ import {
 } from '../../domain/revision/revision.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import { unifiedDiff } from '../../domain/text/diff.js';
-import { loadNoteEntry } from '../notes/load-note.js';
-import { locateEntry, type LocatedEntry, type NoteLocator } from '../notes/view-note.js';
+import { loadEntry } from '../entries/load-entry.js';
+import { locateEntry, type LocatedEntry, type EntryLocator } from '../entries/view-entry.js';
 import type { AppDeps } from '../ports.js';
 import { withScope } from '../scope/session.js';
 
 /*
  * Reading a note's past (docs/architecture.md A5): revisions are whatever the provider
  * recorded, the working file is never one of them, and historical content is parsed on the
- * fly, never indexed. Every use case addresses the note like the viewer does (`NoteLocator`),
+ * fly, never indexed. Every use case addresses the note like the viewer does (`EntryLocator`),
  * so unidentified files have a history too.
  */
 
-export interface NoteHistory extends LocatedEntry {
+export interface EntryHistory extends LocatedEntry {
   readonly status: RevisionStatus;
   /** Newest first; empty when nothing was recorded or the vault is unversioned. */
   readonly revisions: readonly Revision[];
@@ -31,7 +31,7 @@ export interface NoteHistory extends LocatedEntry {
 export const revisionStatus = (
   deps: AppDeps,
   scope: Scope,
-  locator: NoteLocator,
+  locator: EntryLocator,
 ): Promise<Result<LocatedEntry & { readonly status: RevisionStatus }, AppError>> =>
   withScope(deps, scope, async (session) => {
     const found = await locateEntry(deps, session, locator);
@@ -44,7 +44,7 @@ export const revisionStatus = (
 const historyOf = async (
   deps: AppDeps,
   found: LocatedEntry,
-): Promise<Result<NoteHistory, AppError>> => {
+): Promise<Result<EntryHistory, AppError>> => {
   const { root } = found.vault;
   const status = await deps.revisions.status(root, found.entry.path);
   if (!status.ok) return status;
@@ -56,15 +56,15 @@ const historyOf = async (
 export const listRevisions = (
   deps: AppDeps,
   scope: Scope,
-  locator: NoteLocator,
-): Promise<Result<NoteHistory, AppError>> =>
+  locator: EntryLocator,
+): Promise<Result<EntryHistory, AppError>> =>
   withScope(deps, scope, async (session) => {
     const found = await locateEntry(deps, session, locator);
     if (!found.ok) return found;
     return historyOf(deps, found.value);
   });
 
-const noRevisions = (history: NoteHistory): AppError =>
+const noRevisions = (history: EntryHistory): AppError =>
   history.status.kind === 'unversioned'
     ? notFound(`${history.entry.path} has no revisions: the vault is not under version control`, {
         path: history.entry.path,
@@ -75,22 +75,22 @@ const noRevisions = (history: NoteHistory): AppError =>
         status: history.status.kind,
       });
 
-export interface HistoricalNote {
-  readonly vault: NoteHistory['vault'];
+export interface HistoricalEntry {
+  readonly vault: EntryHistory['vault'];
   /** The note as it was then, parsed from the historical content (version is empty). */
-  readonly entry: NoteEntry;
+  readonly entry: AnyEntry;
   readonly revision: Revision;
   /** The working file, for callers that show both. */
-  readonly current: NoteEntry;
+  readonly current: AnyEntry;
 }
 
 /** The note's content at a revision given by id or unique prefix; the index is not touched. */
 export const readRevision = (
   deps: AppDeps,
   scope: Scope,
-  locator: NoteLocator,
+  locator: EntryLocator,
   revisionId: string,
-): Promise<Result<HistoricalNote, AppError>> =>
+): Promise<Result<HistoricalEntry, AppError>> =>
   withScope(deps, scope, async (session) => {
     const found = await locateEntry(deps, session, locator);
     if (!found.ok) return found;
@@ -101,7 +101,7 @@ export const readRevision = (
     if (!revision.ok) return revision;
     const source = await deps.revisions.read(found.value.vault.root, revision.value);
     if (!source.ok) return source;
-    const entry = loadNoteEntry(deps, {
+    const entry = loadEntry(deps, {
       path: found.value.entry.path,
       source: source.value,
       version: '',
@@ -122,8 +122,8 @@ export interface DiffInput {
 }
 
 export interface RevisionDiff {
-  readonly vault: NoteHistory['vault'];
-  readonly entry: NoteEntry;
+  readonly vault: EntryHistory['vault'];
+  readonly entry: AnyEntry;
   readonly from: Revision;
   readonly to: Revision | 'working';
   /** Unified diff; empty when the two are identical. */
@@ -133,7 +133,7 @@ export interface RevisionDiff {
 export const diffRevisions = (
   deps: AppDeps,
   scope: Scope,
-  locator: NoteLocator,
+  locator: EntryLocator,
   input: DiffInput = {},
 ): Promise<Result<RevisionDiff, AppError>> =>
   withScope(deps, scope, async (session) => {

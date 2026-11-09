@@ -9,7 +9,7 @@ import { unwrap } from '../../src/domain/result.js';
 import { createDeps } from '../../src/infrastructure/deps.js';
 import { App } from '../../src/interfaces/tui/App.js';
 import type { TuiServices } from '../../src/interfaces/tui/context.js';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { createTheme } from '../../src/interfaces/tui/theme.js';
 import { buildTuiRegistry } from '../../src/interfaces/tui/tui.js';
 import { firstPartyPlugins } from '../../src/plugins/index.js';
@@ -124,7 +124,7 @@ describe('reference add --label and the TUI selection path agree', () => {
         <App
           services={services}
           changes={fakeChanges()}
-          initial={[{ kind: 'list', cursor: 0 }, noteScreen({ query: 'SRC' })]}
+          initial={[{ kind: 'list', cursor: 0 }, entryScreen({ query: 'SRC' })]}
         />,
       );
       try {

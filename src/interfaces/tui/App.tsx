@@ -7,8 +7,8 @@ import { Calendar } from './screens/Calendar.js';
 import { Day } from './screens/DayScreen.js';
 import { DiffView } from './screens/DiffView.js';
 import { History } from './screens/History.js';
-import { NoteList } from './screens/NoteList.js';
-import { NoteView } from './screens/NoteView.js';
+import { EntryList } from './screens/EntryList.js';
+import { EntryView } from './screens/EntryView.js';
 import { PanelScreen } from './screens/PanelScreen.js';
 import { RevisionView } from './screens/RevisionView.js';
 
@@ -25,9 +25,9 @@ export interface AppProps {
 const Top = ({ screen }: { readonly screen: Screen }) => {
   switch (screen.kind) {
     case 'list':
-      return <NoteList screen={screen} />;
-    case 'note':
-      return <NoteView screen={screen} />;
+      return <EntryList screen={screen} />;
+    case 'entry':
+      return <EntryView screen={screen} />;
     case 'calendar':
       return <Calendar screen={screen} />;
     case 'day':

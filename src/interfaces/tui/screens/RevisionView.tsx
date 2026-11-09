@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { readRevision } from '../../../application/history/history.js';
-import { isNote } from '../../../domain/note/note.js';
+import { isEntry } from '../../../domain/entry/entry.js';
 import { abbreviate } from '../../../domain/revision/revision.js';
 import { screenChords, useLeader } from '../chords.js';
 import { Frame, useBodyHeight } from '../components/Frame.js';
@@ -50,7 +50,7 @@ export const RevisionView = ({ screen }: { readonly screen: RevisionScreen }) =>
   );
 
   const entry = historical?.entry;
-  const idText = entry && isNote(entry) ? entry.id : 'unidentified';
+  const idText = entry && isEntry(entry) ? entry.id : 'unidentified';
   const title = historical
     ? `${historical.entry.title} · ${historical.vault.config.name} · ${idText} @ ${abbreviate(historical.revision.id)} (${revisionDate(historical.revision)}) ${historical.revision.summary}`
     : 'revision · loading…';
