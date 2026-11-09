@@ -1,7 +1,8 @@
 import { Text, useInput } from 'ink';
 import { useState } from 'react';
-import type { PanelAction } from '../../../application/plugin/plugin.js';
+import type { PanelAction, TreeNode } from '../../../application/plugin/plugin.js';
 import { screenChords, useLeader, type Chord } from '../chords.js';
+import { ActionInputs } from '../components/ActionInputs.js';
 import { Frame, useBodyHeight } from '../components/Frame.js';
 import type { Hint } from '../components/Frame.js';
 import { actionHints, PanelView } from '../components/PanelView.js';
@@ -22,6 +23,7 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
   const tui = useTui();
   const { registry, revision, navigate, notify, report } = tui;
   const [local, setLocal] = useState(0);
+  const [form, setForm] = useState<{ action: PanelAction; node: TreeNode } | null>(null);
   const height = useBodyHeight();
   const spec = registry.panels('home').find((p) => p.id === screen.id);
 
@@ -44,13 +46,25 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
   const focused = tree ? flat[cursor] : undefined;
   const node = focused?.node;
 
-  const runAction = (action: PanelAction, selection: unknown) => {
+  const runAction = (
+    action: PanelAction,
+    selection: unknown,
+    inputs?: Record<string, string | number>,
+  ) => {
     if (!spec) return;
-    void action.run(apiForPanel(tui, spec), { selection }).then((outcome) => {
-      if (outcome.ok) notify(outcomeText(outcome.value));
-      else report(outcome.error);
-      setLocal((n) => n + 1);
-    });
+    void action
+      .run(apiForPanel(tui, spec), { selection, ...(inputs && { inputs }) })
+      .then((outcome) => {
+        if (outcome.ok) notify(outcomeText(outcome.value));
+        else report(outcome.error);
+        setLocal((n) => n + 1);
+      });
+  };
+
+  /** Run now, or open the input form first when the verb declares `inputs`. */
+  const triggerAction = (action: PanelAction, selectionNode: TreeNode) => {
+    if (action.inputs && action.inputs.length > 0) setForm({ action, node: selectionNode });
+    else runAction(action, selectionNode);
   };
 
   const menuChords: Chord[] =
@@ -59,7 +73,7 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
           key: a.key,
           label: a.label,
           run: () => {
-            runAction(a, node);
+            triggerAction(a, node);
           },
         }))
       : [];
@@ -111,7 +125,7 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
           const inline = nodeActions(spec?.actions ?? [], node, 'inline').find(
             (a) => a.key === input,
           );
-          if (inline) runAction(inline, node);
+          if (inline) triggerAction(inline, node);
         }
         return;
       }
@@ -125,10 +139,27 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
       const action = spec?.actions?.find((a) => a.key === input);
       if (action && spec) runAction(action, rowAt(data, cursor));
     },
-    { isActive: !leader.pending },
+    { isActive: !leader.pending && form === null },
   );
 
   if (!spec) return <Text {...tui.theme.paint('error')}>No panel {screen.id}</Text>;
+  const overlay =
+    form !== null ? (
+      <ActionInputs
+        title={form.action.label}
+        inputs={form.action.inputs ?? []}
+        onSubmit={(values) => {
+          const { action, node: target } = form;
+          setForm(null);
+          runAction(action, target, values);
+        }}
+        onCancel={() => {
+          setForm(null);
+        }}
+      />
+    ) : (
+      leader.popup
+    );
   const inlineHints: Hint[] =
     tree && node
       ? nodeActions(spec.actions ?? [], node, 'inline').map((a) => [a.key, a.label])
@@ -150,7 +181,7 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
         ['Esc', 'back'],
       ];
   return (
-    <Frame title={spec.title} hints={hints} overlay={leader.popup}>
+    <Frame title={spec.title} hints={hints} overlay={overlay}>
       <PanelView spec={spec} loaded={loaded} cursor={cursor} height={height} flat={flat} />
     </Frame>
   );

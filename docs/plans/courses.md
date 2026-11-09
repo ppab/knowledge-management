@@ -272,19 +272,23 @@ is the one substantial build; the rest are small and partly shared with `goals`.
 
 ## Deliveries and core extensions
 
-| Delivery        | Ships                                                                                                                                                 | Core change                                                                                                                     |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.                                                                | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).                                        |
-| A′ ✓            | `course_target` field (schema addendum).                                                                                                              | Typed `create` (`CreateNoteInput.fields`).                                                                                      |
-| B ✓             | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                                                                               | Typed `create` (above); readers reject on any field problem.                                                                    |
-| C ✓             | `courses start` / `stop`; `courses:open` doctor check; open-study model.                                                                              | None beyond B.                                                                                                                  |
-| D1 ✓            | The courses **tree screen** (`Space → C`), collapsible with derived expansion; inline `[done]`/`[stop]` verbs; leader menu scoped by node type.       | A generic `tree` `PanelData` kind + `TreeNode`; `PanelAction.appliesTo`/`surface`/`inputs`; tree renderer.                      |
-| D2              | The creating verbs from the tree (`start`/`log`/`set target`) via the leader menu + input form; the `courses.note` subtree panel; `ProgressBar` cell. | `PanelAction.run` result widened for creates; `PanelAction.inputs` rendered by the core; `ProgressBar` (shared with `goals` D). |
+| Delivery        | Ships                                                                                                                                           | Core change                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.                                                          | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).                                            |
+| A′ ✓            | `course_target` field (schema addendum).                                                                                                        | Typed `create` (`CreateNoteInput.fields`).                                                                                          |
+| B ✓             | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                                                                         | Typed `create` (above); readers reject on any field problem.                                                                        |
+| C ✓             | `courses start` / `stop`; `courses:open` doctor check; open-study model.                                                                        | None beyond B.                                                                                                                      |
+| D1 ✓            | The courses **tree screen** (`Space → C`), collapsible with derived expansion; inline `[done]`/`[stop]` verbs; leader menu scoped by node type. | A generic `tree` `PanelData` kind + `TreeNode`; `PanelAction.appliesTo`/`surface`/`inputs`; tree renderer.                          |
+| D2 ✓            | The creating verbs from the tree (`start`/`log`/`set target`) via the leader menu + input form; the `courses.note` outline panel.               | `PanelAction.run` result widened (a `{ message }` variant) for creates; `PanelAction.inputs` rendered by the core (`ActionInputs`). |
 
-A′–D1 are shipped. D1's inline verbs are the mutation ones that fit today's `PanelAction` contract
-(`done` on a lesson, `stop` on a running study); the creating verbs (`start`/`log`/`set target`) and
-the declarative input form are D2, because `create` returns a note, not a `MutationOutcome`. The
-generic `tree` panel kind is the one substantial core build, reusable beyond `courses`.
+A′–D2 are shipped. D1's inline verbs are the mutation ones (`done` on a lesson, `stop` on a running
+study); D2 adds the creating verbs through the leader menu, collecting values in the core-rendered
+`ActionInputs` form (the `log` amount/unit, the `set target` date) and reporting a plain message
+since `create` returns a note, not a `MutationOutcome`. The `courses.note` panel is a text outline
+of the focused note's course (a tree there would need the collapse cursor `NoteView` lacks). Left
+for later: the `ProgressBar` cell for the course headline (shared with `goals` D), and an inline
+focusable-span cursor so `Enter` on a `[done]` span runs it (today the inline key does). The generic
+`tree` panel kind is the one substantial core build, reusable beyond `courses`.
 
 ## Testing
 

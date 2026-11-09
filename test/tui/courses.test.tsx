@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { coursesPlugin } from '../../src/plugins/courses/plugin.js';
-import { harness, type Terminal } from './harness.js';
+import { harness, KEYS, type Terminal } from './harness.js';
 
 const fm = (lines: string[]): string => `---\n${lines.join('\n')}\n---\n`;
 const files: Record<string, string> = {
@@ -64,5 +64,29 @@ describe('courses tree screen', () => {
     // Loops is now done (no verb); Functions, still in progress, keeps its own [done].
     expect(done).toMatch(/✓ Loops(?! \[done\])/);
     expect(done).toContain('Updated l1.md');
+  });
+
+  it('logs time from the leader menu through the input form', async () => {
+    const h = harness(
+      (f) => {
+        for (const [path, source] of Object.entries(files)) f.fs.files.set(path, source);
+      },
+      { plugins: [coursesPlugin] },
+    );
+    term = h.start();
+    await term.waitFor('notes');
+    await term.press(' ', 'C');
+    await term.waitFor('CS50');
+
+    // Leader → log: the course menu verb opens the input form.
+    await term.press(' ', 'l');
+    await term.waitFor('amount');
+    await term.type('45');
+    await term.press(KEYS.enter); // amount → unit (enum, minutes default)
+    await term.waitFor('hours');
+    await term.press(KEYS.enter); // pick minutes → submit
+
+    const logged = await term.waitFor('Logged 45');
+    expect(logged).toContain('45m'); // the course headline now carries the study time
   });
 });

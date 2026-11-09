@@ -1,5 +1,7 @@
-import type { AppError } from '../../domain/errors.js';
-import { ok, type Result } from '../../domain/result.js';
+import { usage, type AppError } from '../../domain/errors.js';
+import { parseIsoDate } from '../../domain/calendar/date-binding.js';
+import type { FieldValue } from '../../domain/note/fields.js';
+import { err, ok, type Result } from '../../domain/result.js';
 import type {
   PanelAction,
   PanelContext,
@@ -8,24 +10,30 @@ import type {
   PluginApi,
   TreeNode,
 } from '../../application/plugin/plugin.js';
-import { collect } from './model.js';
+import { collect, type CoursesEntries } from './model.js';
+import { courseView, formatCourse } from './outline.js';
 import { coursesTree } from './tree.js';
+import { courseOf } from './study.js';
 import { minutesBetween } from './units.js';
 
 /*
- * The courses tree screen (docs/plans/courses.md, delivery D1): a home panel whose data is the
- * collapsible course tree, with the inline mutation verbs that fit the panel-action contract —
- * `d` marks the focused lesson done, `x` stops the focused running timer. The creating verbs
- * (start/log/set-target) and the leader-menu inputs follow in D2.
+ * The courses tree screen (docs/plans/courses.md, delivery D). The home panel is the collapsible
+ * course tree; its inline verbs (`d` done, `x` stop) edit the focused node, and its leader-menu
+ * verbs (`s` start, `l` log, `t` set target), scoped to the node's type, create or set through the
+ * input form. A note-side panel shows the focused note's course as a subtree.
  */
 
 const node = (context: PanelContext): TreeNode | undefined =>
   context.selection as TreeNode | undefined;
 
-const loadTree = async (api: PluginApi): Promise<Result<PanelData, AppError>> => {
+const load = async (api: PluginApi): Promise<Result<CoursesEntries, AppError>> => {
   const entries = await api.list();
-  if (!entries.ok) return entries;
-  return ok({ kind: 'tree', roots: coursesTree(collect(entries.value)) });
+  return entries.ok ? ok(collect(entries.value)) : entries;
+};
+
+const loadTree = async (api: PluginApi): Promise<Result<PanelData, AppError>> => {
+  const entries = await load(api);
+  return entries.ok ? ok({ kind: 'tree', roots: coursesTree(entries.value) }) : entries;
 };
 
 /** Mark the focused lesson done. */
@@ -50,15 +58,121 @@ const stopAction: PanelAction = {
   async run(api, context) {
     const id = node(context)?.note?.id;
     if (id === undefined) return ok(null);
-    const entries = await api.list();
+    const entries = await load(api);
     if (!entries.ok) return entries;
-    const study = collect(entries.value).studies.find((s) => s.id === id);
+    const study = entries.value.studies.find((s) => s.id === id);
     if (study?.open !== true || study.started === undefined) return ok(null);
     return api.setFields(id, {
       study_ended: api.clock.now().toISOString(),
       study_amount: minutesBetween(study.started, api.clock.now().getTime()),
     });
   },
+};
+
+/** Start a study timer on the focused course or lesson. */
+const startAction: PanelAction = {
+  key: 's',
+  label: 'start timer',
+  appliesTo: ['course', 'lesson'],
+  surface: 'menu',
+  async run(api, context) {
+    const focused = node(context);
+    const id = focused?.note?.id;
+    if (id === undefined) return ok(null);
+    const entries = await load(api);
+    if (!entries.ok) return entries;
+    if (entries.value.studies.some((s) => s.open)) {
+      return err(usage('a timer is already running; stop it first'));
+    }
+    const target = courseOf(entries.value, id, focused?.type);
+    if (!target) return err(usage('this note’s course is not in this scope'));
+    const created = await api.create({
+      title: `${focused?.label ?? 'study'}, ${isoDay(api)}`,
+      template: 'courses/study',
+      variables: { course: target.course },
+      fields: {
+        study_started: api.clock.now().toISOString(),
+        ...(target.lesson !== undefined && { study_lesson: `[[${target.lesson}]]` }),
+      },
+    });
+    return created.ok ? ok({ message: 'Started a timer' }) : created;
+  },
+};
+
+/** Log study time against the focused course (amount + unit). */
+const logAction: PanelAction = {
+  key: 'l',
+  label: 'log time',
+  appliesTo: ['course'],
+  surface: 'menu',
+  inputs: [
+    { name: 'amount', label: 'amount', type: 'number' },
+    { name: 'unit', label: 'unit', type: 'enum', values: ['minutes', 'hours'], default: 'minutes' },
+  ],
+  async run(api, context) {
+    const id = node(context)?.note?.id;
+    if (id === undefined) return ok(null);
+    const amount = Number(context.inputs?.amount);
+    if (!Number.isFinite(amount) || amount < 0) return err(usage('amount must be a number ≥ 0'));
+    const unit = String(context.inputs?.unit ?? 'minutes');
+    const fields: Record<string, FieldValue> = {
+      study_amount: amount,
+      ...(unit !== 'minutes' && { study_unit: unit }),
+    };
+    const created = await api.create({
+      title: `Study, ${isoDay(api)}`,
+      template: 'courses/study',
+      variables: { course: id },
+      fields,
+    });
+    return created.ok ? ok({ message: `Logged ${String(amount)} ${unit}` }) : created;
+  },
+};
+
+/** Set the focused course's planned finish date. */
+const setTargetAction: PanelAction = {
+  key: 't',
+  label: 'set target',
+  appliesTo: ['course'],
+  surface: 'menu',
+  inputs: [{ name: 'date', label: 'target date (YYYY-MM-DD)', type: 'string' }],
+  async run(api, context) {
+    const id = node(context)?.note?.id;
+    if (id === undefined) return ok(null);
+    const parsed = parseIsoDate(String(context.inputs?.date ?? ''));
+    if (!parsed.ok) return parsed;
+    return api.setFields(id, { course_target: parsed.value });
+  },
+};
+
+const isoDay = (api: PluginApi): string => api.clock.now().toISOString().slice(0, 10);
+
+/** The course id a note of any owned type belongs to, for the note-side subtree. */
+const courseIdOf = (
+  entries: CoursesEntries,
+  id: string,
+  type: string | undefined,
+): string | null => {
+  if (type === 'study') return entries.studies.find((s) => s.id === id)?.course ?? null;
+  if (type === 'chapter') return entries.chapters.find((c) => c.id === id)?.course ?? null;
+  return courseOf(entries, id, type)?.course ?? null;
+};
+
+/**
+ * The note-side panel: the focused note's course as a text outline, for context. A tree would
+ * need the collapse cursor `NoteView` does not have, so this stays a view (text), not interactive.
+ */
+const loadNoteOutline = async (
+  api: PluginApi,
+  context: PanelContext,
+): Promise<Result<PanelData, AppError>> => {
+  const located = context.note;
+  if (!located) return ok({ kind: 'text', lines: [] });
+  const entries = await load(api);
+  if (!entries.ok) return entries;
+  const courseId = courseIdOf(entries.value, located.note.id, located.note.type);
+  const view = courseId === null ? undefined : courseView(entries.value, courseId);
+  return ok({ kind: 'text', lines: view ? formatCourse(view) : [] });
 };
 
 export const PANELS: readonly PanelSpec[] = [
@@ -68,6 +182,13 @@ export const PANELS: readonly PanelSpec[] = [
     placement: 'home',
     chord: 'C',
     load: loadTree,
-    actions: [doneAction, stopAction],
+    actions: [doneAction, stopAction, startAction, logAction, setTargetAction],
+  },
+  {
+    id: 'courses.note',
+    title: 'Course',
+    placement: 'note',
+    appliesTo: 'owned',
+    load: loadNoteOutline,
   },
 ];

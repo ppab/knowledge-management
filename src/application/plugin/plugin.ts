@@ -178,7 +178,15 @@ export interface PanelContext {
   readonly note?: LocatedNote;
   /** The row the cursor is on, as the panel's own data gave it. */
   readonly selection?: unknown;
+  /** Values the core collected from the action's `inputs` before running it. */
+  readonly inputs?: Readonly<Record<string, string | number>>;
 }
+
+/**
+ * What a panel action reports: a mutation (the usual edit), `null` for nothing to do, or a plain
+ * message — what a *creating* verb returns, since `create` yields a note, not a `MutationOutcome`.
+ */
+export type PanelActionResult = MutationOutcome | null | { readonly message: string };
 
 /** A value a panel action collects before it runs (the `log` amount, a date); rendered by the core. */
 export interface PanelInput {
@@ -197,10 +205,10 @@ export interface PanelAction {
   readonly appliesTo?: readonly string[];
   /** Where the verb appears on a `tree`: an inline span on the node, or the leader menu (default). */
   readonly surface?: 'inline' | 'menu';
-  /** Values to collect before running (D2); absent runs on the key. */
+  /** Values to collect before running; absent runs on the key. */
   readonly inputs?: readonly PanelInput[];
-  /** Receives the row/node under the cursor; `null` when there was nothing to do. */
-  run(api: PluginApi, context: PanelContext): Promise<Result<MutationOutcome | null, AppError>>;
+  /** Receives the row/node under the cursor and any collected `inputs`. */
+  run(api: PluginApi, context: PanelContext): Promise<Result<PanelActionResult, AppError>>;
 }
 
 export interface PanelSpec {

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createPluginApi } from '../../application/plugin/api.js';
-import type { PanelData, PanelSpec, PluginApi, TreeNode } from '../../application/plugin/plugin.js';
+import type {
+  PanelActionResult,
+  PanelData,
+  PanelSpec,
+  PluginApi,
+  TreeNode,
+} from '../../application/plugin/plugin.js';
 import { buildRegistry, enabledPlugin } from '../../application/plugin/registry.js';
 import { unwrap } from '../../domain/result.js';
 import { fixture, type Fixture } from '../../../test/fakes/index.js';
@@ -116,11 +122,29 @@ describe('courses tree', () => {
   });
 });
 
+const courseNode = async (api: PluginApi): Promise<TreeNode> => {
+  const roots = coursesTree(collect(unwrap(await api.list())));
+  const course = roots.find((n) => n.id === 'CS');
+  if (!course) throw new Error('no course node');
+  return course;
+};
+
+const fileWith = (f: Fixture, needle: string): string | undefined =>
+  [...f.fs.files.values()].find((v) => v.includes(needle));
+
+const messageOf = (result: PanelActionResult): string =>
+  result !== null && 'message' in result ? result.message : '';
+
 describe('courses.home panel actions', () => {
-  const run = async (api: PluginApi, key: string, node: TreeNode) => {
+  const run = async (
+    api: PluginApi,
+    key: string,
+    node: TreeNode,
+    inputs?: Record<string, string | number>,
+  ) => {
     const action = panel().actions?.find((a) => a.key === key);
     if (!action) throw new Error(`no action ${key}`);
-    return action.run(api, { selection: node });
+    return action.run(api, { selection: node, ...(inputs && { inputs }) });
   };
 
   it('loads the tree and marks the focused lesson done', async () => {
@@ -141,5 +165,57 @@ describe('courses.home panel actions', () => {
     expect(unwrap(await run(api, 'x', open))).toMatchObject({ written: true });
     expect(f.fs.files.get('open.md')).toContain('study_amount: 90');
     expect(f.fs.files.get('open.md')).toContain('study_ended:');
+  });
+
+  it('starts a timer from the course menu verb', async () => {
+    const { f, api } = setup();
+    const result = unwrap(await run(api, 's', await courseNode(api)));
+    expect(messageOf(result)).toContain('Started');
+    const study = fileWith(f, 'study_started:');
+    expect(study).toContain('study_course: "[[CS]]"');
+    expect(study).not.toContain('study_amount');
+  });
+
+  it('refuses a second timer', async () => {
+    const { api } = setup({ 'open.md': openStudy('OP', 30) });
+    expect(await run(api, 's', await courseNode(api))).toMatchObject({
+      ok: false,
+      error: { code: 'USAGE' },
+    });
+  });
+
+  it('logs time from the course menu verb, using the collected inputs', async () => {
+    const { f, api } = setup();
+    const result = unwrap(await run(api, 'l', await courseNode(api), { amount: 2, unit: 'hours' }));
+    expect(messageOf(result)).toContain('Logged');
+    const study = fileWith(f, 'study_amount: 2');
+    expect(study).toContain('study_unit: hours');
+    expect(study).toContain('study_course: "[[CS]]"');
+  });
+
+  it('sets the course target date', async () => {
+    const { f, api } = setup();
+    expect(
+      unwrap(await run(api, 't', await courseNode(api), { date: '2026-12-01' })),
+    ).toMatchObject({
+      written: true,
+    });
+    expect(f.fs.files.get('course.md')).toContain('course_target: 2026-12-01');
+  });
+});
+
+describe('courses.note panel', () => {
+  it('shows the focused note’s course as a text outline', async () => {
+    const { api } = setup();
+    const notePanel = coursesPlugin.panels?.find((p) => p.id === 'courses.note');
+    if (!notePanel) throw new Error('no note panel');
+    const located = unwrap(await api.read('L1'));
+    const data = unwrap(await notePanel.load(api, { note: located })) as Extract<
+      PanelData,
+      { kind: 'text' }
+    >;
+    expect(data.kind).toBe('text');
+    expect(data.lines[0]).toContain('CS50');
+    expect(data.lines.some((l) => l.includes('L1'))).toBe(true);
   });
 });

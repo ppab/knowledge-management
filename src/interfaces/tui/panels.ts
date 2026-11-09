@@ -1,8 +1,8 @@
-import type { MutationOutcome } from '../../application/mutations/mutate.js';
 import { createPluginApi } from '../../application/plugin/api.js';
 import type {
   EnabledPlugin,
   NotePlugin,
+  PanelActionResult,
   PanelData,
   PanelNoteRef,
   PanelSpec,
@@ -87,8 +87,9 @@ export const noteAt = (data: PanelData | undefined, cursor: number): PanelNoteRe
   }
 };
 
-export const outcomeText = (outcome: MutationOutcome | null): string => {
+export const outcomeText = (outcome: PanelActionResult): string => {
   if (outcome === null) return 'Nothing to do';
+  if ('message' in outcome) return outcome.message;
   if (outcome.dryRun) return `Would change ${outcome.path}`;
   return outcome.written ? `Updated ${outcome.path}` : `No change to ${outcome.path}`;
 };
