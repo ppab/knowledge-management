@@ -3,7 +3,7 @@
 #
 # The host executable is compiled *before* the test run so that
 # test/binary/compiled.test.ts is exercised instead of skipping itself (it skips
-# when no release/notes-<os>-<arch> binary exists). Because the compile happens
+# when no release/ofl-<os>-<arch> binary exists). Because the compile happens
 # first, `bun run check` runs the whole suite — including the smoke tests — a
 # single time; there is no second test run.
 name: CI

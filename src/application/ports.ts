@@ -20,11 +20,11 @@ export interface Clock {
 }
 
 export interface VaultRepository {
-  /** Nearest directory at or above `cwd` that contains `.notes/config.yaml`, or `null`. */
+  /** Nearest directory at or above `cwd` that contains `.ofl/config.yaml`, or `null`. */
   findNearest(cwd: string): Promise<string | null>;
   exists(root: string): Promise<boolean>;
   load(root: string): Promise<Result<VaultConfig, AppError>>;
-  /** Creates `.notes/` (config, templates/, snippets/, cache/.gitignore) under `root`. */
+  /** Creates `.ofl/` (config, templates/, snippets/, cache/.gitignore) under `root`. */
   create(root: string, config: VaultConfig): Promise<Result<void, AppError>>;
 }
 
@@ -133,7 +133,7 @@ export interface FileChange {
 export interface FileWatcher {
   /**
    * Reports note file changes under `roots`, batched per tick; resolves to the function that
-   * stops watching. Nothing under `.notes/` or any other dot directory is ever reported.
+   * stops watching. Nothing under `.ofl/` or any other dot directory is ever reported.
    */
   watch(
     roots: readonly string[],
@@ -182,7 +182,7 @@ export interface TemplateSource {
 export interface TemplateRepository {
   getTemplate(root: string, name: string): Promise<Result<TemplateSource, AppError>>;
   listTemplates(root: string): Promise<string[]>;
-  /** `.notes/snippets/<name>.md`; there is no built-in snippet. */
+  /** `.ofl/snippets/<name>.md`; there is no built-in snippet. */
   getSnippet(root: string, name: string): Promise<Result<TemplateSource, AppError>>;
 }
 
@@ -250,7 +250,7 @@ export interface NoteIndex {
 }
 
 export interface NoteIndexProvider {
-  /** Opens (creating or resetting on schema mismatch) the index under `root/.notes/cache/`. */
+  /** Opens (creating or resetting on schema mismatch) the index under `root/.ofl/cache/`. */
   open(root: string): Promise<Result<NoteIndex, AppError>>;
 }
 

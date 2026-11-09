@@ -5,7 +5,7 @@ import type { VaultConfig } from './vault.js';
  * whether a path falls under `include`/`exclude` without a filesystem or a glob library.
  * It follows the conventions of the indexer's globbing: `**` spans directories, `*` and `?`
  * stay within one segment, `[...]` and `{a,b}` are supported, and no wildcard matches a segment
- * that starts with a dot (so `.notes/`, `.git/` and friends stay invisible).
+ * that starts with a dot (so `.ofl/`, `.git/` and friends stay invisible).
  */
 
 const escape = (char: string): string => char.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');

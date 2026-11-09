@@ -5,7 +5,7 @@ import type { FileChange, FileWatcher } from '../../application/ports.js';
 /*
  * TUI-only (docs/architecture.md, ports table). Changes are batched per tick so a save that
  * writes a temp file and renames it is one change, and nothing under a dot directory is ever
- * reported: that is where the index (`.notes/cache/`) and Git write.
+ * reported: that is where the index (`.ofl/cache/`) and Git write.
  */
 
 export interface WatcherOptions {

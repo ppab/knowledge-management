@@ -28,9 +28,9 @@ takes the keyboard while it is open (`m` metadata, `B` backlinks). Using it surf
   are laid out first, the fractions share the rest.
 - Panels in a column **share its height**, equally by default, weighted when a panel gives a
   `height` fraction.
-- Layouts are **named** and live in the **user configuration** (`~/.config/notes/config.yaml`),
+- Layouts are **named** and live in the **user configuration** (`~/.config/ofl/config.yaml`),
   because how one person arranges a terminal is a preference, not a fact about a vault. A vault
-  may name a default layout in `.notes/config.yaml`; the user's choice wins.
+  may name a default layout in `.ofl/config.yaml`; the user's choice wins.
 - **Context rule.** A panel whose placement is `note` renders the note shown in `main` and is
   blank when `main` is not on a note; a `home` panel renders regardless. This reuses the
   distinction the registry already makes; no new placement is introduced.
@@ -42,7 +42,7 @@ takes the keyboard while it is open (`m` metadata, `B` backlinks). Using it surf
   to the configuration.
 
 ```yaml
-# ~/.config/notes/config.yaml
+# ~/.config/ofl/config.yaml
 tui:
   leader: ' ' # default
   layout: review # the layout to start in; `focus` when absent

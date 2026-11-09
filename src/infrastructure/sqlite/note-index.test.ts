@@ -139,7 +139,7 @@ describe('sqlite index provider', () => {
   });
   afterEach(() => rm(root, { recursive: true, force: true }));
 
-  it('creates every file under .notes/cache and persists across opens', async () => {
+  it('creates every file under .ofl/cache and persists across opens', async () => {
     const provider = createSqliteIndexProvider();
     const first = unwrap(await provider.open(root));
     first.upsert(entry('a.md', '---\nid: A\n---\n'), file('a.md'));
@@ -147,8 +147,8 @@ describe('sqlite index provider', () => {
     const second = unwrap(await provider.open(root));
     expect(second.stats().notes).toBe(1);
     second.close();
-    expect(await readdir(root)).toEqual(['.notes']);
-    expect(await readdir(join(root, '.notes'))).toEqual(['cache']);
-    expect(await readdir(join(root, '.notes', 'cache'))).toContain('index.sqlite');
+    expect(await readdir(root)).toEqual(['.ofl']);
+    expect(await readdir(join(root, '.ofl'))).toEqual(['cache']);
+    expect(await readdir(join(root, '.ofl', 'cache'))).toContain('index.sqlite');
   });
 });

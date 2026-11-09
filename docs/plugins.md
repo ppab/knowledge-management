@@ -28,7 +28,7 @@ Principles, in the order they win:
    concrete list of plugins is assembled at the composition root (`src/plugins/index.ts`, imported
    only by the interfaces). ESLint enforces this like every other boundary.
 5. **No dynamic loading in v0.1.** First-party plugins are compiled in and switched on per vault
-   in `.notes/config.yaml`. Third-party loading would need a stable API and a security story;
+   in `.ofl/config.yaml`. Third-party loading would need a stable API and a security story;
    it is a non-goal until the API has survived at least one release.
 
 ## 2. Declared fields
@@ -86,7 +86,7 @@ A field name declared by two enabled plugins with different types is a configura
 
 ```ts
 export interface NotePlugin {
-  /** Unique; also the CLI namespace (`notes todos …`) and the config key. */
+  /** Unique; also the CLI namespace (`ofl todos …`) and the config key. */
   readonly name: string;
   readonly description: string;
   /** Frontmatter `type` values this plugin owns. A type belongs to at most one plugin. */
@@ -101,7 +101,7 @@ export interface NotePlugin {
   readonly destinations?: readonly Destination[];
   /** Astro theme profiles this plugin adds to the built-in `astro` kind; a name belongs to one. */
   readonly astroThemes?: readonly AstroTheme[];
-  /** Validates `plugins.<name>` from `.notes/config.yaml`; `{}` when the key is bare. */
+  /** Validates `plugins.<name>` from `.ofl/config.yaml`; `{}` when the key is bare. */
   readonly settings?: (raw: unknown) => Result<unknown, AppError>;
 }
 ```
@@ -164,7 +164,7 @@ for `dates`. It is what a todo's `done` or an expense's `amount` edit becomes.
 
 ```ts
 export interface PluginCommand {
-  readonly name: string; // `notes <plugin> <name>`
+  readonly name: string; // `ofl <plugin> <name>`
   readonly description: string;
   readonly args?: readonly {
     name: string;
@@ -318,14 +318,14 @@ show notes from vaults that enable it.
 ## 5. Configuration
 
 ```yaml
-# .notes/config.yaml
+# .ofl/config.yaml
 plugins:
   todos: {} # enabled, default settings
   expenses:
     currency: EUR # validated by the plugin's `settings()`
 ```
 
-No key means no plugins. `notes capabilities --json` lists enabled plugins, their types, fields,
+No key means no plugins. `ofl capabilities --json` lists enabled plugins, their types, fields,
 commands and panels, so an agent can discover them without reading this document.
 
 ## 6. Source layout and boundaries

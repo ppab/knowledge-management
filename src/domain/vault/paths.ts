@@ -19,7 +19,7 @@ export const resolveTemplatePath = (path: string, notesDir: string): string => {
 
 /**
  * Normalizes a user- or template-supplied path to a vault-relative POSIX path, refusing
- * anything that would escape the vault root or write into `.notes`. Pure string logic so the
+ * anything that would escape the vault root or write into `.ofl`. Pure string logic so the
  * application layer can enforce it without touching the filesystem.
  */
 export const normalizeVaultPath = (input: string): Result<string, AppError> => {

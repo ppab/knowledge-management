@@ -86,7 +86,7 @@ const registerPluginCommand = (
             return Promise.resolve(
               err(
                 usage(
-                  `Plugin "${plugin.name}" is not enabled in this scope; add "plugins: { ${plugin.name}: {} }" to .notes/config.yaml`,
+                  `Plugin "${plugin.name}" is not enabled in this scope; add "plugins: { ${plugin.name}: {} }" to .ofl/config.yaml`,
                   { plugin: plugin.name, vaults: scope.members.map((m) => m.root) },
                 ),
               ),

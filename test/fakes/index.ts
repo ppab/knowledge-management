@@ -352,7 +352,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
       },
     },
     userConfig: {
-      path: () => '/home/user/.config/notes/config.yaml',
+      path: () => '/home/user/.config/ofl/config.yaml',
       load: () => Promise.resolve(ok(userConfig)),
     },
     outputs,

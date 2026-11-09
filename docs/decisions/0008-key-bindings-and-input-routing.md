@@ -99,7 +99,7 @@ tui:
 ```
 
 - **Resolution**: built-in defaults ← user `tui.keys`. (A vault may _suggest_ workflow defaults in
-  `.notes/config.yaml`; the user's choice wins — same precedence rule as layouts in `0003`.)
+  `.ofl/config.yaml`; the user's choice wins — same precedence rule as layouts in `0003`.)
 - **Key tokens**: printable chars literal (`a`, `D`, `/`); named specials (`enter`, `esc`,
   `space`, `tab`, `backspace`, `up`/`down`/`left`/`right`); `ctrl+o`-style modifiers **only where
   Ink reliably delivers them** (`0003` notes `Alt` and several `Ctrl` combos are unreliable across

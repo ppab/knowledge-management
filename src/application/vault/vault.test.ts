@@ -17,13 +17,13 @@ describe('initVault / openVault', () => {
     expect(opened.root).toBe('/proj/monitor-svc');
   });
 
-  it('takes a notes directory for include, refusing escapes and .notes', async () => {
+  it('takes a notes directory for include, refusing escapes and .ofl', async () => {
     const f = fixture();
     const inDocs = unwrap(await initVault(f.deps, { dir: '/proj/a', notesDir: 'docs/notes/' }));
     expect(inDocs.config.include).toEqual(['docs/notes/**/*.md']);
     const atRoot = unwrap(await initVault(f.deps, { dir: '/proj/b', notesDir: '.' }));
     expect(atRoot.config.include).toEqual(['**/*.md']);
-    for (const notesDir of ['../elsewhere', '/abs', '.notes/x']) {
+    for (const notesDir of ['../elsewhere', '/abs', '.ofl/x']) {
       expect(await initVault(f.deps, { dir: '/proj/c', notesDir })).toMatchObject({
         ok: false,
         error: { code: 'VALIDATION' },

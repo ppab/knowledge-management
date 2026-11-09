@@ -8,7 +8,7 @@ import { createFileWatcher } from './file-watcher.js';
 let root: string;
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'notes-watch-'));
-  await mkdir(join(root, '.notes', 'cache'), { recursive: true });
+  await mkdir(join(root, '.ofl', 'cache'), { recursive: true });
   await mkdir(join(root, 'docs'), { recursive: true });
 });
 afterAll(() => rm(root, { recursive: true, force: true }));
@@ -24,7 +24,7 @@ describe('file watcher', () => {
     try {
       await writeFile(join(root, 'docs', 'a.md'), 'a');
       await writeFile(join(root, 'docs', 'b.md'), 'b');
-      await writeFile(join(root, '.notes', 'cache', 'index.sqlite'), 'db');
+      await writeFile(join(root, '.ofl', 'cache', 'index.sqlite'), 'db');
       await writeFile(join(root, 'docs', 'image.png'), 'png');
       await settle(600);
       expect(batches).toHaveLength(1);

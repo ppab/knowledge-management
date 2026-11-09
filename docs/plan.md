@@ -6,7 +6,7 @@ independently testable and leaves `main` working. Definition of done applies to 
 - All listed tests pass under `bun run test`; lint, format and `tsc --noEmit` are clean.
 - No layer-boundary violations (ESLint).
 - No placeholder code; every exported symbol has a caller or a test.
-- `notes capabilities --json` reflects the commands that exist.
+- `ofl capabilities --json` reflects the commands that exist.
 
 ```
 M0 ─ M1 ─ M2 ─┬─ M3 ─┐
@@ -27,14 +27,14 @@ two riskiest infrastructure assumptions are verified before anything depends on 
 
 **Deliverables**
 
-- `package.json` (ESM, `bin/notes`), `tsconfig.json` (strict, `noUncheckedIndexedAccess`,
+- `package.json` (ESM, `bin/ofl`), `tsconfig.json` (strict, `noUncheckedIndexedAccess`,
   `exactOptionalPropertyTypes`), Vitest, ESLint (typescript-eslint + `no-restricted-imports`
   per layer), Prettier, `bun run check` (lint + format + typecheck + test).
 - `src/{domain,application,infrastructure,interfaces}` with a smoke module in each to exercise
   the boundary rules.
 - Spike result recorded in `docs/decisions/0001-sqlite.md`: does `node:sqlite` on the target
   Node version ship FTS5? If not, switch to `better-sqlite3` here.
-- `notes --version` runs.
+- `ofl --version` runs.
 
 **Dependencies.** None.
 
@@ -61,24 +61,24 @@ and show notes — scanning the filesystem directly, no index yet.
 - application: `initVault`, `locateVault`, `createNote`, `listNotes`, `showNote`, `adoptNote`,
   `renderTemplate`; ports `VaultLocator`, `NoteStore`, `MarkdownDocument`, `FrontmatterCodec`,
   `IdentityStrategy`, `TemplateRepository`, `Clock`.
-- infrastructure: filesystem locator (nearest `.notes` ancestor) and store (atomic write,
+- infrastructure: filesystem locator (nearest `.ofl` ancestor) and store (atomic write,
   version hash), remark parser producing `ParsedNote` with positions and references from text
   nodes only, yaml frontmatter codec, `ulid` / `uuidv7` / `formatted` strategies, template
   repository with `{{title}} {{date}} {{id}} {{vault}} {{slug}}` and user variables, built-in
   `default` template.
 - CLI: `init`, `create`, `list`, `show`, `adopt`, `--json`, exit codes.
-- `.notes/cache/.gitignore` written at init.
+- `.ofl/cache/.gitignore` written at init.
 
 **Dependencies.** M0.
 
 **Acceptance criteria**
 
-- `notes init` in a directory with an existing Git repo creates only `.notes/` and touches
+- `ofl init` in a directory with an existing Git repo creates only `.ofl/` and touches
   nothing else.
-- `notes create --template adr --title "X"` writes a file at the template's output path with a
+- `ofl create --template adr --title "X"` writes a file at the template's output path with a
   frontmatter `id` from the configured strategy; running it twice yields distinct ids.
 - A formatted strategy referencing `{type}` takes it from the template name.
-- `notes show <id>` on a file whose frontmatter contains unknown keys and YAML comments prints
+- `ofl show <id>` on a file whose frontmatter contains unknown keys and YAML comments prints
   them unchanged in `--raw`.
 - A file matched by `include` with no `id` appears in `list --unidentified` and is rejected by
   mutations with exit `6`.
@@ -96,7 +96,7 @@ and show notes — scanning the filesystem directly, no index yet.
   variable error); `adoptNote` adds only `id`.
 - infrastructure: frontmatter round-trip fixtures (comments, order, unknown keys, no
   frontmatter, CRLF); references ignored inside code spans and fences; atomic write leaves no
-  temp files; locator finds nearest `.notes` and stops at filesystem root.
+  temp files; locator finds nearest `.ofl` and stops at filesystem root.
 - integration: `init → create → list → show --json` in a tmp dir.
 
 ---
@@ -136,14 +136,14 @@ under the same layer rules as the rest.
 
 **Acceptance criteria**
 
-- Deleting `.notes/cache/` and running any read command reproduces identical output.
+- Deleting `.ofl/cache/` and running any read command reproduces identical output.
 - Editing one file and running `index status` reports exactly one stale entry; `refreshIndex`
   touches only that row.
 - Two files sharing an `id` make `doctor` exit `6` and name both paths; `show <id>` exits `4`.
 - `search` returns matches in title, alias and body; `--json` includes `rankInVault`.
 - `backlinks <id>` lists sources whose references target the id, including unresolved targets
   flagged in `reference list`.
-- Index files are never created outside `.notes/cache/`.
+- Index files are never created outside `.ofl/cache/`.
 
 **Tests**
 
@@ -178,7 +178,7 @@ can be previewed.
 list (`domain/text/insertion.ts`) rather than an adapter method, so the Markdown adapter only
 parses; the frontmatter codec keeps returning YAML text and the use case builds the
 `TextEdit` (no separate `set`); `DocumentVersion` is the existing content-hash `version`.
-Snippets live in `.notes/snippets/<name>.md` with an optional `snippet: { at, variables }`
+Snippets live in `.ofl/snippets/<name>.md` with an optional `snippet: { at, variables }`
 block. Every mutation now ends with a targeted `refreshIndex([path])`.
 
 **Acceptance criteria**
@@ -219,7 +219,7 @@ single owning vault for every write.
 - application: `loadScope` (named, explicit `--vault` paths, nearest), `resolveTarget`, federated
   `searchNotes` (rank-interleaved), federated `backlinks`, `diagnose` unavailable vaults; port
   `UserConfig`.
-- infrastructure: `$XDG_CONFIG_HOME/notes/config.yaml` with named scopes (zod).
+- infrastructure: `$XDG_CONFIG_HOME/ofl/config.yaml` with named scopes (zod).
 - CLI: `--scope`, `--vault` (repeatable), `scope list|show`; `create`/mutations require a
   resolvable write target.
 
@@ -265,7 +265,7 @@ the panel registry.
   `PluginRegistry` types; `buildRegistry(plugins, scope)` (owner uniqueness, field-type
   conflicts, key collisions); `createPluginApi`; `setFields` mutation; declared-field
   validation shared by `doctor` and `show`.
-- infrastructure: `plugins:` key in `.notes/config.yaml` (zod), settings handed to the plugin's
+- infrastructure: `plugins:` key in `.ofl/config.yaml` (zod), settings handed to the plugin's
   own validator.
 - plugins: `src/plugins/index.ts` and `src/plugins/todos/` (type `todo`; `status`, `due`,
   `priority`; `todos list`, `todos done`; one check; two panels, data only).
@@ -277,7 +277,7 @@ the panel registry.
 
 **Acceptance criteria**
 
-- A vault without `plugins:` behaves exactly as before; `notes todos` is then an unknown command
+- A vault without `plugins:` behaves exactly as before; `ofl todos` is then an unknown command
   (exit 2).
 - With `plugins: { todos: {} }`: `create --template todos/task --title X` writes a `todo` note;
   `todos list --due today --json` returns it; `todos done <id>` sets `status: done` through the
@@ -323,7 +323,7 @@ services as the CLI.
   panels, `e` edit), `Calendar` (month grid, bound days, open day); `todos` panels rendered
   from their `PanelData` as proof; watcher-driven refresh; `●` modified marker placeholder
   until M7.
-- CLI: `notes` with no subcommand launches the TUI; `notes edit` uses the same `ExternalEditor`.
+- CLI: `ofl` with no subcommand launches the TUI; `ofl edit` uses the same `ExternalEditor`.
 
 **Dependencies.** M3, M4, M4.5.
 
@@ -343,7 +343,7 @@ services as the CLI.
   today is painted in the accent colour, weekends dim. The year view is a strip of twelve
   month rows by 31 day columns (a dim `·` per day, the count where notes are bound), which
   fits an 80×24 terminal where twelve mini grids would not. Binding from the TUI (`b`, `x`,
-  `Space d` in the note view) runs `bindDate`, the same service as `notes bind`.
+  `Space d` in the note view) runs `bindDate`, the same service as `ofl bind`.
 - The TUI never reads SQLite or the filesystem directly; all data flows through application
   services (enforced by lint).
 
@@ -475,7 +475,7 @@ the vault offers and a vault's own `default.md` is visibly the one in use. Each 
 path that template would write for the typed title (`previewTemplates`, sharing `createNote`'s
 path logic; an `{{id}}` in a path stays as a placeholder since no id is generated for a
 preview, and an unusable template says why in place of a path).
-`notes init` takes `--dir <notes-dir>` (the single `include` glob `<dir>/**/*.md`, created with
+`ofl init` takes `--dir <notes-dir>` (the single `include` glob `<dir>/**/*.md`, created with
 the vault, where `create` writes by default) and asks for it when run at a terminal without the
 flag; `--json`, pipes and scripts are never asked and keep the whole vault as before.
 A template's `template.path` now resolves inside that notes directory (a leading `/` anchors it
@@ -661,8 +661,8 @@ Decisions recorded in the issue body under "Decisiones acordadas". B is next.
 (`markdown`, `html`, `astro`) with transformed references and fail-safe boundaries; the TUI shows
 each note's visibility.
 
-**Status.** Shipped 2026-11-07. `notes publish [<name>] [--dry-run]`; `publications:` in
-`.notes/config.yaml`; markdown / html / astro (modular theme) destinations; two-layer visibility
+**Status.** Shipped 2026-11-07. `ofl publish [<name>] [--dry-run]`; `publications:` in
+`.ofl/config.yaml`; markdown / html / astro (modular theme) destinations; two-layer visibility
 with a TUI badge; `doctor` publication pre-flight. Design recorded in
 [0006](./decisions/0006-publishing-destinations.md); the implementation plan and test matrix are in
 [plans/publish.md](./plans/publish.md).
@@ -684,7 +684,7 @@ with a TUI badge; `doctor` publication pre-flight. Design recorded in
   notes, search and navigate references, export content, verify generated links.
 - README: install, quick start, scope configuration, agent usage with `--json`.
 - Single-file executables that need no Node: `bun run compile:all` builds
-  `release/notes-{linux,darwin}-{x64,arm64}`; `test/binary/compiled.test.ts` runs the host's
+  `release/ofl-{linux,darwin}-{x64,arm64}`; `test/binary/compiled.test.ts` runs the host's
   binary with Node off `PATH` (version, init/create/list/search, save to git, TUI refusal
   without a terminal) and is skipped when no binary has been built.
 

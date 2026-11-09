@@ -21,12 +21,12 @@ infrastructure/  filesystem · markdown (remark) · yaml · sqlite (node:sqlite)
 
 **Toolchain and distribution.** Bun is the package manager (`bun install`, `bun.lock`) and the
 script runner (`bun run <script>`); Node ≥ 24 stays the development and test runtime, since
-`bun run` executes the tools' own `node` shebangs. Two ways to run `notes`:
+`bun run` executes the tools' own `node` shebangs. Two ways to run `ofl`:
 
-- As a Node package: `bun run build` compiles to `dist/` with `tsc` and `bin/notes` starts it.
+- As a Node package: `bun run build` compiles to `dist/` with `tsc` and `bin/ofl` starts it.
 - As a single executable: `bun run compile` (this machine) or `bun run compile:all` (Linux and
   macOS, x64 and arm64) bundles the sources, every dependency and Ink's layout engine (yoga, whose
-  wasm is inlined) into `release/notes-<os>-<arch>` with `bun build --compile`. The binary needs
+  wasm is inlined) into `release/ofl-<os>-<arch>` with `bun build --compile`. The binary needs
   no Node: Bun ≥ 1.4 provides `node:sqlite`, so the SQLite index runs unchanged. What stays
   external is what the app shells out to on purpose: the user's `git` and `$EDITOR`. Because a
   bundle has no `package.json` beside it, the version is a constant in
@@ -34,8 +34,8 @@ script runner (`bun run <script>`); Node ≥ 24 stays the development and test r
 
 Properties:
 
-- **Markdown files are the only authoritative store.** SQLite under `.notes/cache/` is a
-  disposable projection, rebuildable from the files. `.notes/cache/.gitignore` contains `*`, so
+- **Markdown files are the only authoritative store.** SQLite under `.ofl/cache/` is a
+  disposable projection, rebuildable from the files. `.ofl/cache/.gitignore` contains `*`, so
   the cache never enters Git and the project's own `.gitignore` is never modified.
 - **Mutations are source-offset splices, never AST re-serialization.** Parse with remark for
   positions, compute `TextEdit {start, end, replacement}`, splice the original string. Bytes
@@ -131,13 +131,13 @@ Libraries:
 | #   | Question                        | Decision                                                                                                                                                                                                                                                                                                                                                 |
 | --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A1  | `{type}` in formatted identity  | Taken from the template name (`templates/adr.md` ⇒ `ADR`); overridable by frontmatter `type`. A format referencing an unavailable variable fails config validation.                                                                                                                                                                                      |
-| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `notes adopt <path>` assigns an id. Mutations and references require an id.                                                                                                                                                                                              |
+| A2  | Files in `include` without `id` | Indexed as unidentified (listed, searchable, read-only). `doctor` reports them; `ofl adopt <path>` assigns an id. Mutations and references require an id.                                                                                                                                                                                                |
 | A3  | Missing `visibility`            | Treated as `private` for publishing (default-deny).                                                                                                                                                                                                                                                                                                      |
-| A4  | Commits                         | Never implicit. `save` (TUI `s`, CLI `notes save <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                                                                                                                                                                                                          |
+| A4  | Commits                         | Never implicit. `save` (TUI `s`, CLI `ofl save <id>`) records a revision of exactly one note via `git add -- <path> && git commit -- <path>`.                                                                                                                                                                                                            |
 | A5  | Working copy as revision        | `history` lists commits only; `diff` defaults to last revision → working file.                                                                                                                                                                                                                                                                           |
 | A6  | `NotFound` vs `Unavailable`     | `Unavailable` when any vault in the scope could not be opened; otherwise `NotFound`.                                                                                                                                                                                                                                                                     |
 | A7  | HTML export shape               | Body fragments + `manifest.json`. Layout belongs to the static site generator.                                                                                                                                                                                                                                                                           |
-| A8  | `create` without template       | Built-in `default` template writing `{{slug}}.md` into the first `include` directory, bound to its creation day (`dates: ["{{date}}"]`); `.notes/templates/default.md` overrides it.                                                                                                                                                                     |
+| A8  | `create` without template       | Built-in `default` template writing `{{slug}}.md` into the first `include` directory, bound to its creation day (`dates: ["{{date}}"]`); `.ofl/templates/default.md` overrides it.                                                                                                                                                                       |
 | A8b | Where `create` may write        | A template's `template.path` is relative to the notes directory (the first `include` glob's literal prefix); a leading `/` anchors it at the vault root. `--path` is vault-relative. Whatever decides the path, `create` refuses (exit 6, naming the path and the globs) any file `include`/`exclude` would not index, so a new note is never invisible. |
 | A9  | Notes per file                  | Exactly one.                                                                                                                                                                                                                                                                                                                                             |
 | A10 | Federated FTS ranking           | BM25 scores are not comparable across indexes. Human views interleave by rank position across vaults; `--json` carries `vault` and `rankInVault`.                                                                                                                                                                                                        |
@@ -179,12 +179,12 @@ exceptions.
 | `OutputStore`        | filesystem | `write(dir, path, content)` for publication output: absolute `dir`, relative POSIX `path` validated inside it, mkdir -p, atomic; never reads, lists or deletes                   |
 | `ExternalEditor`     | editor     | `open(file, {command?})` — vault `editor:` → `$VISUAL` → `$EDITOR` → `nvim`; CLI spawns directly, TUI suspends Ink first                                                         |
 | `FileWatcher`        | chokidar   | TUI-only; `watch(roots, onChange)` batches `.md` changes per tick, ignores dot directories; the next read refreshes the index                                                    |
-| `UserConfig`         | config     | named scopes in `$XDG_CONFIG_HOME/notes/config.yaml`                                                                                                                             |
+| `UserConfig`         | config     | named scopes in `$XDG_CONFIG_HOME/ofl/config.yaml`                                                                                                                               |
 | `Clock`              |            |                                                                                                                                                                                  |
 
 ### Persistence contracts
 
-**Vault config** `.notes/config.yaml` (zod-validated):
+**Vault config** `.ofl/config.yaml` (zod-validated):
 
 ```yaml
 vault:
@@ -217,7 +217,7 @@ publications: # optional, see §7
 **Frontmatter** — recognized keys: `id`, `title`, `created`, `aliases`, `dates`, `tags`, `visibility`, `type`,
 `slug`. Everything else is preserved opaquely. Title fallback: `title` → first H1 → filename stem.
 
-**Index schema** (`.notes/cache/index.sqlite`, keyed by `path` so duplicate ids stay
+**Index schema** (`.ofl/cache/index.sqlite`, keyed by `path` so duplicate ids stay
 representable): `notes(path, id, title, visibility, type, slug, version, mtime, size,
 unidentified, aliases, dates, tags, fields, issues)`, lookup tables `aliases(path, alias)`,
 `dates(path, date)`, `tags(path, tag)`, `fields(path, key, value, kind)` (every frontmatter key
@@ -295,27 +295,27 @@ message. This guarantees we never split emphasis, links or code spans.
 ## 5. CLI
 
 ```
-notes init [--name <n>] [--dir <notes-dir>] [--identity ulid|uuidv7|formatted --format "..."]   # --dir asked for when interactive
-notes list [--tag <t>] [--date <d>|<from>..<to>] [--vault <name>] [--unidentified]
-notes show <id|alias> [--raw] [--at <rev>]
-notes search <words...> [--limit <n>]        # trailing * on a word matches prefixes
-notes create --template <name> --title <t> [--var k=v]... [--path <p>] [--in <vault>]   # --in: name or path within the scope; --path: vault-relative
-notes edit <id>
-notes adopt <path>... [--type <type>] [--in <vault>]
-notes save <id> [-m <message>]
-notes bind <id> --date <d> [--remove]
-notes reference add --source <id> --target <id|alias> [--at end|heading:<text>|references] [--label <l>]
-notes reference list <id>
-notes reference relabel [<id>] [--all] [--dry-run]   # refresh standalone [[links]] to targets' current titles (Obsidian)
-notes backlinks <id>
-notes snippet insert <id> --snippet <name> [--at ...] [--var k=v]...
-notes history <id>
-notes diff <id> [--from <rev>] [--to <rev>|working]
-notes publish [<name>] [--dry-run]                   # omit name to list the configured publications
-notes index rebuild | status
-notes doctor [--fix]
-notes scope list | show [<name>]
-notes capabilities --json
+ofl init [--name <n>] [--dir <notes-dir>] [--identity ulid|uuidv7|formatted --format "..."]   # --dir asked for when interactive
+ofl list [--tag <t>] [--date <d>|<from>..<to>] [--vault <name>] [--unidentified]
+ofl show <id|alias> [--raw] [--at <rev>]
+ofl search <words...> [--limit <n>]        # trailing * on a word matches prefixes
+ofl create --template <name> --title <t> [--var k=v]... [--path <p>] [--in <vault>]   # --in: name or path within the scope; --path: vault-relative
+ofl edit <id>
+ofl adopt <path>... [--type <type>] [--in <vault>]
+ofl save <id> [-m <message>]
+ofl bind <id> --date <d> [--remove]
+ofl reference add --source <id> --target <id|alias> [--at end|heading:<text>|references] [--label <l>]
+ofl reference list <id>
+ofl reference relabel [<id>] [--all] [--dry-run]   # refresh standalone [[links]] to targets' current titles (Obsidian)
+ofl backlinks <id>
+ofl snippet insert <id> --snippet <name> [--at ...] [--var k=v]...
+ofl history <id>
+ofl diff <id> [--from <rev>] [--to <rev>|working]
+ofl publish [<name>] [--dry-run]                   # omit name to list the configured publications
+ofl index rebuild | status
+ofl doctor [--fix]
+ofl scope list | show [<name>]
+ofl capabilities --json
 
 Global: --scope <name> | --vault <path> (repeatable)  (default: nearest vault from cwd)
         --json  --dry-run  --no-interactive  --cwd <dir>
@@ -374,7 +374,7 @@ open: `j/k` move its cursor, `Enter` opens the row's note, its action keys run, 
 a plugin's chordless note panel shows automatically for notes of the types it owns. References
 render as the label or the target's title, coloured by resolution and marked `[missing]`,
 `[ambiguous]` or `[unavailable]`; `Enter` on one of those explains instead of navigating. The
-TUI runs on the alternate screen and refuses to start without a TTY (exit 2). `notes edit <id>`
+TUI runs on the alternate screen and refuses to start without a TTY (exit 2). `ofl edit <id>`
 runs the same editor adapter from the CLI.
 
 External editor from the TUI: Ink's `suspendTerminal` hands the terminal over, the editor runs
@@ -398,7 +398,7 @@ cannot be referenced from or selected in.
 
 ## 7. Publishing pipeline
 
-A **publication** is a named recipe in `.notes/config.yaml`: a selection (include/exclude globs
+A **publication** is a named recipe in `.ofl/config.yaml`: a selection (include/exclude globs
 over the eligible, `public` notes), a route template, a reference policy, and a **destination**.
 The plan is pure and destination-agnostic; the destination decides how entries render and where
 their files go.

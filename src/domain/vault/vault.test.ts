@@ -9,17 +9,12 @@ describe('normalizeVaultPath', () => {
     expect(unwrap(normalizeVaultPath('./x.md'))).toBe('x.md');
   });
 
-  it.each([
-    '../x.md',
-    'a/../../x.md',
-    '/abs.md',
-    'C:/x.md',
-    '.notes/templates/t.md',
-    '',
-    'docs/..',
-  ])('rejects %j', (input) => {
-    expect(normalizeVaultPath(input).ok).toBe(false);
-  });
+  it.each(['../x.md', 'a/../../x.md', '/abs.md', 'C:/x.md', '.ofl/templates/t.md', '', 'docs/..'])(
+    'rejects %j',
+    (input) => {
+      expect(normalizeVaultPath(input).ok).toBe(false);
+    },
+  );
 });
 
 describe('resolveTemplatePath', () => {

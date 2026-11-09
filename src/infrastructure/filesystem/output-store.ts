@@ -6,7 +6,7 @@ import { err, ok, type Result } from '../../domain/result.js';
 import type { OutputStore } from '../../application/ports.js';
 
 /**
- * Writes publication output. Unlike the note store this has no `.notes` reservation and no
+ * Writes publication output. Unlike the note store this has no `.ofl` reservation and no
  * symlink hardening: the output directory is a destination the user chose, not the vault. It
  * still refuses a `path` that escapes `dir` (defense in depth against a hostile route/slug),
  * creates parent directories, and writes atomically via a temp file and rename.

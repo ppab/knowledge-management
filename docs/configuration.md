@@ -2,8 +2,8 @@
 
 There are two configuration files, at two scopes:
 
-- **Vault configuration** — `.notes/config.yaml`, one per vault, describing that vault.
-- **User configuration** — `$XDG_CONFIG_HOME/notes/config.yaml` (default `~/.config/notes/config.yaml`),
+- **Vault configuration** — `.ofl/config.yaml`, one per vault, describing that vault.
+- **User configuration** — `$XDG_CONFIG_HOME/ofl/config.yaml` (default `~/.config/ofl/config.yaml`),
   one per user, describing preferences that span vaults.
 
 Both are YAML, validated with Zod (`src/infrastructure/config/{vault,user}-config.ts`). A missing
@@ -13,18 +13,18 @@ reporting the offending `path` and message rather than crashing.
 > The per-type schema a plugin adds to its own notes is a different thing — those are _fields_, not
 > configuration. See [plugins.md](./plugins.md) §2.
 
-## 1. Vault configuration — `.notes/config.yaml`
+## 1. Vault configuration — `.ofl/config.yaml`
 
-| Key | Type | Required | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `vault.id` | string | yes | — | permanent identity; never edited by hand |
-| `vault.name` | string | yes | — | display name |
-| `notes.include` | string[] (globs) | no | `['**/*.md']` | at least one entry |
-| `notes.exclude` | string[] (globs) | no | `[]` | |
-| `identity` | union (below) | no | `{ strategy: ulid }` | how new note ids are minted |
-| `editor` | string | no | — | overrides `$EDITOR` for the editor handoff |
-| `plugins` | map `name → settings` | no | — | which plugins are enabled, and their settings |
-| `publications` | map `name → publication` | no | — | publish targets (below) |
+| Key             | Type                     | Required | Default              | Notes                                         |
+| --------------- | ------------------------ | -------- | -------------------- | --------------------------------------------- |
+| `vault.id`      | string                   | yes      | —                    | permanent identity; never edited by hand      |
+| `vault.name`    | string                   | yes      | —                    | display name                                  |
+| `notes.include` | string[] (globs)         | no       | `['**/*.md']`        | at least one entry                            |
+| `notes.exclude` | string[] (globs)         | no       | `[]`                 |                                               |
+| `identity`      | union (below)            | no       | `{ strategy: ulid }` | how new note ids are minted                   |
+| `editor`        | string                   | no       | —                    | overrides `$EDITOR` for the editor handoff    |
+| `plugins`       | map `name → settings`    | no       | —                    | which plugins are enabled, and their settings |
+| `publications`  | map `name → publication` | no       | —                    | publish targets (below)                       |
 
 ### `identity`
 
@@ -57,20 +57,20 @@ for its note fields — a settings-schema is a known gap.)
 
 A map whose key is the publication name. Each publication:
 
-| Key | Type | Required | Default | Allowed values |
-| --- | --- | --- | --- | --- |
-| `destination` | string \| `{ kind, …options }` | yes | — | kinds: `markdown`, `html`, `astro` |
-| `output` | string (path) | yes | — | where files are written |
-| `route` | string (template) | no | `/{{slug}}/` | |
-| `include` | string[] (globs) | no | `[]` | |
-| `exclude` | string[] (globs) | no | `[]` | |
-| `vaults` | string[] | no | — | restrict to these vaults (≥1); omit for all in scope |
-| `references` | enum | no | `fail` | `fail` \| `strip-to-label` \| `keep-id` |
+| Key           | Type                           | Required | Default      | Allowed values                                       |
+| ------------- | ------------------------------ | -------- | ------------ | ---------------------------------------------------- |
+| `destination` | string \| `{ kind, …options }` | yes      | —            | kinds: `markdown`, `html`, `astro`                   |
+| `output`      | string (path)                  | yes      | —            | where files are written                              |
+| `route`       | string (template)              | no       | `/{{slug}}/` |                                                      |
+| `include`     | string[] (globs)               | no       | `[]`         |                                                      |
+| `exclude`     | string[] (globs)               | no       | `[]`         |                                                      |
+| `vaults`      | string[]                       | no       | —            | restrict to these vaults (≥1); omit for all in scope |
+| `references`  | enum                           | no       | `fail`       | `fail` \| `strip-to-label` \| `keep-id`              |
 
 The `destination` is a bare kind when it needs no options (`destination: markdown`), or a `kind`
 plus options the destination itself declares and validates (ADR
 [0007](./decisions/0007-destination-options.md)). Because the options are declared as `OptionSpec`
-data, tools can discover them from `notes capabilities` rather than hard-coding them. Built-in
+data, tools can discover them from `ofl capabilities` rather than hard-coding them. Built-in
 options:
 
 - `markdown` — `layout`: `flat` \| `directory`
@@ -90,7 +90,7 @@ publications:
     output: ../site/src/content
 ```
 
-## 2. User configuration — `~/.config/notes/config.yaml`
+## 2. User configuration — `~/.config/ofl/config.yaml`
 
 Spans vaults; holds preferences, not facts about any one vault. Vault paths may be absolute,
 `~`-relative, or relative to the config file's directory.
@@ -132,7 +132,7 @@ tui:
 
 Notes for a TUI configuration screen over the above:
 
-- **Two scopes, two regions.** Vault settings edit the active vault's `.notes/config.yaml`; user
+- **Two scopes, two regions.** Vault settings edit the active vault's `.ofl/config.yaml`; user
   settings edit the shared file. Under a composite scope, decide whether the screen edits one chosen
   vault or several.
 - **Widget kinds:** text input (`vault.name`, `editor`, `output`), enum picker (`identity.strategy`,

@@ -94,7 +94,7 @@ keeps both, only the amount counts.
 
 ### 1.3 Templates
 
-`goals/goal` and `goals/session` are built in (a vault's `.notes/templates/goals/*.md` wins).
+`goals/goal` and `goals/session` are built in (a vault's `.ofl/templates/goals/*.md` wins).
 They carry **no numeric fields**: a `{{placeholder}}` always substitutes as a YAML string, and a
 string `"160"` is not a number. `goals new` and `goals log` (delivery B) write the numbers
 through the typed create path. A goal created from the raw template is complete only once

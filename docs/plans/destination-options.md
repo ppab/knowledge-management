@@ -259,12 +259,12 @@ Tests touched: `publish.test.ts`, `check-publications.test.ts`, `registry.test.t
   for one that does not; two plugins declaring the same theme name, or a plugin shadowing `modular`,
   are rejected at `buildRegistry` naming both (same shape as the destination-kind clash test).
 - **integration**: two astro publications in one vault (`blog` → posts, `pages` → pages) build
-  into the same project and both appear; `notes publish` lists both.
+  into the same project and both appear; `ofl publish` lists both.
 
 ## Verification
 
 `bun run check` (lint, format, typecheck, vitest). By hand in a scratch vault: a `pages`
-publication alongside `blog`, `notes capabilities --json` shows the `theme`/`collection`/`layout`
+publication alongside `blog`, `ofl capabilities --json` shows the `theme`/`collection`/`layout`
 options, a bogus `collection: nope` fails at open naming the valid collections.
 
 ## Decisions settled (2026-11-08)

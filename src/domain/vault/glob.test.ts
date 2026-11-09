@@ -24,7 +24,7 @@ describe('matchesGlob', () => {
     ['docs/*.md', 'docs/deep/a.md'],
     ['notes/daily/*.md', 'notes/a.md'],
     ['*.md', 'docs/a.md'],
-    ['**/*.md', '.notes/templates/t.md'],
+    ['**/*.md', '.ofl/templates/t.md'],
     ['**/*.md', 'docs/.hidden.md'],
     ['notes/[ab]*.md', 'notes/gamma.md'],
     ['notes/202?-*.md', 'notes/20261-x.md'],

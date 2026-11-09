@@ -1,11 +1,11 @@
 {
-  "name": "notes",
+  "name": "ofl",
   "version": "0.1.0",
-  "description": "Local-first, Git-native, agent-friendly knowledge management",
+  "description": "OpenFormLink — local-first, Git-native, agent-friendly knowledge management",
   "type": "module",
   "private": true,
   "bin": {
-    "notes": "./bin/notes"
+    "ofl": "./bin/ofl"
   },
   "engines": {
     "node": ">=24"
@@ -22,7 +22,7 @@
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test",
     "compile": "bun scripts/compile.ts --host",
     "compile:all": "bun scripts/compile.ts",
-    "load": "bun run compile && install -m 755 release/notes-linux-x64 ~/.local/bin/notes"
+    "load": "bun run compile && install -m 755 release/ofl-linux-x64 ~/.local/bin/ofl"
   },
   "dependencies": {
     "@inkjs/ui": "^2.0.0",

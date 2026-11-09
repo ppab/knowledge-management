@@ -1,6 +1,6 @@
 /*
  * Built-in templates, reachable as `--template courses/course`, `courses/chapter`,
- * `courses/lesson` and `courses/study`; a vault's own `.notes/templates/courses/*.md` wins.
+ * `courses/lesson` and `courses/study`; a vault's own `.ofl/templates/courses/*.md` wins.
  * Numeric fields (`*_order`, `study_amount`, `lesson_duration`) are left out on purpose: a
  * `{{placeholder}}` always substitutes as a YAML string, so a command writes them as real
  * numbers (docs/courses.md §4). A chapter, lesson or study note is created with its parent id

@@ -214,7 +214,7 @@ export const indexStatus = async (
 
 /**
  * Opens the vault's index, brings it up to date and runs `work` against it. Every read use
- * case goes through here, which is what makes `.notes/cache/` safe to delete at any time.
+ * case goes through here, which is what makes `.ofl/cache/` safe to delete at any time.
  */
 export const withFreshIndex = async <T>(
   deps: AppDeps,

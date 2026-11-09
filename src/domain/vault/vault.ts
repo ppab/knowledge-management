@@ -6,8 +6,8 @@ export type VaultId = string & { readonly [vaultIdBrand]: true };
 
 export const asVaultId = (raw: string): VaultId => raw as VaultId;
 
-/** The `.notes` directory identifies a vault; everything the vault needs lives under it. */
-export const VAULT_DIR = '.notes';
+/** The `.ofl` directory identifies a vault; everything the vault needs lives under it. */
+export const VAULT_DIR = '.ofl';
 
 export interface VaultConfig {
   readonly id: VaultId;

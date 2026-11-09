@@ -17,7 +17,7 @@ interface Outcome {
   stderr: string;
 }
 
-const notes = async (cwd: string, ...args: string[]): Promise<Outcome> => {
+const ofl = async (cwd: string, ...args: string[]): Promise<Outcome> => {
   try {
     const { stdout, stderr } = await run(tsx, [main, ...args], { cwd });
     return { code: 0, stdout, stderr };
@@ -47,15 +47,15 @@ const config = (base: string, policy: string): string =>
   `  site:\n    destination: { kind: html, layout: directory }\n    output: ./site\n    include: [notes/**]\n    references: ${policy}\n` +
   `  content:\n    destination: markdown\n    output: ./content\n    include: [notes/**]\n    references: ${policy}\n`;
 
-describe('notes publish', () => {
+describe('ofl publish', () => {
   let root: string;
   let configPath: string;
   let base: string;
 
   beforeAll(async () => {
     root = await mkdtemp(join(tmpdir(), 'notes-publish-'));
-    await notes(root, 'init', '--name', 'demo', '--dir', 'notes');
-    configPath = join(root, '.notes', 'config.yaml');
+    await ofl(root, 'init', '--name', 'demo', '--dir', 'notes');
+    configPath = join(root, '.ofl', 'config.yaml');
     base = await readFile(configPath, 'utf8');
     await writeFile(join(root, 'notes', 'alpha.md'), alpha);
     await writeFile(join(root, 'notes', 'beta.md'), beta);
@@ -66,12 +66,12 @@ describe('notes publish', () => {
   it('lists, refuses on a fail-policy violation, then strips and writes, leaving sources intact', async () => {
     await writeFile(configPath, config(base, 'fail'));
 
-    const list = await notes(root, 'publish');
+    const list = await ofl(root, 'publish');
     expect(list.code).toBe(0);
     expect(list.stdout).toContain('site');
     expect(list.stdout).toContain('content');
 
-    const dry = await notes(root, 'publish', 'site', '--dry-run');
+    const dry = await ofl(root, 'publish', 'site', '--dry-run');
     expect(dry.code).toBe(6); // violations under the fail policy
     expect(dry.stdout).toContain('private'); // the private note is listed as excluded
     expect(await missing(join(root, 'site'))).toBe(true); // a dry run writes nothing
@@ -82,7 +82,7 @@ describe('notes publish', () => {
     };
 
     await writeFile(configPath, config(base, 'strip-to-label'));
-    const site = await notes(root, 'publish', 'site');
+    const site = await ofl(root, 'publish', 'site');
     expect(site.code).toBe(0);
     const html = await readFile(join(root, 'site', 'alpha', 'index.html'), 'utf8');
     expect(html).toContain('<a href="/beta/">Beta</a>'); // published reference → route link
@@ -93,7 +93,7 @@ describe('notes publish', () => {
     };
     expect(manifest.entries.map((e) => e.id).sort()).toEqual(['AAA', 'BBB']);
 
-    const content = await notes(root, 'publish', 'content');
+    const content = await ofl(root, 'publish', 'content');
     expect(content.code).toBe(0);
     const md = await readFile(join(root, 'content', 'alpha.md'), 'utf8');
     expect(md).toContain('[Beta](./beta.md)');
@@ -107,8 +107,8 @@ describe('notes publish', () => {
   it('publishes an Astro content collection with mapped frontmatter', async () => {
     const v = await mkdtemp(join(tmpdir(), 'notes-publish-astro-'));
     try {
-      await notes(v, 'init', '--name', 'blog', '--dir', 'notes');
-      const cfg = join(v, '.notes', 'config.yaml');
+      await ofl(v, 'init', '--name', 'blog', '--dir', 'notes');
+      const cfg = join(v, '.ofl', 'config.yaml');
       const base = await readFile(cfg, 'utf8');
       // Two publications into one Astro project: posts and pages, each its own collection,
       // selecting disjoint folders both under the indexed `notes/` directory.
@@ -129,12 +129,12 @@ describe('notes publish', () => {
         '---\nid: ABT\nvisibility: public\ntitle: About\ncreated: 2026-01-02T09:00:00.000Z\ndescription: who we are\n---\n\nAbout us.\n',
       );
 
-      const list = await notes(v, 'publish');
+      const list = await ofl(v, 'publish');
       expect(list.code).toBe(0);
       expect(list.stdout).toContain('blog');
       expect(list.stdout).toContain('pages');
 
-      const out = await notes(v, 'publish', 'blog');
+      const out = await ofl(v, 'publish', 'blog');
       expect(out.code).toBe(0);
       const post = await readFile(
         join(v, 'site', 'src', 'content', 'posts', 'first-post.md'),
@@ -146,7 +146,7 @@ describe('notes publish', () => {
       expect(post).not.toContain('visibility:');
       expect(await missing(join(v, 'site', '.capture', 'manifest.json'))).toBe(false);
 
-      const pagesOut = await notes(v, 'publish', 'pages');
+      const pagesOut = await ofl(v, 'publish', 'pages');
       expect(pagesOut.code).toBe(0);
       const about = await readFile(join(v, 'site', 'src', 'content', 'pages', 'about.md'), 'utf8');
       expect(about).toContain('title: About');
@@ -160,8 +160,8 @@ describe('notes publish', () => {
   it('aborts on a route collision and errors on an unknown publication', async () => {
     const v = await mkdtemp(join(tmpdir(), 'notes-publish-x-'));
     try {
-      await notes(v, 'init', '--name', 'x', '--dir', 'notes');
-      const cfg = join(v, '.notes', 'config.yaml');
+      await ofl(v, 'init', '--name', 'x', '--dir', 'notes');
+      const cfg = join(v, '.ofl', 'config.yaml');
       await writeFile(cfg, config(await readFile(cfg, 'utf8'), 'strip-to-label'));
       await writeFile(
         join(v, 'notes', 'one.md'),
@@ -172,11 +172,11 @@ describe('notes publish', () => {
         '---\nid: TWO\nvisibility: public\ntitle: U\nslug: same\n---\n',
       );
 
-      const collide = await notes(v, 'publish', 'content');
+      const collide = await ofl(v, 'publish', 'content');
       expect(collide.code).toBe(6);
       expect(await missing(join(v, 'content'))).toBe(true);
 
-      expect((await notes(v, 'publish', 'ghost')).code).toBe(3);
+      expect((await ofl(v, 'publish', 'ghost')).code).toBe(3);
     } finally {
       await rm(v, { recursive: true, force: true });
     }

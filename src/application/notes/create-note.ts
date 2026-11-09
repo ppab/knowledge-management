@@ -23,7 +23,7 @@ import { loadNoteEntry } from './load-note.js';
 
 export interface CreateNoteInput {
   readonly title: string;
-  /** Template name under `.notes/templates/`; the built-in `default` when omitted. */
+  /** Template name under `.ofl/templates/`; the built-in `default` when omitted. */
   readonly template?: string;
   readonly variables?: TemplateVariables;
   /** Overrides the template's output path. Vault-relative; must still fall under `include`. */
@@ -53,7 +53,7 @@ const findTemplate = async (
 };
 
 /**
- * The template names `create` accepts in `vault`: its own under `.notes/templates/` plus the
+ * The template names `create` accepts in `vault`: its own under `.ofl/templates/` plus the
  * enabled plugins' built-ins (`<plugin>/<name>`); `default` first, then alphabetical.
  */
 export const availableTemplates = async (
