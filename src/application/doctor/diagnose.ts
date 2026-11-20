@@ -1,5 +1,5 @@
 import type { AppError } from '../../domain/errors.js';
-import { findDuplicateIds } from '../../domain/note/duplicates.js';
+import { findDuplicateIds } from '../../domain/entry/duplicates.js';
 import { ok, type Result } from '../../domain/result.js';
 import { availableVaults, type Scope } from '../../domain/scope/scope.js';
 import { applyPlan, isStale, planRefresh, staleOf } from '../index/refresh-index.js';
@@ -165,7 +165,7 @@ const diagnoseCore = async (
       const name = vault.config.name;
       const entries = index.all();
       for (const duplicate of findDuplicateIds(
-        entries.map((e) => (e.kind === 'note' ? { id: e.id, path: e.path } : { path: e.path })),
+        entries.map((e) => (e.kind === 'entry' ? { id: e.id, path: e.path } : { path: e.path })),
       )) {
         findings.push({
           kind: 'duplicate-id',
@@ -204,7 +204,7 @@ const diagnoseCore = async (
       const owners = new Map<string, { vault: string; path: string }[]>();
       for (const { vault, index } of opened) {
         for (const entry of index.all()) {
-          if (entry.kind !== 'note') continue;
+          if (entry.kind !== 'entry') continue;
           const list = owners.get(entry.id) ?? [];
           list.push({ vault: vault.config.name, path: entry.path });
           owners.set(entry.id, list);

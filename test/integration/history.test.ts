@@ -51,14 +51,14 @@ beforeAll(async () => {
 });
 afterAll(() => rm(base, { recursive: true, force: true }));
 
-describe('ofl history / diff / save / show --at (M7)', () => {
+describe('ofl history / diff / snapshot / show --at (M7)', () => {
   let id: string;
   let path: string;
   let firstRevision: string;
 
-  it('save records one note and only that note; unchanged notes have nothing to save', async () => {
+  it('snapshot records one entry and only that note; unchanged notes have nothing to save', async () => {
     expect((await ofl(vault, 'init', '--name', 'demo')).code).toBe(0);
-    const created = await ofl(vault, 'create', '--title', 'Hello', '--json');
+    const created = await ofl(vault, 'capture', '--title', 'Hello', '--json');
     ({ id, path } = JSON.parse(created.stdout) as { id: string; path: string });
 
     const before = await ofl(vault, 'history', id);
@@ -67,7 +67,7 @@ describe('ofl history / diff / save / show --at (M7)', () => {
 
     await writeFile(join(repo, 'unrelated.txt'), 'staged\n');
     await git('add', 'unrelated.txt');
-    const saved = await ofl(vault, 'save', id, '-m', 'first words', '--json');
+    const saved = await ofl(vault, 'snapshot', id, '-m', 'first words', '--json');
     expect(saved.code).toBe(0);
     const outcome = JSON.parse(saved.stdout) as {
       status: string;
@@ -79,10 +79,10 @@ describe('ofl history / diff / save / show --at (M7)', () => {
     expect((await git('show', '--name-only', '--format=', 'HEAD')).trim()).toBe(`vault/${path}`);
     expect((await git('diff', '--cached', '--name-only')).trim()).toBe('unrelated.txt');
 
-    const again = await ofl(vault, 'save', id);
+    const again = await ofl(vault, 'snapshot', id);
     expect(again.code).toBe(0);
     expect(again.stdout).toContain('Nothing to save');
-    const againJson = await ofl(vault, 'save', id, '--json');
+    const againJson = await ofl(vault, 'snapshot', id, '--json');
     expect(JSON.parse(againJson.stdout)).toMatchObject({ status: 'nothing-to-save' });
   });
 
@@ -119,14 +119,14 @@ describe('ofl history / diff / save / show --at (M7)', () => {
     await writeFile(hook, '#!/bin/sh\necho "hook says no" >&2\nexit 1\n');
     await chmod(hook, 0o755);
     try {
-      const rejected = await ofl(vault, 'save', id, '-m', 'second words');
+      const rejected = await ofl(vault, 'snapshot', id, '-m', 'second words');
       expect(rejected.code).toBe(1);
       expect(rejected.stderr).toContain('hook says no');
       expect((await git('log', '--format=%s')).trim()).toBe('note: first words');
     } finally {
       await rm(hook);
     }
-    const saved = await ofl(vault, 'save', id, '-m', 'second words');
+    const saved = await ofl(vault, 'snapshot', id, '-m', 'second words');
     expect(saved.code).toBe(0);
     expect(saved.stdout).toContain('second words');
     const between = await ofl(vault, 'diff', id, '--from', firstRevision.slice(0, 7), '--json');
@@ -157,13 +157,13 @@ describe('ofl history / diff / save / show --at (M7)', () => {
     const plain = join(base, 'plain');
     await mkdir(plain);
     expect((await ofl(plain, 'init', '--name', 'plain')).code).toBe(0);
-    const created = await ofl(plain, 'create', '--title', 'Loose', '--json');
+    const created = await ofl(plain, 'capture', '--title', 'Loose', '--json');
     const loose = JSON.parse(created.stdout) as { id: string };
 
-    const saved = await ofl(plain, 'save', loose.id, '--json');
+    const saved = await ofl(plain, 'snapshot', loose.id, '--json');
     expect(saved.code).toBe(0);
     expect(JSON.parse(saved.stdout)).toMatchObject({ status: 'not-under-version-control' });
-    const text = await ofl(plain, 'save', loose.id);
+    const text = await ofl(plain, 'snapshot', loose.id);
     expect(text.stdout).toContain('is not under version control');
     const history = await ofl(plain, 'history', loose.id);
     expect(history.code).toBe(0);

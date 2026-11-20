@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../result.js';
-import { asNoteId } from '../note/note-id.js';
+import { asEntryId } from '../entry/entry-id.js';
 import type { Reference } from '../reference/reference.js';
 import type { Publication } from './publication.js';
 import { buildPlan, isPublishable } from './plan.js';
 import type { PublicationCandidate } from './select.js';
 
 const ref = (target: string): Reference => ({
-  target: asNoteId(target),
+  target: asEntryId(target),
   range: { start: 0, end: 0 },
 });
 

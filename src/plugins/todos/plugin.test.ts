@@ -3,11 +3,11 @@ import { createPluginApi } from '../../application/plugin/api.js';
 import type { PluginApi, PluginCommand } from '../../application/plugin/plugin.js';
 import { buildRegistry, enabledPlugin } from '../../application/plugin/registry.js';
 import { diagnose } from '../../application/doctor/diagnose.js';
-import { asNoteId } from '../../domain/note/note-id.js';
+import { asEntryId } from '../../domain/entry/entry-id.js';
 import { unwrap } from '../../domain/result.js';
 import { fixture, type Fixture } from '../../../test/fakes/index.js';
 
-const X = asNoteId('X');
+const X = asEntryId('X');
 import { todosPlugin } from './plugin.js';
 import { filterTodos, overdue, parseDue, sortTodos, todoOf, type Todo } from './queries.js';
 
@@ -67,7 +67,7 @@ describe('todos queries', () => {
 
   it('reads todos leniently from index entries', () => {
     const base = {
-      kind: 'note' as const,
+      kind: 'entry' as const,
       vault: 'v',
       path: 'x.md',
       title: 'X',
@@ -152,12 +152,12 @@ describe('todos commands', () => {
 
   it('creates a todo from the built-in task template', async () => {
     const { f, api } = setup();
-    const created = unwrap(await api.create({ title: 'New task', template: 'todos/task' }));
+    const created = unwrap(await api.capture({ title: 'New task', template: 'todos/task' }));
     expect(created.type).toBe('todo');
     expect(f.fs.files.get(created.path)).toContain('type: todo\nstatus: open\n');
     // A vault template of the same name wins.
     f.templates.set('todos/task', '---\nid: "{{id}}"\ntype: todo\nstatus: open\nowner: me\n---\n');
-    const own = unwrap(await api.create({ title: 'Mine', template: 'todos/task' }));
+    const own = unwrap(await api.capture({ title: 'Mine', template: 'todos/task' }));
     expect(f.fs.files.get(own.path)).toContain('owner: me');
   });
 });

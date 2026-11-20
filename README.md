@@ -8,7 +8,7 @@ is your Git repository.
 ## Install
 
 `ofl` ships as a single executable that needs no Node or Bun installed. Only `git` must be on
-your `PATH` for history and `save`, and an editor (`$VISUAL`/`$EDITOR`) for `edit`.
+your `PATH` for history and `snapshot`, and an editor (`$VISUAL`/`$EDITOR`) for `edit`.
 
 Pick the file for your machine from `release/` (after `bun run compile:all`, see below):
 
@@ -39,17 +39,17 @@ xattr -d com.apple.quarantine ofl
 
 ```bash
 mkdir ~/wiki && cd ~/wiki
-git init                      # optional: enables history, diff and save
+git init                      # optional: enables history, diff and snapshot
 ofl init --name wiki          # writes .ofl/config.yaml
-ofl create --title "First note"
+ofl capture --title "First note"
 ofl                           # opens the TUI in the current vault
 ```
 
-Inside the TUI: `j`/`k` move, `Enter` opens a note, `/` searches, `c` creates, `Space` opens the
-command menu, `Esc` goes back and `q` quits. In a note: vim motions (`hjkl`, `w`/`b`/`e`),
-`i`/`a` insert a reference, `v` selects text to turn into a reference, `x` removes the
-reference under the cursor, `o` opens the file in your editor, `s` saves a revision to git and
-`H` shows the history.
+Inside the TUI: `j`/`k` move, `Enter` opens an entry, `/` searches, `c` captures, `Space` opens
+the command menu, `Esc` goes back and `q` quits. In an entry: vim motions (`hjkl`, `w`/`b`/`e`),
+`i`/`a` insert a reference, `v` selects text to turn into a reference, `x` unlinks the
+reference under the cursor, `o` opens the file in your editor, `s` snapshots a revision to git
+and `H` shows the history.
 
 From a script or an agent, every command takes `--json` and reports failures with a stable exit
 code (`ofl capabilities --json` lists the commands, flags and codes):
@@ -58,7 +58,8 @@ code (`ofl capabilities --json` lists the commands, flags and codes):
 ofl list --json
 ofl search kumquat --json
 ofl show "first note" --json
-ofl save "first note" -m "first words"
+ofl classify "first note" todo        # file a raw capture under a type (--clear sends it back to the inbox)
+ofl snapshot "first note" -m "first words"
 ```
 
 Several vaults can be read together: pass `--vault <path>` more than once, or define named scopes

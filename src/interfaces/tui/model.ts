@@ -1,7 +1,7 @@
-import type { NoteLocator } from '../../application/notes/view-note.js';
-import type { PanelNoteRef } from '../../application/plugin/plugin.js';
+import type { EntryLocator } from '../../application/entries/view-entry.js';
+import type { PanelEntryRef } from '../../application/plugin/plugin.js';
 import type { IsoDate } from '../../domain/calendar/date-binding.js';
-import type { EntrySummary } from '../../domain/note/summary.js';
+import type { AnySummary } from '../../domain/entry/summary.js';
 import type { Position } from '../../domain/text/rendered.js';
 import type { Selection } from './selection.js';
 
@@ -21,8 +21,8 @@ export type Screen =
       readonly tag?: string;
     }
   | {
-      readonly kind: 'note';
-      readonly locator: NoteLocator;
+      readonly kind: 'entry';
+      readonly locator: EntryLocator;
       readonly scroll: number;
       /** Text cursor in rendered coordinates; unset until first placed (then: first text). */
       readonly cursor?: Position;
@@ -57,7 +57,7 @@ export type Screen =
   /** The revision list; on a wide terminal the selected revision previews beside it. */
   | {
       readonly kind: 'history';
-      readonly locator: NoteLocator;
+      readonly locator: EntryLocator;
       readonly cursor: number;
       /** What the preview pane shows for the selected revision; `content` when absent. */
       readonly pane?: 'content' | 'diff';
@@ -67,14 +67,14 @@ export type Screen =
   /** A note as it was at one revision (read-only). */
   | {
       readonly kind: 'revision';
-      readonly locator: NoteLocator;
+      readonly locator: EntryLocator;
       readonly revision: string;
       readonly scroll: number;
     }
   /** A revision against the working file. */
   | {
       readonly kind: 'diff';
-      readonly locator: NoteLocator;
+      readonly locator: EntryLocator;
       readonly from: string;
       readonly scroll: number;
     };
@@ -99,19 +99,19 @@ export const navigate = (stack: readonly Screen[], action: Navigation): Screen[]
   }
 };
 
-export const noteScreen = (locator: NoteLocator): Screen => ({
-  kind: 'note',
+export const entryScreen = (locator: EntryLocator): Screen => ({
+  kind: 'entry',
   locator,
   scroll: 0,
   panelCursor: 0,
 });
 
 /** Identified notes are addressed by id so a moved file still resolves; others by path. */
-export const locatorOf = (ref: PanelNoteRef): NoteLocator =>
+export const locatorOf = (ref: PanelEntryRef): EntryLocator =>
   ref.id === undefined ? { vault: ref.vault, path: ref.path } : { query: ref.id };
 
-export const locatorOfEntry = (entry: EntrySummary & { readonly vault: string }): NoteLocator =>
-  entry.kind === 'note' ? { query: entry.id } : { vault: entry.vault, path: entry.path };
+export const locatorOfEntry = (entry: AnySummary & { readonly vault: string }): EntryLocator =>
+  entry.kind === 'entry' ? { query: entry.id } : { vault: entry.vault, path: entry.path };
 
 /** First visible row so that `cursor` stays inside a window of `height` rows. */
 export const windowStart = (cursor: number, height: number): number =>

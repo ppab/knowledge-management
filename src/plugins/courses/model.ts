@@ -1,8 +1,8 @@
-import type { ScopedEntry } from '../../application/notes/list-notes.js';
+import type { ScopedEntry } from '../../application/entries/list-entries.js';
 import type { FieldSpec } from '../../application/plugin/plugin.js';
 import { parseIsoDate, type IsoDate } from '../../domain/calendar/date-binding.js';
-import type { FieldValue } from '../../domain/note/fields.js';
-import type { NoteId } from '../../domain/note/note-id.js';
+import type { FieldValue } from '../../domain/entry/fields.js';
+import type { EntryId } from '../../domain/entry/entry-id.js';
 import { parseFieldReference } from '../../domain/reference/reference.js';
 import { DEFAULT_UNIT, parseInstant, parseUnit, type Instant, type TimeUnit } from './units.js';
 
@@ -164,7 +164,7 @@ export const FIELDS: readonly FieldSpec[] = [
 interface Identity {
   readonly vault: string;
   readonly path: string;
-  readonly id: NoteId;
+  readonly id: EntryId;
   readonly title: string;
   /** Content version at read time; what a mutation passes as `expectedVersion`. */
   readonly version: string;
@@ -180,12 +180,12 @@ export interface Course extends Identity {
 }
 
 export interface Chapter extends Identity {
-  readonly course: NoteId;
+  readonly course: EntryId;
   readonly order?: number;
 }
 
 export interface Lesson extends Identity {
-  readonly chapter: NoteId;
+  readonly chapter: EntryId;
   readonly status: LessonStatus;
   readonly order?: number;
   readonly url?: string;
@@ -193,8 +193,8 @@ export interface Lesson extends Identity {
 }
 
 export interface Study extends Identity {
-  readonly course: NoteId;
-  readonly lesson?: NoteId;
+  readonly course: EntryId;
+  readonly lesson?: EntryId;
   /** Minutes/hours studied; absent only while the timer is running. */
   readonly amount?: number;
   readonly unit: TimeUnit;
@@ -344,7 +344,7 @@ const readStudy = (
   const problems: string[] = [];
   const course = parseFieldReference(fields.study_course);
   if (!course) problems.push('study_course must be a note link ("[[id]]")');
-  let lesson: NoteId | undefined;
+  let lesson: EntryId | undefined;
   if (present(fields.study_lesson)) {
     const reference = parseFieldReference(fields.study_lesson);
     if (reference) lesson = reference.target;
@@ -427,7 +427,7 @@ export const collect = (entries: readonly ScopedEntry[]): CoursesEntries => {
     ) {
       continue;
     }
-    if (entry.kind !== 'note') continue;
+    if (entry.kind !== 'entry') continue;
     const identity: Identity = {
       vault: entry.vault,
       path: entry.path,

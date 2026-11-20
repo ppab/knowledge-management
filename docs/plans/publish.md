@@ -76,7 +76,7 @@ ext, layout: 'flat'|'directory')` → `a/b.md` | `a/b/index.html`; `/` → `inde
   `normalizeOutputPath(path)` (rejects `..`, empty, leading `/` — a hostile `slug:`),
   `escapeMarkdownText(text)` for titles used as link labels.
 - `select.ts` — `PublicationCandidate { vault, path, id, title, slug?, type?, visibility, tags,
-dates, fields, version, references: Reference[] }` (built from `NoteSummary` +
+dates, fields, version, references: Reference[] }` (built from `EntrySummary` +
   `index.outgoing(path)` — **no file reads**). `selectCandidates(publication, candidates,
 definingVault)` → `{ included, excluded: { candidate, reason }[] }` with
   `ExclusionReason = {kind:'vault'} | {kind:'private'} | {kind:'not-included'} | {kind:'excluded'; by}`.
@@ -234,7 +234,7 @@ route, path, dates, tags, source:{vault,path} }] }`; no timestamp (golden files 
 
 ### 4. Plugin contract, registry, doctor
 
-- `src/application/plugin/plugin.ts` — `NotePlugin.destinations?: readonly Destination[]`;
+- `src/application/plugin/plugin.ts` — `EntryPlugin.destinations?: readonly Destination[]`;
   `PluginRegistry.destinationsFor(root)` (built-ins + kinds of plugins that vault enables) and
   `PluginRegistry.publications(): readonly ResolvedPublication[]`.
 - `src/application/plugin/registry.ts` — **built-ins live inside the registry** (the TUI calls

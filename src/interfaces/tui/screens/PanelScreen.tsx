@@ -8,8 +8,8 @@ import type { Hint } from '../components/Frame.js';
 import { actionHints, PanelView } from '../components/PanelView.js';
 import { useLoad, useTui } from '../context.js';
 import { isBack, isDown, isUp } from '../keys.js';
-import { clamp, locatorOf, noteScreen, type Screen } from '../model.js';
-import { apiForPanel, noteAt, outcomeText, rowAt, rowCount } from '../panels.js';
+import { clamp, locatorOf, entryScreen, type Screen } from '../model.js';
+import { apiForPanel, entryAt, outcomeText, rowAt, rowCount } from '../panels.js';
 import { flattenTree, nodeActions } from '../tree.js';
 
 type PanelScreenState = Extract<Screen, { kind: 'panel' }>;
@@ -117,7 +117,7 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
           return;
         }
         if (key.return) {
-          if (node?.note) navigate({ type: 'push', screen: noteScreen(locatorOf(node.note)) });
+          if (node?.note) navigate({ type: 'push', screen: entryScreen(locatorOf(node.note)) });
           else notify('Nothing to open on this node');
           return;
         }
@@ -131,8 +131,8 @@ export const PanelScreen = ({ screen }: { readonly screen: PanelScreenState }) =
       }
 
       if (key.return) {
-        const ref = noteAt(data, cursor);
-        if (ref) navigate({ type: 'push', screen: noteScreen(locatorOf(ref)) });
+        const ref = entryAt(data, cursor);
+        if (ref) navigate({ type: 'push', screen: entryScreen(locatorOf(ref)) });
         else notify('Nothing to open on this row');
         return;
       }

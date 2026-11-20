@@ -1,5 +1,5 @@
 import { conflict, type AppError } from '../../domain/errors.js';
-import type { Note } from '../../domain/note/note.js';
+import type { Entry } from '../../domain/entry/entry.js';
 import { escapeMarkdownText } from '../../domain/publishing/output-path.js';
 import type { PublicationPlan } from '../../domain/publishing/plan.js';
 import { err, ok, type Result } from '../../domain/result.js';
@@ -16,7 +16,7 @@ import type { Destination, Located } from './destination.js';
  * (`\!`) so the published Markdown shows a literal `!` rather than an image embed.
  */
 export const rewriteReferences = (
-  note: Note,
+  note: Entry,
   plan: PublicationPlan,
   destination: Destination,
   options: unknown,

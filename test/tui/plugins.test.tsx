@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { NotePlugin } from '../../src/application/plugin/plugin.js';
+import type { EntryPlugin } from '../../src/application/plugin/plugin.js';
 import { ok } from '../../src/domain/result.js';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { buildTuiRegistry } from '../../src/interfaces/tui/tui.js';
 import { todosPlugin } from '../../src/plugins/todos/plugin.js';
 import { fixture } from '../fakes/index.js';
@@ -60,13 +60,13 @@ describe('plugin panels', () => {
       },
       { plugins: [todosPlugin] },
     );
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'P' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'P' })]);
     const frame = await term.waitFor('Plain · monitor · P');
     expect(frame).not.toContain('status:');
   });
 
   it('refuses to start when a plugin chord clashes with a core chord or a reserved one', () => {
-    const clashing = (key: string): NotePlugin => ({
+    const clashing = (key: string): EntryPlugin => ({
       name: 'todos',
       description: 'x',
       types: ['todo'],

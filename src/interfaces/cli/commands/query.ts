@@ -4,7 +4,7 @@ import {
   listReferences,
   type OutgoingReference,
 } from '../../../application/references/references.js';
-import { searchNotes } from '../../../application/search/search-notes.js';
+import { searchEntries } from '../../../application/search/search-entries.js';
 import { ok } from '../../../domain/result.js';
 import { isComposite } from '../../../domain/scope/scope.js';
 import type { Exit } from '../commands.js';
@@ -33,7 +33,7 @@ const referenceText = (ref: OutgoingReference, composite: boolean): string => {
 };
 
 /** Registers the read-side commands; returns the `reference` group so `add` can join it. */
-export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): Command => {
+export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): void => {
   program
     .command('search')
     .description('full-text search over titles, aliases and bodies')
@@ -45,7 +45,7 @@ export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): 
         await emit(
           ctx,
           inScope(ctx, async (scope) => {
-            const hits = await searchNotes(ctx.deps, scope, words.join(' '), {
+            const hits = await searchEntries(ctx.deps, scope, words.join(' '), {
               ...(opts.limit !== undefined && { limit: opts.limit }),
             });
             if (!hits.ok) return hits;
@@ -94,11 +94,10 @@ export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): 
       );
     });
 
-  const reference = program.command('reference').description('work with [[references]]');
-  reference
-    .command('list')
-    .description('list the references a note makes and where each leads')
-    .argument('<query>', 'note id, title or alias')
+  program
+    .command('references')
+    .description('list the references an entry makes and where each leads')
+    .argument('<query>', 'entry id, title or alias')
     .action(async (query: string, _opts: unknown, cmd: Command) => {
       const ctx = contextFor(io, cmd);
       exit(
@@ -117,5 +116,4 @@ export const registerQueryCommands = (program: Command, io: CliIo, exit: Exit): 
         ),
       );
     });
-  return reference;
 };

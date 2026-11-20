@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { splitFrontmatter } from '../../domain/note/frontmatter.js';
+import { splitFrontmatter } from '../../domain/entry/frontmatter.js';
 import * as rendered from '../../domain/text/rendered.js';
 import { lineText, sourceOffsetAt, type Position } from '../../domain/text/rendered.js';
 import { unwrap } from '../../domain/result.js';

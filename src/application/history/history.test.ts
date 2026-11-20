@@ -3,9 +3,9 @@ import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
 import { diffRevisions, listRevisions, readRevision, revisionStatus } from './history.js';
 
-const v1 = '---\nid: N1\ntitle: Note\n---\n\nfirst\n';
-const v2 = '---\nid: N1\ntitle: Note\n---\n\nsecond\n';
-const v3 = '---\nid: N1\ntitle: Note\n---\n\nthird\n';
+const v1 = '---\nid: N1\ntitle: Entry\n---\n\nfirst\n';
+const v2 = '---\nid: N1\ntitle: Entry\n---\n\nsecond\n';
+const v3 = '---\nid: N1\ntitle: Entry\n---\n\nthird\n';
 
 describe('history', () => {
   it('reports unversioned vaults and unrecorded files as outcomes, not errors', async () => {
@@ -54,7 +54,7 @@ describe('history', () => {
 
     const old = unwrap(await readRevision(f.deps, f.scope, { query: 'N1' }, first.id.slice(0, 7)));
     expect(old.entry.source).toBe(v1);
-    expect(old.entry.title).toBe('Note');
+    expect(old.entry.title).toBe('Entry');
     expect(old.revision).toEqual(first);
     expect(old.current.source).toBe(v2);
     // The index still describes the working file.

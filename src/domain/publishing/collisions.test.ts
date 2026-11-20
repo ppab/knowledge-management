@@ -4,10 +4,10 @@ import { findPathCollisions, findRouteCollisions } from './collisions.js';
 describe('findRouteCollisions', () => {
   it('finds exact and case-insensitive route clashes', () => {
     const collisions = findRouteCollisions([
-      { id: 'A', route: '/notes/' },
-      { id: 'B', route: '/Notes/' },
+      { id: 'A', route: '/entries/' },
+      { id: 'B', route: '/Entries/' },
       { id: 'C', route: '/other/' },
-      { id: 'D', route: '/notes/' },
+      { id: 'D', route: '/entries/' },
     ]);
     expect(collisions).toHaveLength(1);
     expect(collisions[0]?.ids).toEqual(['A', 'B', 'D']);

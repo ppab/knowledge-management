@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { noteScreen } from '../../src/interfaces/tui/model.js';
+import { entryScreen } from '../../src/interfaces/tui/model.js';
 import { fakeEditor, harness, type Terminal } from './harness.js';
 
 let term: Terminal | undefined;
@@ -19,7 +19,7 @@ describe('editor handoff', () => {
       },
       { editor },
     );
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'E' })]);
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'E' })]);
     await term.waitFor('old body');
     await term.press('o');
     const after = await term.waitFor('new body');
@@ -40,7 +40,7 @@ describe('editor handoff', () => {
       },
       { editor },
     );
-    term = h.start([{ kind: 'list', cursor: 0 }, noteScreen({ query: 'E' })], {
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'E' })], {
       interactive: true,
     });
     await term.waitFor('body');

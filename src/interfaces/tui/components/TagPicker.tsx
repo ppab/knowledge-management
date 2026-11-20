@@ -1,6 +1,6 @@
 import { Text, useInput } from 'ink';
 import { useState } from 'react';
-import { listTags } from '../../../application/notes/list-tags.js';
+import { listTags } from '../../../application/entries/list-tags.js';
 import { useLoad, useTui } from '../context.js';
 import { clamp } from '../model.js';
 import { Dialog, DIALOG_CHROME } from './Dialog.js';

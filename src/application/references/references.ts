@@ -1,5 +1,5 @@
 import type { AppError } from '../../domain/errors.js';
-import type { EntrySummary, NoteSummary } from '../../domain/note/summary.js';
+import type { AnySummary, EntrySummary } from '../../domain/entry/summary.js';
 import { ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import type { SourceRange } from '../../domain/text/text-edit.js';
@@ -12,7 +12,7 @@ import {
 } from '../scope/session.js';
 
 export type Resolution =
-  | { readonly state: 'resolved'; readonly vault: string; readonly note: NoteSummary }
+  | { readonly state: 'resolved'; readonly vault: string; readonly note: EntrySummary }
   | {
       readonly state: 'ambiguous';
       readonly candidates: readonly { readonly vault: string; readonly path: string }[];
@@ -29,7 +29,7 @@ export interface OutgoingReference {
 
 export interface ReferenceListing {
   readonly vault: string;
-  readonly source: NoteSummary;
+  readonly source: EntrySummary;
   readonly references: readonly OutgoingReference[];
 }
 
@@ -74,14 +74,14 @@ export const listReferences = (
 
 export interface Backlink {
   readonly vault: string;
-  readonly source: EntrySummary;
+  readonly source: AnySummary;
   readonly label?: string;
   readonly range: SourceRange;
 }
 
 export interface BacklinkListing {
   readonly vault: string;
-  readonly target: NoteSummary;
+  readonly target: EntrySummary;
   readonly backlinks: readonly Backlink[];
 }
 

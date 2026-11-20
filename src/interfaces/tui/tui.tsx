@@ -1,5 +1,5 @@
 import { render } from 'ink';
-import type { NotePlugin, PluginRegistry } from '../../application/plugin/plugin.js';
+import type { EntryPlugin, PluginRegistry } from '../../application/plugin/plugin.js';
 import { buildRegistry } from '../../application/plugin/registry.js';
 import type { AppDeps, ExternalEditor, FileWatcher } from '../../application/ports.js';
 import type { AppError } from '../../domain/errors.js';
@@ -23,7 +23,7 @@ import { createTheme, type Theme } from './theme.js';
 export const buildTuiRegistry = (
   deps: AppDeps,
   scope: Scope,
-  plugins: readonly NotePlugin[],
+  plugins: readonly EntryPlugin[],
 ): Result<PluginRegistry, AppError> => {
   const holder: { registry?: PluginRegistry } = {};
   const core = corePanels({
@@ -46,7 +46,7 @@ export interface RunTuiOptions {
   readonly deps: AppDeps;
   readonly editor: ExternalEditor;
   readonly watcher: FileWatcher;
-  readonly plugins: readonly NotePlugin[];
+  readonly plugins: readonly EntryPlugin[];
   readonly scope: Scope;
   readonly cwd: string;
   readonly stdin: NodeJS.ReadStream;

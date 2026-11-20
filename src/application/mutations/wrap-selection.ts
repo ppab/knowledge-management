@@ -6,13 +6,13 @@ import { wrapSelection } from '../../domain/text/selection.js';
 import type { SourceRange, TextEdit } from '../../domain/text/text-edit.js';
 import type { AppDeps } from '../ports.js';
 import {
-  readNoteInScope,
+  readEntryInScope,
   resolveInScope,
   withScope,
-  type LocatedNote,
+  type IndexedEntry,
   type ScopeSession,
 } from '../scope/session.js';
-import { checkVersion, mutateNote, type MutationOutcome } from './mutate.js';
+import { checkVersion, mutateEntry, type MutationOutcome } from './mutate.js';
 
 /*
  * Selection-based wrapping, used by the TUI (M6). The selection is given in source offsets of
@@ -31,7 +31,7 @@ export interface WrapSelectionInput {
 /** The note is still the one selected on, and the selection is wrappable (single-text-node rule). */
 const planWrap = (
   deps: AppDeps,
-  located: LocatedNote,
+  located: IndexedEntry,
   input: WrapSelectionInput,
   wrap: (text: string) => string,
 ): Result<TextEdit, AppError> => {
@@ -48,7 +48,7 @@ const planWrap = (
 
 const wrapIn = (
   deps: AppDeps,
-  located: LocatedNote,
+  located: IndexedEntry,
   input: WrapSelectionInput,
   wrap: (text: string) => string,
   referenceDelta: number,
@@ -56,7 +56,7 @@ const wrapIn = (
   const { vault, index, note } = located;
   const edit = planWrap(deps, located, input, wrap);
   if (!edit.ok) return Promise.resolve(edit);
-  return mutateNote(
+  return mutateEntry(
     deps,
     vault,
     index,
@@ -68,7 +68,7 @@ const wrapIn = (
 };
 
 const locate = (deps: AppDeps, session: ScopeSession, input: WrapSelectionInput) =>
-  readNoteInScope(deps, session, input.note);
+  readEntryInScope(deps, session, input.note);
 
 /**
  * What the TUI checks before asking for a target or a URL: the same refusals the wrap would

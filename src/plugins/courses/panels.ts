@@ -1,12 +1,12 @@
 import { usage, type AppError } from '../../domain/errors.js';
 import { parseIsoDate } from '../../domain/calendar/date-binding.js';
-import type { FieldValue } from '../../domain/note/fields.js';
+import type { FieldValue } from '../../domain/entry/fields.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type {
   PanelAction,
   PanelContext,
   PanelData,
-  PanelNoteRef,
+  PanelEntryRef,
   PanelSpec,
   PluginApi,
   TreeNode,
@@ -88,7 +88,7 @@ const startAction: PanelAction = {
     }
     const target = courseOf(entries.value, id, focused?.type);
     if (!target) return err(usage('this note’s course is not in this scope'));
-    const created = await api.create({
+    const created = await api.capture({
       title: `${focused?.label ?? 'study'}, ${isoDay(api)}`,
       template: 'courses/study',
       variables: { course: target.course },
@@ -121,7 +121,7 @@ const logAction: PanelAction = {
       study_amount: amount,
       ...(unit !== 'minutes' && { study_unit: unit }),
     };
-    const created = await api.create({
+    const created = await api.capture({
       title: `Study, ${isoDay(api)}`,
       template: 'courses/study',
       variables: { course: id },
@@ -160,7 +160,7 @@ const courseIdOf = (
   return courseOf(entries, id, type)?.course ?? null;
 };
 
-const noteRef = (n: { vault: string; path: string; id: string }): PanelNoteRef => ({
+const entryRef = (n: { vault: string; path: string; id: string }): PanelEntryRef => ({
   vault: n.vault,
   path: n.path,
   id: n.id,
@@ -170,7 +170,7 @@ interface ListItem {
   readonly id: string;
   readonly title: string;
   readonly detail?: string;
-  readonly note?: PanelNoteRef;
+  readonly note?: PanelEntryRef;
 }
 
 /** `detail`, with a `here` marker appended when the item is the note being viewed. */
@@ -180,7 +180,7 @@ const hereMark = (detail: string | undefined, here: boolean): string | undefined
 const item = (
   id: string,
   title: string,
-  note: PanelNoteRef,
+  note: PanelEntryRef,
   detail: string | undefined,
 ): ListItem => ({
   id,
@@ -199,7 +199,7 @@ const courseNavbar = (view: CourseView, hereId: string): PanelData => {
     item(
       view.course.id,
       view.course.title,
-      noteRef(view.course),
+      entryRef(view.course),
       hereMark(formatProgress(view.progress), view.course.id === hereId),
     ),
   ];
@@ -208,7 +208,7 @@ const courseNavbar = (view: CourseView, hereId: string): PanelData => {
       item(
         chapter.id,
         chapter.title,
-        noteRef(chapter),
+        entryRef(chapter),
         hereMark(`${String(done)}/${String(lessons.length)}`, chapter.id === hereId),
       ),
     );
@@ -217,7 +217,7 @@ const courseNavbar = (view: CourseView, hereId: string): PanelData => {
         item(
           lesson.id,
           `  ${LESSON_GLYPH[lesson.status]} ${lesson.title}`,
-          noteRef(lesson),
+          entryRef(lesson),
           lesson.id === hereId ? 'here' : undefined,
         ),
       );
@@ -227,7 +227,7 @@ const courseNavbar = (view: CourseView, hereId: string): PanelData => {
 };
 
 /** The note-side panel: the focused note's course as a navigable list of its lessons. */
-const loadNoteOutline = async (
+const loadEntryOutline = async (
   api: PluginApi,
   context: PanelContext,
 ): Promise<Result<PanelData, AppError>> => {
@@ -252,8 +252,8 @@ export const PANELS: readonly PanelSpec[] = [
   {
     id: 'courses.note',
     title: 'Course',
-    placement: 'note',
+    placement: 'entry',
     appliesTo: 'owned',
-    load: loadNoteOutline,
+    load: loadEntryOutline,
   },
 ];

@@ -1,8 +1,8 @@
 import type { MutationOutcome } from '../../application/mutations/mutate.js';
 import type { RelabelAllResult } from '../../application/references/relabel.js';
 import type { AppError, ErrorCode } from '../../domain/errors.js';
-import type { NoteEntry } from '../../domain/note/note.js';
-import type { EntrySummary } from '../../domain/note/summary.js';
+import type { AnyEntry } from '../../domain/entry/entry.js';
+import type { AnySummary } from '../../domain/entry/summary.js';
 import type { Result } from '../../domain/result.js';
 import type { CliContext } from './context.js';
 
@@ -44,7 +44,7 @@ export const emit = async <T>(
 };
 
 /** The stable JSON projection of a note; `source` is replaced by the body `content`. */
-export const noteToJson = (entry: NoteEntry): Record<string, unknown> => {
+export const entryToJson = (entry: AnyEntry): Record<string, unknown> => {
   const { source, body, ...rest } = entry;
   return { ...rest, content: source.slice(body.start) };
 };
@@ -66,8 +66,8 @@ export const relabelAllText = (result: RelabelAllResult): string => {
   return `${updated}\n(${scanned}, ${String(result.outcomes.length)} changed)`;
 };
 
-export const summaryRow = (entry: EntrySummary): string[] => [
-  entry.kind === 'note' ? entry.id : '-',
+export const summaryRow = (entry: AnySummary): string[] => [
+  entry.kind === 'entry' ? entry.id : '-',
   entry.title,
   entry.path,
 ];

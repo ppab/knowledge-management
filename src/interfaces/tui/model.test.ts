@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { initialStack, navigate, noteScreen, windowStart } from './model.js';
+import { initialStack, navigate, entryScreen, windowStart } from './model.js';
 
 describe('screen stack', () => {
   it('pushes, updates the top only and pops back to the untouched entry', () => {
     let stack = initialStack();
-    stack = navigate(stack, { type: 'push', screen: noteScreen({ query: 'A' }) });
+    stack = navigate(stack, { type: 'push', screen: entryScreen({ query: 'A' }) });
     stack = navigate(stack, {
       type: 'update',
-      update: (s) => (s.kind === 'note' ? { ...s, scroll: 7 } : s),
+      update: (s) => (s.kind === 'entry' ? { ...s, scroll: 7 } : s),
     });
-    stack = navigate(stack, { type: 'push', screen: noteScreen({ query: 'B' }) });
+    stack = navigate(stack, { type: 'push', screen: entryScreen({ query: 'B' }) });
     expect(stack).toHaveLength(3);
     stack = navigate(stack, { type: 'pop' });
-    expect(stack[1]).toMatchObject({ kind: 'note', locator: { query: 'A' }, scroll: 7 });
+    expect(stack[1]).toMatchObject({ kind: 'entry', locator: { query: 'A' }, scroll: 7 });
     stack = navigate(stack, { type: 'pop' });
     stack = navigate(stack, { type: 'pop' }); // the root stays
     expect(stack).toEqual(initialStack());

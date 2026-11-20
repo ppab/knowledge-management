@@ -1,4 +1,4 @@
-import type { PanelNoteRef, TreeNode } from '../../application/plugin/plugin.js';
+import type { PanelEntryRef, TreeNode } from '../../application/plugin/plugin.js';
 import type { Course, CoursesEntries, Lesson, Study } from './model.js';
 import { courseViews, LESSON_GLYPH, type CourseView } from './outline.js';
 import { formatProgress, type ChapterProgress } from './progress.js';
@@ -11,7 +11,7 @@ import { formatMinutes, toMinutes } from './units.js';
  * lesson open, everything else stays folded — and never stored. Pure: the TUI renders the nodes.
  */
 
-const ref = (n: { vault: string; path: string; id: string }): PanelNoteRef => ({
+const ref = (n: { vault: string; path: string; id: string }): PanelEntryRef => ({
   vault: n.vault,
   path: n.path,
   id: n.id,

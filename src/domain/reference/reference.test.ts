@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../result.js';
-import { parseNoteId } from '../note/note-id.js';
+import { parseEntryId } from '../entry/entry-id.js';
 import { findReferences, formatReference, parseFieldReference } from './reference.js';
 
 describe('reference grammar', () => {
@@ -24,7 +24,7 @@ describe('reference grammar', () => {
   });
 
   it('formats canonical references', () => {
-    const id = unwrap(parseNoteId('N1'));
+    const id = unwrap(parseEntryId('N1'));
     expect(formatReference(id)).toBe('[[N1]]');
     expect(formatReference(id, 'Label')).toBe('[[N1|Label]]');
     expect(formatReference(id, '')).toBe('[[N1]]');

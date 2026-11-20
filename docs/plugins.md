@@ -5,7 +5,7 @@ so the TUI is built around a registry from its first screen rather than retrofit
 
 ## 1. What a plugin is
 
-A plugin gives meaning to a kind of note. The core knows ids, titles, aliases, dates, tags,
+A plugin gives meaning to a kind of entry. The core knows ids, titles, aliases, dates, tags,
 visibility, references and an opaque bag of `fields`. A plugin says: notes of type `todo` have
 a `status` that is one of `open | done`, a `due` date and a `priority` number; here is how to
 list the ones due today; here is a panel for the TUI; here is what `doctor` should complain
@@ -34,7 +34,7 @@ Principles, in the order they win:
 ## 2. Declared fields
 
 M2 already indexes every frontmatter key the core does not interpret (`fields(path, key,
-value, kind)`, `EntrySummary.fields`, `NoteIndex.byField`). A plugin adds the schema:
+value, kind)`, `EntrySummary.fields`, `EntryIndex.byField`). A plugin adds the schema:
 
 ```ts
 // src/application/plugin/plugin.ts
@@ -77,15 +77,15 @@ Declared fields have three effects, all implemented once in the core:
   `doctor` validates the shape today (goals delivery A, 2026-10-28); indexing field references
   beside body references, with an explicit origin (`{ kind: 'field', key }` versus
   `{ kind: 'body', range }`) so `backlinks` and `dangling` see both, comes with goals delivery B.
-  `Note.references` stays body-only; `removeReference` refuses a field origin.
+  `Entry.references` stays body-only; `removeReference` refuses a field origin.
 
 A field name declared by two enabled plugins with different types is a configuration error
 (`VALIDATION`, exit 6) at vault open. The same declaration twice is fine.
 
-## 3. The `NotePlugin` interface
+## 3. The `EntryPlugin` interface
 
 ```ts
-export interface NotePlugin {
+export interface EntryPlugin {
   /** Unique; also the CLI namespace (`ofl todos …`) and the config key. */
   readonly name: string;
   readonly description: string;
@@ -142,16 +142,16 @@ export interface PluginApi {
   list(filters?: ListFilters): Promise<Result<ScopedEntry[], AppError>>;
   byField(key: string, value?: string): Promise<Result<ScopedEntry[], AppError>>;
   search(query: string, options?: SearchOptions): Promise<Result<SearchResult[], AppError>>;
-  read(query: string): Promise<Result<LocatedNote, AppError>>;
+  read(query: string): Promise<Result<IndexedEntry, AppError>>;
   // Writes (every one goes through the M3 mutation path, dry-run included):
-  create(input: CreateNoteInput & { in?: string }): Promise<Result<Note, AppError>>;
+  capture(input: CaptureEntryInput & { in?: string }): Promise<Result<Entry, AppError>>;
   setFields(
     query: string,
     fields: Record<string, FieldValue | null>,
     options?: { dryRun?: boolean },
   ): Promise<Result<MutationOutcome, AppError>>;
   bindDate(input: BindDateInput): Promise<Result<MutationOutcome, AppError>>;
-  addReference(input: AddReferenceInput): Promise<Result<MutationOutcome, AppError>>;
+  linkReference(input: LinkReferenceInput): Promise<Result<MutationOutcome, AppError>>;
   insertSnippet(input: InsertSnippetInput): Promise<Result<MutationOutcome, AppError>>;
 }
 ```
@@ -236,7 +236,7 @@ export interface PanelSpec {
   readonly placement: Placement;
   /** The key after the leader (`Space`) that opens (home) or toggles (note) the panel. */
   readonly chord?: string;
-  /** Note panels: show only for owned types (default) or for every note. */
+  /** Entry panels: show only for owned types (default) or for every note. */
   readonly appliesTo?: 'owned' | 'all';
   load(api: PluginApi, context: PanelContext): Promise<Result<PanelData, AppError>>;
   readonly actions?: readonly PanelAction[];
@@ -302,12 +302,12 @@ The registry itself:
 
 ```ts
 export interface PluginRegistry {
-  readonly plugins: readonly NotePlugin[]; // enabled for this scope's vaults
-  ownerOf(type: string): NotePlugin | undefined;
+  readonly plugins: readonly EntryPlugin[]; // enabled for this scope's vaults
+  ownerOf(type: string): EntryPlugin | undefined;
   fieldsFor(type: string): readonly FieldSpec[];
   panels(placement: Placement): readonly PanelSpec[];
-  commands(): readonly { plugin: NotePlugin; command: PluginCommand }[];
-  checks(): readonly { plugin: NotePlugin; check: PluginCheck }[];
+  commands(): readonly { plugin: EntryPlugin; command: PluginCommand }[];
+  checks(): readonly { plugin: EntryPlugin; check: PluginCheck }[];
 }
 ```
 
@@ -332,9 +332,9 @@ commands and panels, so an agent can discover them without reading this document
 
 ```
 src/plugins/
-├── index.ts              # firstPartyPlugins: NotePlugin[]  (imported by interfaces only)
+├── index.ts              # firstPartyPlugins: EntryPlugin[]  (imported by interfaces only)
 ├── todos/
-│   ├── plugin.ts         # the NotePlugin object
+│   ├── plugin.ts         # the EntryPlugin object
 │   ├── queries.ts        # pure functions over ScopedEntry[] / fields
 │   ├── templates.ts
 │   └── plugin.test.ts    # against test/fakes, like any use case

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { listNotes } from '../notes/list-notes.js';
+import { listEntries } from '../entries/list-entries.js';
 import { bindDate } from './bind-date.js';
 
 describe('bindDate', () => {
@@ -14,7 +14,7 @@ describe('bindDate', () => {
     const bound = source.replace('extra: [1, 2]\n', 'extra: [1, 2]\ndates:\n  - 2026-10-23\n');
     expect(f.fs.files.get('a.md')).toBe(bound);
     expect(
-      unwrap(await listNotes(f.deps, f.scope, { date: '2026-10-23' })).map((e) => e.path),
+      unwrap(await listEntries(f.deps, f.scope, { date: '2026-10-23' })).map((e) => e.path),
     ).toEqual(['a.md']);
 
     // Twice is a no-op, as is removing an absent date.

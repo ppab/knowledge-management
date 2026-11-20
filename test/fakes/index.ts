@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type {
   AppDeps,
-  NoteStore,
+  EntryStore,
   OutputStore,
   RevisionProvider,
   TemplateRepository,
@@ -16,7 +16,7 @@ import type { Scope, ScopeMember } from '../../src/domain/scope/scope.js';
 import { asVaultId, defaultVaultConfig, type VaultConfig } from '../../src/domain/vault/vault.js';
 import { createMarkdownParser } from '../../src/infrastructure/markdown/parser.js';
 import { openSqlite } from '../../src/infrastructure/sqlite/driver.js';
-import { createSqliteNoteIndex } from '../../src/infrastructure/sqlite/note-index.js';
+import { createSqliteEntryIndex } from '../../src/infrastructure/sqlite/entry-index.js';
 import { createFrontmatterCodec } from '../../src/infrastructure/yaml/frontmatter-codec.js';
 import { BUILTIN_DEFAULT_TEMPLATE } from '../../src/infrastructure/templates/template-repository.js';
 
@@ -43,7 +43,7 @@ export interface FakeFs {
   links?: Map<string, string>;
 }
 
-export const createFakeNoteStore = (roots: Map<string, FakeFs>): NoteStore => {
+export const createFakeEntryStore = (roots: Map<string, FakeFs>): EntryStore => {
   const fsOf = (root: string): FakeFs => {
     const fs = roots.get(root);
     if (!fs) throw new Error(`fake store: unknown vault root ${root}`);
@@ -336,7 +336,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
     clock: { now: () => new Date(2026, 9, 27, 12, 0, 0) },
     unique: { ulid: () => ids[n++] ?? `ID${String(n)}`, uuidv7: () => `uuid-${String(++n)}` },
     vaults: createFakeVaultRepository(vaults),
-    notes: createFakeNoteStore(roots),
+    entries: createFakeEntryStore(roots),
     markdown: createMarkdownParser(),
     frontmatter: createFrontmatterCodec(),
     templates: createFakeTemplateRepository(templates, snippets),
@@ -346,7 +346,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
         const database = databases.get(root);
         return Promise.resolve(
           database
-            ? ok(createSqliteNoteIndex(database, { closeDriver: false }))
+            ? ok(createSqliteEntryIndex(database, { closeDriver: false }))
             : err(unavailable(`fake index: unknown vault root ${root}`)),
         );
       },

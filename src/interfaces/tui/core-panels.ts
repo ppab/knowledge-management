@@ -1,12 +1,12 @@
 import { boundDates } from '../../application/calendar/calendar.js';
-import { isoDate } from '../../application/notes/create-note.js';
+import { isoDate } from '../../application/entries/capture-entry.js';
 import type { PanelSpec, Placement, PluginRegistry } from '../../application/plugin/plugin.js';
 import { describeFields } from '../../application/plugin/validate-fields.js';
 import type { AppDeps } from '../../application/ports.js';
 import { backlinks } from '../../application/references/references.js';
 import { monthRange, yearMonthOf } from '../../domain/calendar/month-grid.js';
 import { validation, type AppError } from '../../domain/errors.js';
-import { extractFields } from '../../domain/note/fields.js';
+import { extractFields } from '../../domain/entry/fields.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 
@@ -27,7 +27,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
   {
     id: 'core.metadata',
     title: 'Metadata',
-    placement: 'note',
+    placement: 'entry',
     chord: 'm',
     appliesTo: 'all',
     load: (_api, context) => {
@@ -65,7 +65,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
   {
     id: 'core.backlinks',
     title: 'Backlinks',
-    placement: 'note',
+    placement: 'entry',
     chord: 'B',
     appliesTo: 'all',
     load: async (_api, context) => {
@@ -82,7 +82,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
           note: {
             vault: link.vault,
             path: link.source.path,
-            ...(link.source.kind === 'note' && { id: link.source.id }),
+            ...(link.source.kind === 'entry' && { id: link.source.id }),
           },
         })),
       });
@@ -113,7 +113,7 @@ export const corePanels = ({ deps, scope, registry }: CorePanelDeps): PanelSpec[
 /** Chords the screens bind themselves under the leader; a plugin may not claim them. */
 export const RESERVED_CHORDS: Readonly<Record<Placement, readonly string[]>> = {
   home: ['b', 'q'],
-  note: ['b', 'd', 'q'],
+  entry: ['b', 'd', 'q'],
   list: [],
 };
 

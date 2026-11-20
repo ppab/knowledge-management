@@ -12,7 +12,7 @@ export interface BindTarget {
  * Adds or removes `date` under the note's `dates:` and tells the user what happened. Resolves
  * to whether the file changed, so the caller knows when to reload.
  */
-export const bindNote = async (
+export const bindEntry = async (
   tui: TuiState,
   note: BindTarget,
   date: IsoDate,

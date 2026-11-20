@@ -2,7 +2,7 @@ import type { AppError } from '../../domain/errors.js';
 import { ok, type Result } from '../../domain/result.js';
 import type {
   CheckResult,
-  NotePlugin,
+  EntryPlugin,
   PluginApi,
   PluginCheck,
 } from '../../application/plugin/plugin.js';
@@ -112,7 +112,7 @@ const openCheck: PluginCheck = {
   },
 };
 
-export const goalsPlugin: NotePlugin = {
+export const goalsPlugin: EntryPlugin = {
   name: NAME,
   description: 'committed work toward an outcome, measured from confirmed sessions',
   types: [GOAL_TYPE, SESSION_TYPE],

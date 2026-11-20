@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { showNote } from '../notes/show-note.js';
-import type { NotePlugin } from '../plugin/plugin.js';
+import { showEntry } from '../entries/show-entry.js';
+import type { EntryPlugin } from '../plugin/plugin.js';
 import { buildRegistry } from '../plugin/registry.js';
 import { diagnose } from './diagnose.js';
 
@@ -33,7 +33,7 @@ describe('diagnose', () => {
       details: { id: 'DUP', paths: ['a.md', 'b.md'] },
     });
     expect(diagnosis.findings[3]!.message).toContain('must not contain whitespace');
-    expect(await showNote(f.deps, f.scope, 'DUP')).toMatchObject({
+    expect(await showEntry(f.deps, f.scope, 'DUP')).toMatchObject({
       ok: false,
       error: { code: 'AMBIGUOUS' },
     });
@@ -56,7 +56,7 @@ describe('diagnose', () => {
   });
 
   it('validates declared fields of owned types only where the plugin is enabled', async () => {
-    const plugin: NotePlugin = {
+    const plugin: EntryPlugin = {
       name: 'todos',
       description: 'todos',
       types: ['todo'],

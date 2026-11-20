@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Heading } from '../note/note.js';
+import type { Heading } from '../entry/entry.js';
 import { unwrap } from '../result.js';
 import { locateInsertion, parseInsertionLocation, type DocumentLayout } from './insertion.js';
 import { applyEdits } from './text-edit.js';

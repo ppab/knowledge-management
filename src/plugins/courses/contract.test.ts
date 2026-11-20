@@ -167,11 +167,11 @@ describe('courses contract', () => {
 
   it('the built-in templates write notes whose parent links are field references', async () => {
     const { api } = setup();
-    const course = unwrap(await api.create({ title: 'Rust', template: 'courses/course' }));
+    const course = unwrap(await api.capture({ title: 'Rust', template: 'courses/course' }));
     expect(course.frontmatter).toMatchObject({ type: 'course', course_status: 'active' });
 
     const chapter = unwrap(
-      await api.create({
+      await api.capture({
         title: 'Ownership',
         template: 'courses/chapter',
         variables: { course: 'COURSE' },
@@ -180,7 +180,7 @@ describe('courses contract', () => {
     expect(chapter.frontmatter).toMatchObject({ type: 'chapter', chapter_course: '[[COURSE]]' });
 
     const study = unwrap(
-      await api.create({
+      await api.capture({
         title: 'Morning',
         template: 'courses/study',
         variables: { course: 'COURSE' },

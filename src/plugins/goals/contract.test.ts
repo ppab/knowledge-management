@@ -196,7 +196,7 @@ describe('goals contract fixtures', () => {
   it('the built-in templates write a goal and a session whose link is a field reference', async () => {
     const { api, deps, f, registry } = await setup();
     const created = unwrap(
-      await api.create({
+      await api.capture({
         title: 'Lab 2',
         template: 'goals/session',
         variables: { session_goal: 'GOAL-CKA' },
@@ -208,7 +208,7 @@ describe('goals contract fixtures', () => {
       session_status: 'confirmed',
       dates: ['2026-10-27'],
     });
-    const goal = unwrap(await api.create({ title: 'Learn Rust', template: 'goals/goal' }));
+    const goal = unwrap(await api.capture({ title: 'Learn Rust', template: 'goals/goal' }));
     expect(goal.frontmatter).toMatchObject({
       type: 'goal',
       goal_unit: 'hours',

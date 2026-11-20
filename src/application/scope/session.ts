@@ -1,12 +1,12 @@
 import type { AppError } from '../../domain/errors.js';
-import type { Note } from '../../domain/note/note.js';
-import type { NoteSummary } from '../../domain/note/summary.js';
+import type { Entry } from '../../domain/entry/entry.js';
+import type { EntrySummary } from '../../domain/entry/summary.js';
 import { ok, type Result } from '../../domain/result.js';
 import { mergeResolution, resolved, type ResolutionResult } from '../../domain/scope/resolution.js';
 import { availableVaults, unavailableRoots, type Scope } from '../../domain/scope/scope.js';
 import { refreshIndex } from '../index/refresh-index.js';
-import { readNoteFile } from '../notes/show-note.js';
-import type { AppDeps, NoteIndex } from '../ports.js';
+import { readEntryFile } from '../entries/show-entry.js';
+import type { AppDeps, EntryIndex } from '../ports.js';
 import type { VaultHandle } from '../vault/vault.js';
 
 /*
@@ -17,7 +17,7 @@ import type { VaultHandle } from '../vault/vault.js';
 
 export interface OpenedVault {
   readonly vault: VaultHandle;
-  readonly index: NoteIndex;
+  readonly index: EntryIndex;
 }
 
 export interface ScopeSession {
@@ -53,10 +53,10 @@ export const withScope = async <T>(
 
 export interface ScopedSummary {
   readonly opened: OpenedVault;
-  readonly summary: NoteSummary;
+  readonly summary: EntrySummary;
 }
 
-type Hit = NoteSummary & { readonly opened: OpenedVault };
+type Hit = EntrySummary & { readonly opened: OpenedVault };
 
 const resolution = (session: ScopeSession, query: string): ResolutionResult<Hit> =>
   mergeResolution(
@@ -90,22 +90,22 @@ export const resolveIdInScope = (session: ScopeSession, id: string): ResolutionR
     session.unavailable,
   );
 
-export interface LocatedNote {
+export interface IndexedEntry {
   readonly vault: VaultHandle;
-  readonly index: NoteIndex;
-  readonly note: Note;
+  readonly index: EntryIndex;
+  readonly note: Entry;
 }
 
 /** Resolves and reads the file; the owning vault comes along for the write that may follow. */
-export const readNoteInScope = async (
+export const readEntryInScope = async (
   deps: AppDeps,
   session: ScopeSession,
   query: string,
-): Promise<Result<LocatedNote, AppError>> => {
+): Promise<Result<IndexedEntry, AppError>> => {
   const located = resolveInScope(session, query);
   if (!located.ok) return located;
   const { opened, summary } = located.value;
-  const note = await readNoteFile(deps, opened.vault, summary);
+  const note = await readEntryFile(deps, opened.vault, summary);
   if (!note.ok) return note;
   return ok({ vault: opened.vault, index: opened.index, note: note.value });
 };

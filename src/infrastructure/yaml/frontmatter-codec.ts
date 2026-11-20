@@ -21,7 +21,7 @@ const load = (yaml: string): Result<Document, AppError> => {
 };
 
 /**
- * Adding keys that do not exist yet is the common case (`adopt`, `create`). Appending their
+ * Adding keys that do not exist yet is the common case (`adopt`, `capture`). Appending their
  * serialization to the original text keeps every existing byte intact, which a full
  * re-serialization cannot promise (the library normalizes flow-collection spacing, for one).
  */

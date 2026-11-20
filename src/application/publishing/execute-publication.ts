@@ -1,11 +1,11 @@
 import { conflict, unavailable, validation, type AppError } from '../../domain/errors.js';
-import { splitFrontmatter } from '../../domain/note/frontmatter.js';
+import { splitFrontmatter } from '../../domain/entry/frontmatter.js';
 import { findPathCollisions } from '../../domain/publishing/collisions.js';
 import { buildManifest } from '../../domain/publishing/manifest.js';
 import { normalizeOutputPath } from '../../domain/publishing/output-path.js';
 import type { PublicationPlan } from '../../domain/publishing/plan.js';
 import { err, ok, type Result } from '../../domain/result.js';
-import { loadNoteEntry } from '../notes/load-note.js';
+import { loadEntry } from '../entries/load-entry.js';
 import type { AppDeps } from '../ports.js';
 import type { ScopeSession } from '../scope/session.js';
 import {
@@ -64,7 +64,7 @@ export const executePublication = async (
     const opened = openedByName.get(entry.vault);
     if (!opened)
       return err(unavailable(`Vault ${entry.vault} is not open`, { vault: entry.vault }));
-    const doc = await deps.notes.read(opened.vault.root, entry.path);
+    const doc = await deps.entries.read(opened.vault.root, entry.path);
     if (!doc.ok) return doc;
     if (doc.value.version !== entry.version) {
       return err(
@@ -73,8 +73,8 @@ export const executePublication = async (
         }),
       );
     }
-    const note = loadNoteEntry(deps, doc.value);
-    if (note.kind !== 'note' || note.id !== entry.id) {
+    const note = loadEntry(deps, doc.value);
+    if (note.kind !== 'entry' || note.id !== entry.id) {
       return err(conflict(`${entry.path} changed while publishing; retry`, { path: entry.path }));
     }
     const from = located.get(entry.id);

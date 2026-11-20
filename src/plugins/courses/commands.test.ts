@@ -4,7 +4,7 @@ import type { PluginApi, PluginCommand } from '../../application/plugin/plugin.j
 import { buildRegistry, enabledPlugin } from '../../application/plugin/registry.js';
 import { diagnose } from '../../application/doctor/diagnose.js';
 import { unwrap } from '../../domain/result.js';
-import { asNoteId } from '../../domain/note/note-id.js';
+import { asEntryId } from '../../domain/entry/entry-id.js';
 import { fixture, type Fixture } from '../../../test/fakes/index.js';
 import { collect } from './model.js';
 import { coursesPlugin } from './plugin.js';
@@ -331,10 +331,10 @@ describe('course_target (A′)', () => {
   it('reads a planned finish date and rejects a non-date', () => {
     const good = collect([
       {
-        kind: 'note',
+        kind: 'entry',
         vault: 'v',
         path: 'c.md',
-        id: asNoteId('C1'),
+        id: asEntryId('C1'),
         title: 'C1',
         type: 'course',
         aliases: [],
@@ -350,10 +350,10 @@ describe('course_target (A′)', () => {
 
     const bad = collect([
       {
-        kind: 'note',
+        kind: 'entry',
         vault: 'v',
         path: 'c.md',
-        id: asNoteId('C2'),
+        id: asEntryId('C2'),
         title: 'C2',
         type: 'course',
         aliases: [],

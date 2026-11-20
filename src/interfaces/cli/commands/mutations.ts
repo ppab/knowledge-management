@@ -1,6 +1,6 @@
 import { InvalidArgumentError, type Command } from 'commander';
 import { bindDate } from '../../../application/calendar/bind-date.js';
-import { addReference } from '../../../application/references/add-reference.js';
+import { linkReference } from '../../../application/references/link-reference.js';
 import { relabelAll, relabelReferences } from '../../../application/references/relabel.js';
 import { insertSnippet } from '../../../application/snippets/insert-snippet.js';
 import { usage } from '../../../domain/errors.js';
@@ -23,18 +23,13 @@ export const parseVar = (value: string, previous: Record<string, string> = {}) =
 
 const AT_HELP = 'where to insert: end | heading:<text> | references';
 
-/** `reference add`, `snippet insert` and `bind`: the structured writes, all previewable. */
-export const registerMutationCommands = (
-  program: Command,
-  reference: Command,
-  io: CliIo,
-  exit: Exit,
-): void => {
-  reference
-    .command('add')
-    .description('add a [[reference]] from one note to another')
-    .requiredOption('--source <query>', 'note to edit: id, title or alias')
-    .requiredOption('--target <query>', 'note to point at: id, title or alias')
+/** `link`, `relabel`, `snippet insert` and `bind`: the structured writes, all previewable. */
+export const registerMutationCommands = (program: Command, io: CliIo, exit: Exit): void => {
+  program
+    .command('link')
+    .description('link one entry to another with a [[reference]]')
+    .requiredOption('--source <query>', 'entry to edit: id, title or alias')
+    .requiredOption('--target <query>', 'entry to point at: id, title or alias')
     .option('--at <location>', `${AT_HELP} (default: end)`, parseAt)
     .option('--label <text>', 'display label, written as [[id|label]]')
     .option('--dry-run', 'print the change as a diff and write nothing')
@@ -54,7 +49,7 @@ export const registerMutationCommands = (
           await emit(
             ctx,
             inScope(ctx, (scope) =>
-              addReference(ctx.deps, scope, {
+              linkReference(ctx.deps, scope, {
                 source: opts.source,
                 target: opts.target,
                 ...(opts.at !== undefined && { at: opts.at }),
@@ -68,11 +63,11 @@ export const registerMutationCommands = (
       },
     );
 
-  reference
+  program
     .command('relabel')
     .description("refresh standalone [[links]] to show each target's current title")
-    .argument('[query]', 'note to relabel: id, title or alias (omit with --all)')
-    .option('--all', 'relabel every note in the scope')
+    .argument('[query]', 'entry to relabel: id, title or alias (omit with --all)')
+    .option('--all', 'relabel every entry in the scope')
     .option('--dry-run', 'print the change as a diff and write nothing')
     .action(
       async (
@@ -94,7 +89,7 @@ export const registerMutationCommands = (
           return;
         }
         if (query === undefined) {
-          exit(reportError(ctx, usage('Provide a note query, or --all to relabel the scope')));
+          exit(reportError(ctx, usage('Provide an entry query, or --all to relabel the scope')));
           return;
         }
         exit(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNoteId } from '../../domain/note/note-id.js';
+import { asEntryId } from '../../domain/entry/entry-id.js';
 import type { Chapter, Course, Lesson, LessonStatus, Study } from './model.js';
 import { chaptersOf, courseProgress, formatProgress, lessonsOf, studiesOf } from './progress.js';
 import type { TimeUnit } from './units.js';
@@ -7,7 +7,7 @@ import type { TimeUnit } from './units.js';
 const course = (overrides: Partial<Course> = {}): Course => ({
   vault: 'v',
   path: 'course.md',
-  id: asNoteId('C'),
+  id: asEntryId('C'),
   title: 'CS50',
   version: '1',
   status: 'active',
@@ -17,20 +17,20 @@ const course = (overrides: Partial<Course> = {}): Course => ({
 const chapter = (id: string, overrides: Partial<Chapter> = {}): Chapter => ({
   vault: 'v',
   path: `${id}.md`,
-  id: asNoteId(id),
+  id: asEntryId(id),
   title: id,
   version: '1',
-  course: asNoteId('C'),
+  course: asEntryId('C'),
   ...overrides,
 });
 
 const lesson = (id: string, status: LessonStatus, overrides: Partial<Lesson> = {}): Lesson => ({
   vault: 'v',
   path: `${id}.md`,
-  id: asNoteId(id),
+  id: asEntryId(id),
   title: id,
   version: '1',
-  chapter: asNoteId('CH1'),
+  chapter: asEntryId('CH1'),
   status,
   ...overrides,
 });
@@ -43,10 +43,10 @@ const study = (
 ): Study => ({
   vault: 'v',
   path: `${id}.md`,
-  id: asNoteId(id),
+  id: asEntryId(id),
   title: id,
   version: '1',
-  course: asNoteId('C'),
+  course: asEntryId('C'),
   amount,
   unit,
   day: '2026-11-08',
@@ -58,15 +58,15 @@ describe('courses progress', () => {
   const chapters: Chapter[] = [
     chapter('CH2', { order: 1 }),
     chapter('CH1', { order: 0 }),
-    chapter('CH-ELSEWHERE', { course: asNoteId('OTHER') }),
+    chapter('CH-ELSEWHERE', { course: asEntryId('OTHER') }),
   ];
   const lessons: Lesson[] = [
-    lesson('L2', 'done', { chapter: asNoteId('CH1'), order: 1 }),
-    lesson('L1', 'done', { chapter: asNoteId('CH1'), order: 0 }),
-    lesson('L3', 'in-progress', { chapter: asNoteId('CH1'), order: 2 }),
-    lesson('L4', 'done', { chapter: asNoteId('CH2'), order: 0 }),
-    lesson('L5', 'todo', { chapter: asNoteId('CH2'), order: 1 }),
-    lesson('L-OTHER', 'done', { chapter: asNoteId('CH-OTHER') }),
+    lesson('L2', 'done', { chapter: asEntryId('CH1'), order: 1 }),
+    lesson('L1', 'done', { chapter: asEntryId('CH1'), order: 0 }),
+    lesson('L3', 'in-progress', { chapter: asEntryId('CH1'), order: 2 }),
+    lesson('L4', 'done', { chapter: asEntryId('CH2'), order: 0 }),
+    lesson('L5', 'todo', { chapter: asEntryId('CH2'), order: 1 }),
+    lesson('L-OTHER', 'done', { chapter: asEntryId('CH-OTHER') }),
   ];
 
   it('groups chapters and lessons under their parent, in order', () => {
@@ -79,7 +79,7 @@ describe('courses progress', () => {
     const studies: Study[] = [
       study('S1', 90, 'minutes'),
       study('S2', 2, 'hours'),
-      study('S-OTHER', 99, 'hours', { course: asNoteId('OTHER') }),
+      study('S-OTHER', 99, 'hours', { course: asEntryId('OTHER') }),
     ];
     const p = courseProgress(course(), chapters, lessons, studies);
     expect(p.totalLessons).toBe(5); // only CH1 + CH2 lessons; CH-OTHER's lesson is unattached

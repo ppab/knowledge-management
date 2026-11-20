@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { fixture } from '../../../test/fakes/index.js';
-import type { NoteIndex } from '../ports.js';
+import type { EntryIndex } from '../ports.js';
 import { indexStatus, rebuildIndex, refreshIndex } from './refresh-index.js';
 
 const note = (id: string, title: string, body = '') =>
   `---\nid: ${id}\ntitle: ${title}\n---\n${body}`;
 
-const open = async (f: ReturnType<typeof fixture>): Promise<NoteIndex> =>
+const open = async (f: ReturnType<typeof fixture>): Promise<EntryIndex> =>
   unwrap(await f.deps.indexes.open(f.vault.root));
 
 describe('index refresh', () => {
@@ -35,7 +35,7 @@ describe('index refresh', () => {
     f.fs.files.delete('a.md');
     const status = unwrap(await indexStatus(f.deps, f.vault, index));
     expect(status.stale).toEqual({ added: ['c.md'], modified: ['b.md'], removed: ['a.md'] });
-    expect(status.stats.notes).toBe(2); // status does not write
+    expect(status.stats.entries).toBe(2); // status does not write
 
     const before = index.files().find((x) => x.path === 'b.md')!;
     expect(unwrap(await refreshIndex(f.deps, f.vault, index))).toEqual({

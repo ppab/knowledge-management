@@ -1,7 +1,7 @@
 import type { AppError } from '../domain/errors.js';
 import type { UniqueSource } from '../domain/identity/identity.js';
-import type { Heading, NoteEntry } from '../domain/note/note.js';
-import type { EntrySummary, NoteSummary } from '../domain/note/summary.js';
+import type { Heading, AnyEntry } from '../domain/entry/entry.js';
+import type { AnySummary, EntrySummary } from '../domain/entry/summary.js';
 import type { Reference } from '../domain/reference/reference.js';
 import type { Result } from '../domain/result.js';
 import type { Revision, RevisionStatus } from '../domain/revision/revision.js';
@@ -29,7 +29,7 @@ export interface VaultRepository {
 }
 
 /** A file's cheap fingerprint; a change in either means the content must be re-read. */
-export interface NoteFile {
+export interface EntryFile {
   readonly path: string;
   readonly mtime: number;
   readonly size: number;
@@ -43,7 +43,7 @@ export interface NoteFile {
   readonly physicalKey?: string;
 }
 
-export interface NoteDocument extends NoteFile {
+export interface EntryDocument extends EntryFile {
   readonly source: string;
   /** Content hash; compare with `WriteOptions.expectedVersion` to detect concurrent edits. */
   readonly version: string;
@@ -61,9 +61,9 @@ export interface DeleteOptions {
   readonly expectedVersion?: string;
 }
 
-export interface NoteStore {
-  list(root: string, include: readonly string[], exclude: readonly string[]): Promise<NoteFile[]>;
-  read(root: string, path: string): Promise<Result<NoteDocument, AppError>>;
+export interface EntryStore {
+  list(root: string, include: readonly string[], exclude: readonly string[]): Promise<EntryFile[]>;
+  read(root: string, path: string): Promise<Result<EntryDocument, AppError>>;
   write(
     root: string,
     path: string,
@@ -191,7 +191,7 @@ export interface TemplateRepository {
  * because duplicate ids must be representable so `doctor` can report them.
  */
 
-export interface IndexedFile extends NoteFile {
+export interface IndexedFile extends EntryFile {
   readonly version: string;
 }
 
@@ -203,7 +203,7 @@ export interface IndexedReference {
 }
 
 export interface SearchHit {
-  readonly entry: EntrySummary;
+  readonly entry: AnySummary;
   /** Lower is better (bm25); comparable only within one index. */
   readonly score: number;
   readonly snippet: string;
@@ -211,33 +211,33 @@ export interface SearchHit {
 
 export interface DateHit {
   readonly date: string;
-  readonly entry: NoteSummary;
+  readonly entry: EntrySummary;
 }
 
 export interface IndexStats {
-  readonly notes: number;
+  readonly entries: number;
   readonly unidentified: number;
   readonly references: number;
   readonly schemaVersion: number;
 }
 
-export interface NoteIndex {
+export interface EntryIndex {
   files(): IndexedFile[];
-  upsert(entry: NoteEntry, file: NoteFile): void;
+  upsert(entry: AnyEntry, file: EntryFile): void;
   /** Records a new fingerprint for an unchanged file (e.g. after `touch`). */
-  touch(file: NoteFile): void;
+  touch(file: EntryFile): void;
   remove(path: string): void;
   clear(): void;
   /** Runs `work` in one transaction. */
   batch<T>(work: () => T): T;
 
-  all(): EntrySummary[];
-  byPath(path: string): EntrySummary | null;
-  byId(id: string): NoteSummary[];
+  all(): AnySummary[];
+  byPath(path: string): AnySummary | null;
+  byId(id: string): EntrySummary[];
   /** Case-insensitive match on title or alias; identified notes only. */
-  byName(name: string): NoteSummary[];
-  byField(key: string, value?: string): EntrySummary[];
-  onDate(date: string): NoteSummary[];
+  byName(name: string): EntrySummary[];
+  byField(key: string, value?: string): AnySummary[];
+  onDate(date: string): EntrySummary[];
   /** Inclusive range, ordered by date then path. */
   datesBetween(from: string, to: string): DateHit[];
   search(query: string, limit: number): SearchHit[];
@@ -249,9 +249,9 @@ export interface NoteIndex {
   close(): void;
 }
 
-export interface NoteIndexProvider {
+export interface EntryIndexProvider {
   /** Opens (creating or resetting on schema mismatch) the index under `root/.ofl/cache/`. */
-  open(root: string): Promise<Result<NoteIndex, AppError>>;
+  open(root: string): Promise<Result<EntryIndex, AppError>>;
 }
 
 /** Named scopes from the user's own configuration (not any vault's). Roots are absolute. */
@@ -274,12 +274,12 @@ export interface AppDeps {
   readonly clock: Clock;
   readonly unique: UniqueSource;
   readonly vaults: VaultRepository;
-  readonly notes: NoteStore;
+  readonly entries: EntryStore;
   readonly markdown: MarkdownParser;
   readonly frontmatter: FrontmatterCodec;
   readonly templates: TemplateRepository;
   readonly revisions: RevisionProvider;
-  readonly indexes: NoteIndexProvider;
+  readonly indexes: EntryIndexProvider;
   readonly userConfig: UserConfigRepository;
   readonly outputs: OutputStore;
 }

@@ -1,11 +1,11 @@
 import { usage, type AppError } from '../../domain/errors.js';
 import { parseIsoDate } from '../../domain/calendar/date-binding.js';
-import type { FieldValue } from '../../domain/note/fields.js';
+import type { FieldValue } from '../../domain/entry/fields.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { isComposite } from '../../domain/scope/scope.js';
 import type { PluginApi, PluginCommand } from '../../application/plugin/plugin.js';
-import type { LocatedNote } from '../../application/scope/session.js';
-import { isoDate } from '../../application/notes/create-note.js';
+import type { IndexedEntry } from '../../application/scope/session.js';
+import { isoDate } from '../../application/entries/capture-entry.js';
 import {
   collect,
   COURSE_TYPE,
@@ -20,7 +20,7 @@ import { DEFAULT_UNIT, minutesBetween, parseUnit, TIME_UNITS } from './units.js'
 
 /*
  * The courses commands (docs/plans/courses.md, delivery B). Reads go through `api.list()` and
- * `collect`; the two creating verbs (`new`, `log`) write typed fields through `api.create`, the
+ * `collect`; the two creating verbs (`new`, `log`) write typed fields through `api.capture`, the
  * number a template can only render as a string; `done` is a frontmatter mutation like todos'.
  * A `--dry-run` on a creating verb describes the note instead of writing it.
  */
@@ -35,7 +35,7 @@ const resolveOwned = async (
   api: PluginApi,
   query: string,
   type: OwnedType,
-): Promise<Result<LocatedNote, AppError>> => {
+): Promise<Result<IndexedEntry, AppError>> => {
   const located = await api.read(query);
   if (!located.ok) return located;
   if (located.value.note.type !== type) {
@@ -170,7 +170,7 @@ const log: PluginCommand = {
         json: { course: course.value.note.id, amount, unit, day: on, lesson: lessonId },
       });
     }
-    const created = await api.create({
+    const created = await api.capture({
       title,
       template: 'courses/study',
       variables: { course: course.value.note.id },
@@ -188,7 +188,7 @@ const log: PluginCommand = {
 
 const NEW_TYPES = [COURSE_TYPE, CHAPTER_TYPE, LESSON_TYPE] as const;
 
-const newNote: PluginCommand = {
+const newEntry: PluginCommand = {
   name: 'new',
   description: 'create a course, chapter or lesson (study sessions are made with `log`)',
   args: [
@@ -258,7 +258,7 @@ const newNote: PluginCommand = {
         json: { type, title, variables, fields },
       });
     }
-    const created = await api.create({
+    const created = await api.capture({
       title,
       template: `courses/${type}`,
       ...(Object.keys(variables).length > 0 && { variables }),
@@ -315,7 +315,7 @@ const start: PluginCommand = {
         json: { course: courseId, lesson: lessonId },
       });
     }
-    const created = await api.create({
+    const created = await api.capture({
       title: `${note.title}, ${isoDate(api.clock.now())}`,
       template: 'courses/study',
       variables: { course: courseId },
@@ -404,4 +404,4 @@ const show: PluginCommand = {
   },
 };
 
-export const COMMANDS: readonly PluginCommand[] = [outline, newNote, log, done, start, stop, show];
+export const COMMANDS: readonly PluginCommand[] = [outline, newEntry, log, done, start, stop, show];

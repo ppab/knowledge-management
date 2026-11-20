@@ -217,11 +217,11 @@ describe('publish — selection, dry-run, and errors', () => {
     const registry = registryOf(f);
     const resolved = registry.publications()[0]!;
     let reads = 0;
-    const original = f.deps.notes.read.bind(f.deps.notes);
+    const original = f.deps.entries.read.bind(f.deps.entries);
     f.deps = {
       ...f.deps,
-      notes: {
-        ...f.deps.notes,
+      entries: {
+        ...f.deps.entries,
         read: (...args) => {
           reads += 1;
           return original(...args);

@@ -259,7 +259,7 @@ readonly surface?: 'inline' | 'menu';     // a span on the node, or an entry in 
 readonly inputs?: readonly PanelInput[];   // the log / set-target form
 ```
 
-### Note panel `courses.note` (placement `note`, `appliesTo: 'owned'`)
+### Entry panel `courses.note` (placement `entry`, `appliesTo: 'owned'`)
 
 Inside a single note, a **navigable list** of the note's course: a progress header, then the
 course's chapters and lessons in order, the note being viewed marked `here`. It auto-shows beside
@@ -281,7 +281,7 @@ every plugin, not courses-specific.
 | Delivery        | Ships                                                                                                                                           | Core change                                                                                                                                |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | A ✓ (`0bafda3`) | Schema, templates, `progress`, `units`, `invalid`/`orphan` checks, fixtures — shipped.                                                          | `FieldType: 'reference'`; `FieldSpec.types` (both already in the core, used by `goals`).                                                   |
-| A′ ✓            | `course_target` field (schema addendum).                                                                                                        | Typed `create` (`CreateNoteInput.fields`).                                                                                                 |
+| A′ ✓            | `course_target` field (schema addendum).                                                                                                        | Typed `create` (`CreateEntryInput.fields`).                                                                                                |
 | B ✓             | `courses outline`, `done`, `log`, `new`, `show`; dry-run; `outline.ts`.                                                                         | Typed `create` (above); readers reject on any field problem.                                                                               |
 | C ✓             | `courses start` / `stop`; `courses:open` doctor check; open-study model.                                                                        | None beyond B.                                                                                                                             |
 | D1 ✓            | The courses **tree screen** (`Space → C`), collapsible with derived expansion; inline `[done]`/`[stop]` verbs; leader menu scoped by node type. | A generic `tree` `PanelData` kind + `TreeNode`; `PanelAction.appliesTo`/`surface`/`inputs`; tree renderer.                                 |

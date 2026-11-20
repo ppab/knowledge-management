@@ -1,10 +1,10 @@
 import { createPluginApi } from '../../application/plugin/api.js';
 import type {
   EnabledPlugin,
-  NotePlugin,
+  EntryPlugin,
   PanelActionResult,
   PanelData,
-  PanelNoteRef,
+  PanelEntryRef,
   PanelSpec,
   PluginApi,
   PluginRegistry,
@@ -18,7 +18,7 @@ import type { TuiServices } from './context.js';
  */
 
 /** Stands in as the owner of `core.*` panels; it owns no types and has no settings. */
-export const CORE_PLUGIN: NotePlugin = {
+export const CORE_PLUGIN: EntryPlugin = {
   name: 'core',
   description: 'the core screens',
   types: [],
@@ -74,7 +74,7 @@ export const rowAt = (data: PanelData | undefined, cursor: number): unknown => {
   }
 };
 
-export const noteAt = (data: PanelData | undefined, cursor: number): PanelNoteRef | undefined => {
+export const entryAt = (data: PanelData | undefined, cursor: number): PanelEntryRef | undefined => {
   if (!data) return undefined;
   switch (data.kind) {
     case 'list':

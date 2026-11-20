@@ -10,7 +10,7 @@ const notes = {
 let term: Terminal | undefined;
 afterEach(() => term?.unmount());
 
-describe('NoteList', () => {
+describe('EntryList', () => {
   it('browses, opens with Enter, filters by search and tag, and quits with q', async () => {
     const h = harness((f) => {
       for (const [path, source] of Object.entries(notes)) f.fs.files.set(path, source);

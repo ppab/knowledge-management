@@ -6,7 +6,7 @@ import {
   type IndexStatus,
   type RefreshReport,
 } from '../../../application/index/refresh-index.js';
-import type { AppDeps, NoteIndex } from '../../../application/ports.js';
+import type { AppDeps, EntryIndex } from '../../../application/ports.js';
 import { describeScope, listScopes } from '../../../application/scope/scope-info.js';
 import { loadScope, type VaultHandle } from '../../../application/vault/vault.js';
 import type { AppError } from '../../../domain/errors.js';
@@ -20,7 +20,7 @@ import { emit, EXIT_CODES, table } from '../output.js';
 const perVault =
   <T>(
     deps: AppDeps,
-    work: (index: NoteIndex, vault: VaultHandle) => Promise<Result<T, AppError>>,
+    work: (index: EntryIndex, vault: VaultHandle) => Promise<Result<T, AppError>>,
   ) =>
   async (scope: Scope): Promise<Result<{ vault: string; result: T }[], AppError>> => {
     const results: { vault: string; result: T }[] = [];
@@ -40,7 +40,7 @@ const perVault =
 
 const statusText = ({ stats, stale }: IndexStatus): string => {
   const lines = [
-    `notes: ${String(stats.notes)} (${String(stats.unidentified)} unidentified)`,
+    `entries: ${String(stats.entries)} (${String(stats.unidentified)} unidentified)`,
     `references: ${String(stats.references)}`,
     `schema: v${String(stats.schemaVersion)}`,
   ];

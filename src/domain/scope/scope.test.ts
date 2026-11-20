@@ -31,7 +31,7 @@ describe('resolveWriteTarget (invariant 7)', () => {
     expect(resolveWriteTarget(composite)).toMatchObject({ ok: false, error: { code: 'USAGE' } });
     expect(unwrap(resolveWriteTarget(composite, { vault: 'beta' })).root).toBe('/b');
     expect(unwrap(resolveWriteTarget(composite, { vault: '/a' })).root).toBe('/a');
-    expect(unwrap(resolveWriteTarget(composite, { cwd: '/b/notes/deep' })).root).toBe('/b');
+    expect(unwrap(resolveWriteTarget(composite, { cwd: '/b/entries/deep' })).root).toBe('/b');
     expect(resolveWriteTarget(composite, { cwd: '/elsewhere' })).toMatchObject({
       ok: false,
       error: { code: 'USAGE' },

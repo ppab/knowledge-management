@@ -2,27 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
 import { insertAt, replaceRange } from '../../domain/text/text-edit.js';
 import { fixture } from '../../../test/fakes/index.js';
-import { showNote } from '../notes/show-note.js';
-import { mutateNote } from './mutate.js';
+import { showEntry } from '../entries/show-entry.js';
+import { mutateEntry } from './mutate.js';
 
 const SOURCE = '---\nid: A\ntitle: Alpha\n---\n\n# Alpha\n\nBody [[B]].\n';
 
 const setup = async () => {
   const f = fixture();
   f.fs.files.set('a.md', SOURCE);
-  const { note } = unwrap(await showNote(f.deps, f.scope, 'A'));
+  const { note } = unwrap(await showEntry(f.deps, f.scope, 'A'));
   const index = unwrap(await f.deps.indexes.open(f.vault.root));
   return { f, note, index };
 };
 
-describe('mutateNote', () => {
+describe('mutateEntry', () => {
   it('writes with the version it read and refreshes the index for that path', async () => {
     const { f, note, index } = await setup();
     const out = unwrap(
-      await mutateNote(f.deps, f.vault, index, note, [insertAt(SOURCE.length, '\nMore [[C]].\n')], {
-        referenceDelta: 1,
-        frontmatter: 'unchanged',
-      }),
+      await mutateEntry(
+        f.deps,
+        f.vault,
+        index,
+        note,
+        [insertAt(SOURCE.length, '\nMore [[C]].\n')],
+        {
+          referenceDelta: 1,
+          frontmatter: 'unchanged',
+        },
+      ),
     );
     expect(out).toMatchObject({ written: true, dryRun: false });
     expect(f.fs.files.get('a.md')).toBe(SOURCE + '\nMore [[C]].\n');
@@ -32,7 +39,7 @@ describe('mutateNote', () => {
   it('dry-run returns a diff and writes nothing; an identity edit is a no-op', async () => {
     const { f, note, index } = await setup();
     const out = unwrap(
-      await mutateNote(
+      await mutateEntry(
         f.deps,
         f.vault,
         index,
@@ -46,7 +53,7 @@ describe('mutateNote', () => {
     expect(out.diff).toContain('+More.');
     expect(f.fs.writes).toEqual([]);
     const same = unwrap(
-      await mutateNote(f.deps, f.vault, index, note, [replaceRange({ start: 0, end: 3 }, '---')], {
+      await mutateEntry(f.deps, f.vault, index, note, [replaceRange({ start: 0, end: 3 }, '---')], {
         referenceDelta: 0,
         frontmatter: 'unchanged',
       }),
@@ -57,9 +64,9 @@ describe('mutateNote', () => {
   it('refuses writes whose effect is not the intended one', async () => {
     const { f, note, index } = await setup();
     const attempt = (
-      edits: Parameters<typeof mutateNote>[4],
-      expect: Parameters<typeof mutateNote>[5],
-    ) => mutateNote(f.deps, f.vault, index, note, edits, expect);
+      edits: Parameters<typeof mutateEntry>[4],
+      expect: Parameters<typeof mutateEntry>[5],
+    ) => mutateEntry(f.deps, f.vault, index, note, edits, expect);
     const refusal = { ok: false, error: { code: 'INTERNAL' } };
 
     // Wrong reference delta.
@@ -105,7 +112,7 @@ describe('mutateNote', () => {
   it('exits with a conflict when the file changed after it was read', async () => {
     const { f, note, index } = await setup();
     f.fs.files.set('a.md', SOURCE + 'someone else\n');
-    const result = await mutateNote(
+    const result = await mutateEntry(
       f.deps,
       f.vault,
       index,

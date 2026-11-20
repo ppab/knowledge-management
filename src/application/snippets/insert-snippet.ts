@@ -3,15 +3,15 @@ import { err, type Result } from '../../domain/result.js';
 import type { Scope } from '../../domain/scope/scope.js';
 import { renderTemplate, type TemplateVariables } from '../../domain/template/render.js';
 import { locateInsertion, type InsertionLocation } from '../../domain/text/insertion.js';
-import { mutateNote, type MutationOutcome } from '../mutations/mutate.js';
-import { isoDate } from '../notes/create-note.js';
-import { readNoteFile } from '../notes/show-note.js';
+import { mutateEntry, type MutationOutcome } from '../mutations/mutate.js';
+import { isoDate } from '../entries/capture-entry.js';
+import { readEntryFile } from '../entries/show-entry.js';
 import type { AppDeps } from '../ports.js';
 import { resolveInScope, withScope } from '../scope/session.js';
 import { prepareSnippet } from '../templates/prepare-snippet.js';
 
 export interface InsertSnippetInput {
-  /** Note to edit: id, title or alias. */
+  /** Entry to edit: id, title or alias. */
   readonly note: string;
   /** Snippet name, looked up in the note's own vault. */
   readonly snippet: string;
@@ -54,7 +54,7 @@ export const insertSnippet = (
       );
     }
 
-    const note = await readNoteFile(deps, vault, summary);
+    const note = await readEntryFile(deps, vault, summary);
     if (!note.ok) return note;
     const now = deps.clock.now();
     const rendered = renderTemplate(snippet.value.body, {
@@ -81,7 +81,7 @@ export const insertSnippet = (
       rendered.value,
     );
     if (!plan.ok) return plan;
-    return mutateNote(
+    return mutateEntry(
       deps,
       vault,
       opened.index,

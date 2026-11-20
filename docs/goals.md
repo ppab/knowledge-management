@@ -111,7 +111,7 @@ never a link, because ids may not contain brackets.
 `FieldType: 'reference'` (core, delivery A) means "this field must hold a wikilink"; `doctor`
 validates it. Delivery B teaches the index to record field references beside body references
 with an explicit origin, `{ kind: 'field', key }` versus `{ kind: 'body', range }`, so
-`backlinks` and `dangling` see both. `Note.references` stays body-only; `removeReference`
+`backlinks` and `dangling` see both. `Entry.references` stays body-only; `removeReference`
 refuses a field origin and points at `setFields`. No body `[[id]]` is duplicated for sessions.
 
 ## 3. Units and amounts
