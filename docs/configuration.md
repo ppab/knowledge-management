@@ -75,8 +75,8 @@ options:
 
 - `markdown` — `layout`: `flat` \| `directory`
 - `html` — `description` (string); `layout`: `flat` \| `directory`
-- `astro` — `theme`: a theme name (e.g. `modular`); `collection`: values that **depend on the chosen
-  `theme`** (a dependent enum)
+- `astro` — `theme`: a theme name (the built-in `modular`, or one the vault declares, below);
+  `collection`: values that **depend on the chosen `theme`** (a dependent enum)
 
 ```yaml
 publications:
@@ -87,7 +87,60 @@ publications:
     references: strip-to-label
   blog:
     destination: { kind: astro, theme: modular, collection: pages }
-    output: ../site/src/content
+    output: ../site # the Astro project root; the theme adds its content directory
+```
+
+### Astro themes — `.ofl/astro-themes/<name>/theme.yaml`
+
+A vault can declare its own Astro theme as data, so publishing to a site of your own needs no
+plugin and no rebuild (ADR [0009](./decisions/0009-vault-astro-themes.md)). The directory name is
+the theme name (lowercase letters, digits, hyphens); it then appears as a value of the `astro`
+kind's `theme` option in that vault. An invalid theme file is a `VALIDATION` error at vault open.
+
+| Key           | Type                    | Required | Default       | Notes                                                                                             |
+| ------------- | ----------------------- | -------- | ------------- | ------------------------------------------------------------------------------------------------- |
+| `version`     | string                  | yes      | —             | the ofl version the file was written for, e.g. `0.1.0`; one newer than the running ofl is refused |
+| `contentDir`  | string (relative path)  | no       | `src/content` | under the publication's `output`                                                                  |
+| `collections` | map `name → collection` | yes      | —             | at least one; the `collection` option's values                                                    |
+
+Each collection:
+
+| Key           | Type                | Required | Default                    | Notes                                                                    |
+| ------------- | ------------------- | -------- | -------------------------- | ------------------------------------------------------------------------ |
+| `route`       | string (template)   | yes      | —                          | starts with `/`; `{{slug}}` `{{id}}` `{{dir}}` `{{stem}}` `{{type}}`     |
+| `path`        | string (template)   | no       | `<collection>/{{slug}}.md` | under `contentDir`; ends in `.md`/`.mdx`; `{{slug}}` `{{id}}` `{{stem}}` |
+| `images`      | `allow` \| `forbid` | no       | `allow`                    | `forbid` refuses a note whose body shows an image                        |
+| `fields`      | field[]             | no       | `[]`                       | what a note must carry (below)                                           |
+| `frontmatter` | map `key → source`  | no       | `{ title: title }`         | every key the published file gets                                        |
+
+A **field** is `{ name, type?, values?, of?, required?, pattern?, description? }`. `type` is
+`string` (default), `number`, `boolean`, `date`, `enum` (with `values`) or `list` (with `of`);
+`pattern` is a regular expression a string must match in full. A missing `required` field, a wrong
+type or a failed pattern **refuses the publication** — nothing is written, `--dry-run` lists the
+problems and `doctor` warns about them. A field named `slug`, `type` or `tags` takes only
+`required`: the note must set that core key itself (a required `slug` keeps a published URL from
+following a retitle).
+
+A **source** is a name, a list of names (the first with a value wins), or `{ from, as: date }`,
+which trims a date or instant to `YYYY-MM-DD`. `title`, `id`, `slug`, `type` and `tags` are the
+entry's resolved values; any other name is read from the note's frontmatter. A key with no value is
+left out, and nothing is copied that the mapping does not name.
+
+```yaml
+# .ofl/astro-themes/site/theme.yaml
+version: 0.1.0
+collections:
+  notebook:
+    route: /notebook/{{slug}}/
+    path: notebook/en/{{slug}}.md
+    fields:
+      - { name: slug, required: true }
+      - { name: kind, required: true, pattern: '[a-z0-9]+(-[a-z0-9]+)*' }
+    frontmatter:
+      title: title
+      kind: kind
+      summary: [summary, description]
+      date: { from: created, as: date }
 ```
 
 ## 2. User configuration — `~/.config/ofl/config.yaml`

@@ -2,12 +2,14 @@ import { validation, type AppError } from '../../domain/errors.js';
 import { readFrontmatterFields, splitFrontmatter } from '../../domain/entry/frontmatter.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { templateVariables } from '../../domain/template/render.js';
+import { checkFormatVersion } from '../../domain/version.js';
 import type { AppDeps, TemplateSource } from '../ports.js';
 
 /**
  * A template is a Markdown file whose frontmatter may carry a `template:` block:
  *
  *   template:
+ *     version: 0.1.0                            # the ofl version it was written for
  *     path: "decisions/{{date}}-{{slug}}.md"   # output path under the notes directory;
  *                                               # a leading "/" anchors it at the vault root
  *     variables:
@@ -15,7 +17,12 @@ import type { AppDeps, TemplateSource } from '../ports.js';
  *
  * The block is stripped from the created note. The template's own `type` key, if any,
  * overrides the template name as the note type.
+ *
+ * `version` is the ofl version the block was written for, so a later ofl can change what its
+ * keys mean and still read this template correctly. A template written before versions existed
+ * carries none and is read as it always was; one written for a newer ofl is refused.
  */
+
 export interface PreparedTemplate {
   readonly name: string;
   readonly type: string;
@@ -76,7 +83,15 @@ export const prepareTemplate = (
     if (fields.type !== undefined) type = unprotectPlaceholders(fields.type);
     const meta = parsed.value.template;
     if (typeof meta === 'object' && meta !== null) {
-      const { path, variables } = meta as { path?: unknown; variables?: unknown };
+      const { version, path, variables } = meta as {
+        version?: unknown;
+        path?: unknown;
+        variables?: unknown;
+      };
+      if (version !== undefined) {
+        const checked = checkFormatVersion(`Template "${template.name}"`, version);
+        if (!checked.ok) return checked;
+      }
       if (typeof path === 'string') pathTemplate = unprotectPlaceholders(path);
       else if (path !== undefined) {
         return err(validation(`Template "${template.name}": template.path must be a string`));

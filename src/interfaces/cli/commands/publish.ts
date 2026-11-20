@@ -31,6 +31,10 @@ const reasonText = (reason: ExclusionReason): string => {
   }
 };
 
+/** A plan may be written when it has no violations, collisions or destination problems. */
+const canProceed = (outcome: PublishOutcome): boolean =>
+  isPublishable(outcome.plan) && (outcome.kind === 'published' || outcome.problems.length === 0);
+
 const header = (resolved: ResolvedPublication, outputDir: string): string =>
   `publication: ${resolved.publication.name} (${resolved.vault.config.name}, ${resolved.destination.kind}) → ${outputDir}`;
 
@@ -78,7 +82,11 @@ const publishText = (outcome: PublishOutcome): string => {
     lines.push('collisions:');
     lines.push(...plan.collisions.map((c) => `  ${c.key}: ${c.ids.join(', ')}`));
   }
-  if (isPublishable(plan)) lines.push('(publishable)');
+  if (outcome.problems.length > 0) {
+    lines.push(`problems (${String(outcome.problems.length)}):`);
+    lines.push(...outcome.problems.map((p) => `  ${p.path}: ${p.message}`));
+  }
+  if (canProceed(outcome)) lines.push('(publishable)');
   return lines.join('\n');
 };
 
@@ -103,7 +111,8 @@ const publishJson = (outcome: PublishOutcome): unknown => {
     })),
     violations: plan.violations,
     collisions: plan.collisions,
-    publishable: isPublishable(plan),
+    problems: outcome.kind === 'planned' ? outcome.problems : [],
+    publishable: canProceed(outcome),
   };
   return outcome.kind === 'published' ? { ...base, written: outcome.report.files } : base;
 };
@@ -157,8 +166,7 @@ export const registerPublishCommand = (program: Command, io: CliIo, exit: Exit):
           publish(ctx.deps, scope, registry, { name, dryRun: options.dryRun ?? false }),
         ),
         (outcome) => {
-          if (outcome.kind === 'planned' && !isPublishable(outcome.plan))
-            state.unpublishable = true;
+          if (!canProceed(outcome)) state.unpublishable = true;
           return publishText(outcome);
         },
         publishJson,

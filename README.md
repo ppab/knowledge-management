@@ -90,6 +90,10 @@ ofl publish site --dry-run  # print the plan (routes, exclusions, reference viol
 ofl publish site            # write it; source notes are never modified
 ```
 
+An Astro site of your own needs no plugin: declare its collections, required fields and frontmatter
+mapping in `.ofl/astro-themes/<name>/theme.yaml` and use `theme: <name>` (see
+`docs/configuration.md`).
+
 References between published notes become real links; a reference to an excluded or missing note is
 handled by the publication's `references` policy. Every publication also emits a `manifest.json`.
 

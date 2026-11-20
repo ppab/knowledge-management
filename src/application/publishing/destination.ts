@@ -60,6 +60,13 @@ export interface OptionSpec {
   readonly description?: string;
 }
 
+/** Why an entry cannot be published to a destination as it stands. */
+export interface EntryProblem {
+  /** The frontmatter key at fault, when the problem is about one. */
+  readonly field?: string;
+  readonly message: string;
+}
+
 export interface Destination {
   readonly kind: string;
   readonly description: string;
@@ -71,6 +78,12 @@ export interface Destination {
   options(chosen?: Readonly<Record<string, unknown>>): readonly OptionSpec[];
   /** Frontmatter fields read from source notes; doctor-validated on selected notes. */
   fields(options: unknown): readonly FieldSpec[];
+  /**
+   * What stops this entry from being published, e.g. a field the target site cannot build
+   * without. Unlike `fields` (which `doctor` only warns about), any problem here refuses the
+   * whole publication before a file is written; `doctor` reports them as warnings too.
+   */
+  entryProblems?(entry: PlanEntry, options: unknown): readonly EntryProblem[];
   /** A route the layout dictates; a publication `route` that differs is a config error. */
   fixedRoute?(options: unknown): string | undefined;
   /** Where `manifest.json` lands, relative to the output dir; default `manifest.json`. */

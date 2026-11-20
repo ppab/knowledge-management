@@ -12,7 +12,7 @@ import type { Scope } from '../../domain/scope/scope.js';
 import type { PluginRegistry } from '../plugin/plugin.js';
 import type { AppDeps } from '../ports.js';
 import { withScope, type ScopeSession } from '../scope/session.js';
-import type { ResolvedPublication } from './destination.js';
+import type { EntryProblem, ResolvedPublication } from './destination.js';
 import { executePublication, type PublishReport } from './execute-publication.js';
 import { planPublication } from './plan-publication.js';
 
@@ -20,7 +20,8 @@ import { planPublication } from './plan-publication.js';
  * The `publish` use case. It resolves a publication by name across the scope, plans it from the
  * index, and — unless this is a dry run — writes it. A dry run always succeeds with the plan
  * (the interface decides how to signal an unpublishable one); a real run of an unpublishable plan
- * fails, naming the first violation, and writes nothing.
+ * fails, naming the first violation, and writes nothing. So does a plan with an entry the
+ * destination refuses — a note missing a field the target site cannot build without.
  */
 
 export interface PublishInput {
@@ -28,11 +29,18 @@ export interface PublishInput {
   readonly dryRun?: boolean;
 }
 
+/** An included entry the destination refuses, e.g. one missing a field the site requires. */
+export interface PlanProblem extends EntryProblem {
+  readonly id: string;
+  readonly path: string;
+}
+
 export type PublishOutcome =
   | {
       readonly kind: 'planned';
       readonly resolved: ResolvedPublication;
       readonly plan: PublicationPlan;
+      readonly problems: readonly PlanProblem[];
     }
   | {
       readonly kind: 'published';
@@ -40,6 +48,16 @@ export type PublishOutcome =
       readonly plan: PublicationPlan;
       readonly report: PublishReport;
     };
+
+/** Every problem the destination has with the plan's entries, in plan order. */
+export const planProblems = (resolved: ResolvedPublication, plan: PublicationPlan): PlanProblem[] =>
+  plan.entries.flatMap((entry) =>
+    (resolved.destination.entryProblems?.(entry, resolved.options) ?? []).map((problem) => ({
+      id: entry.id,
+      path: entry.path,
+      ...problem,
+    })),
+  );
 
 /** Every resolved publication in the registry, for the bare `publish` listing. */
 export const listPublications = (registry: PluginRegistry): readonly ResolvedPublication[] =>
@@ -96,7 +114,8 @@ export const publish = (
     const resolved = found.value;
     const plan = planPublication(session, resolved);
     if (!plan.ok) return plan;
-    if (input.dryRun) return ok({ kind: 'planned', resolved, plan: plan.value });
+    const problems = planProblems(resolved, plan.value);
+    if (input.dryRun) return ok({ kind: 'planned', resolved, plan: plan.value, problems });
     if (!isPublishable(plan.value)) {
       const violation = plan.value.violations[0];
       const collision = plan.value.collisions[0];
@@ -110,6 +129,16 @@ export const publish = (
           violations: plan.value.violations,
           collisions: plan.value.collisions,
         }),
+      );
+    }
+    if (problems.length > 0) {
+      const [first] = problems;
+      const more = problems.length > 1 ? ` (and ${String(problems.length - 1)} more)` : '';
+      return err(
+        validation(
+          `Publication "${input.name}" cannot proceed: ${first?.path ?? ''}: ${first?.message ?? ''}${more}`,
+          { problems },
+        ),
       );
     }
     const report = await executePublication(deps, session, resolved, plan.value);

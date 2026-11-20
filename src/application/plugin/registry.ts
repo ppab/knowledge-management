@@ -5,6 +5,7 @@ import type { Destination } from '../publishing/destination.js';
 import type { AstroTheme } from '../publishing/destinations/astro.js';
 import {
   builtinDestinations,
+  compileAstroTheme,
   createAstroDestination,
   htmlDestination,
   markdownDestination,
@@ -244,16 +245,42 @@ export const buildRegistry = (
       themeOwners.set(theme.name, plugin.name);
     }
   }
-  const themesFor = (root: string): AstroTheme[] => {
-    const themes: AstroTheme[] = [modularTheme];
-    for (const { plugin, scope: pluginScope } of enabled) {
-      if (!plugin.astroThemes) continue;
-      if (pluginScope.members.some((m) => m.available && m.root === root)) {
-        themes.push(...plugin.astroThemes);
+  const pluginThemesFor = (root: string): { owner: string; theme: AstroTheme }[] =>
+    enabled.flatMap(({ plugin, scope: pluginScope }) =>
+      pluginScope.members.some((m) => m.available && m.root === root)
+        ? (plugin.astroThemes ?? []).map((theme) => ({ owner: plugin.name, theme }))
+        : [],
+    );
+
+  // Themes a vault declares itself (`.ofl/astro-themes/`, ADR 0009) are that vault's alone, so
+  // two vaults may each have a `site` theme. Within one vault the single-owner rule still holds:
+  // a declared theme may not take the name of the built-in or of a theme a plugin gives it.
+  const vaultThemes = new Map<string, AstroTheme[]>();
+  for (const member of scope.members) {
+    if (!member.available) continue;
+    const declared = Object.values(member.vault.config.astroThemes ?? {});
+    for (const spec of declared) {
+      const owner =
+        spec.name === modularTheme.name
+          ? 'the built-in'
+          : pluginThemesFor(member.root).find(({ theme }) => theme.name === spec.name)?.owner;
+      if (owner !== undefined) {
+        return err(
+          validation(
+            `Astro theme "${spec.name}" declared in ${member.vault.config.name} shadows ${owner === 'the built-in' ? owner : `the theme of plugin "${owner}"`}`,
+            { theme: spec.name, vault: member.vault.config.name },
+          ),
+        );
       }
     }
-    return themes;
-  };
+    vaultThemes.set(member.root, declared.map(compileAstroTheme));
+  }
+
+  const themesFor = (root: string): AstroTheme[] => [
+    modularTheme,
+    ...pluginThemesFor(root).map(({ theme }) => theme),
+    ...(vaultThemes.get(root) ?? []),
+  ];
 
   const destinationsFor = (root: string): readonly Destination[] => {
     // A test override replaces the whole base set; otherwise the astro kind is built per vault from

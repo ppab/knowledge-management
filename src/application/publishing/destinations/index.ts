@@ -1,4 +1,5 @@
 import type { Destination } from '../destination.js';
+import { compileAstroTheme } from './astro-themes/declared.js';
 import { modularTheme } from './astro-themes/modular.js';
 import { createAstroDestination } from './astro.js';
 import { htmlDestination } from './html.js';
@@ -11,4 +12,10 @@ export const builtinDestinations: readonly Destination[] = [
   createAstroDestination([modularTheme]),
 ];
 
-export { markdownDestination, htmlDestination, createAstroDestination, modularTheme };
+export {
+  markdownDestination,
+  htmlDestination,
+  createAstroDestination,
+  compileAstroTheme,
+  modularTheme,
+};

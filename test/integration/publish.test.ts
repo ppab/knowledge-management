@@ -157,6 +157,67 @@ describe('ofl publish', () => {
     }
   });
 
+  it('publishes through a theme the vault declares, and refuses a note the theme rejects', async () => {
+    const v = await mkdtemp(join(tmpdir(), 'notes-publish-theme-'));
+    try {
+      await ofl(v, 'init', '--name', 'garden', '--dir', 'notes');
+      const cfg = join(v, '.ofl', 'config.yaml');
+      await writeFile(
+        cfg,
+        `${await readFile(cfg, 'utf8')}\npublications:\n` +
+          `  notebook:\n    destination: { kind: astro, theme: site, collection: notebook }\n    output: ./site\n    include: [notes/**]\n    references: strip-to-label\n`,
+      );
+      // No compiled-in theme is called `site`: until the vault declares it, the vault won't open.
+      expect((await ofl(v, 'publish')).code).toBe(6);
+
+      await mkdir(join(v, '.ofl', 'astro-themes', 'site'), { recursive: true });
+      await writeFile(
+        join(v, '.ofl', 'astro-themes', 'site', 'theme.yaml'),
+        'version: 0.1.0\ncollections:\n  notebook:\n    route: /notebook/{{slug}}/\n    path: notebook/en/{{slug}}.md\n' +
+          "    fields:\n      - { name: slug, required: true }\n      - { name: kind, required: true, pattern: '[a-z0-9-]+' }\n" +
+          '    frontmatter:\n      title: title\n      kind: kind\n      date: { from: created, as: date }\n',
+      );
+      await writeFile(
+        join(v, 'notes', 'attention.md'),
+        '---\nid: ATT\nvisibility: public\ntitle: On attention\nslug: on-attention\nkind: essay\ncreated: 2026-11-12\n---\n\nBody.\n',
+      );
+      await writeFile(
+        join(v, 'notes', 'draft.md'),
+        '---\nid: DRF\nvisibility: public\ntitle: Draft\nslug: draft\n---\n\nNo kind yet.\n',
+      );
+
+      const dry = await ofl(v, 'publish', 'notebook', '--dry-run');
+      expect(dry.code).toBe(6);
+      expect(dry.stdout).toContain('src/content/notebook/en/on-attention.md');
+      expect(dry.stdout).toContain('problems (1):');
+      expect(dry.stdout).toContain('notes/draft.md: "kind" is required');
+      expect(dry.stdout).not.toContain('(publishable)');
+
+      const refused = await ofl(v, 'publish', 'notebook');
+      expect(refused.code).toBe(6);
+      expect(refused.stderr).toContain('notes/draft.md');
+      expect(await missing(join(v, 'site'))).toBe(true);
+
+      const warned = await ofl(v, 'doctor');
+      expect(warned.stdout).toContain('notes/draft.md');
+
+      await rm(join(v, 'notes', 'draft.md'));
+      const out = await ofl(v, 'publish', 'notebook');
+      expect(out.code).toBe(0);
+      const published = await readFile(
+        join(v, 'site', 'src', 'content', 'notebook', 'en', 'on-attention.md'),
+        'utf8',
+      );
+      expect(published).toContain('title: On attention');
+      expect(published).toContain('kind: essay');
+      expect(published).toContain('date: 2026-11-12');
+      expect(published).not.toContain('visibility:');
+      expect(published).toContain('Body.');
+    } finally {
+      await rm(v, { recursive: true, force: true });
+    }
+  });
+
   it('aborts on a route collision and errors on an unknown publication', async () => {
     const v = await mkdtemp(join(tmpdir(), 'notes-publish-x-'));
     try {
