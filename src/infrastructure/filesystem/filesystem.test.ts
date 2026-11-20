@@ -52,6 +52,49 @@ describe('vault repository', () => {
   });
 });
 
+describe('vault repository — astro themes', () => {
+  const vaults = createVaultRepository();
+  const theme = (name: string, yaml: string): Promise<void> =>
+    mkdir(join(root, '.ofl', 'astro-themes', name), { recursive: true }).then(() =>
+      writeFile(join(root, '.ofl', 'astro-themes', name, 'theme.yaml'), yaml),
+    );
+
+  beforeEach(async () => {
+    unwrap(await vaults.create(root, defaultVaultConfig(asVaultId('V1'), 'test')));
+  });
+
+  it('loads every .ofl/astro-themes/<name>/theme.yaml and skips what is not a theme', async () => {
+    expect(unwrap(await vaults.load(root)).astroThemes).toBeUndefined();
+
+    await theme('site', 'version: 0.1.0\ncollections:\n  notes:\n    route: /notes/{{slug}}/\n');
+    await theme(
+      'blog',
+      'version: 0.1.0\ncontentDir: content\ncollections:\n  posts:\n    route: /p/{{slug}}/\n',
+    );
+    await mkdir(join(root, '.ofl', 'astro-themes', 'empty'));
+    await writeFile(join(root, '.ofl', 'astro-themes', 'README.md'), 'not a theme');
+
+    const themes = unwrap(await vaults.load(root)).astroThemes ?? {};
+    expect(Object.keys(themes)).toEqual(['blog', 'site']);
+    expect(themes.blog).toMatchObject({ name: 'blog', contentDir: 'content' });
+    expect(themes.site?.collections.notes?.route).toBe('/notes/{{slug}}/');
+  });
+
+  it('fails the load on an invalid theme, naming its file', async () => {
+    await theme('site', 'version: 0.1.0\ncollections:\n  notes:\n    route: notes\n');
+    expect(await vaults.load(root)).toMatchObject({
+      ok: false,
+      error: {
+        code: 'VALIDATION',
+        message: expect.stringContaining(join('astro-themes', 'site', 'theme.yaml')) as string,
+      },
+    });
+
+    await theme('site', 'collections: [');
+    expect(await vaults.load(root)).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+  });
+});
+
 describe('note store', () => {
   const store = createEntryStore();
 

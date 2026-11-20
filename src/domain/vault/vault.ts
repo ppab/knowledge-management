@@ -1,4 +1,5 @@
 import type { IdentityConfig } from '../identity/identity.js';
+import type { AstroThemeSpec } from '../publishing/astro-theme.js';
 import type { Publication } from '../publishing/publication.js';
 
 declare const vaultIdBrand: unique symbol;
@@ -20,6 +21,11 @@ export interface VaultConfig {
   readonly plugins?: Readonly<Record<string, unknown>>;
   /** Named publications keyed by name; absent = none defined. */
   readonly publications?: Readonly<Record<string, Publication>>;
+  /**
+   * Astro themes the vault defines under `.ofl/astro-themes/`, keyed by name; absent = none.
+   * Read alongside `config.yaml` but never written back into it.
+   */
+  readonly astroThemes?: Readonly<Record<string, AstroThemeSpec>>;
 }
 
 /** A vault that has been located and whose configuration validated. */

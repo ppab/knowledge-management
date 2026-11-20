@@ -77,6 +77,34 @@ describe('captureEntry', () => {
     expect(source).toContain('Decided in monitor by me.');
   });
 
+  it('accepts a template that states its ofl version, and refuses one written for a newer ofl', async () => {
+    const f = fixture();
+    const template = (version: string): string =>
+      `---\ntemplate:\n  version: ${version}\n  path: "{{slug}}.md"\nid: "{{id}}"\ntitle: "{{title}}"\n---\n`;
+    f.templates.set('current', template('0.1.0'));
+    f.templates.set('future', template('99.0.0'));
+    f.templates.set('vague', template('1'));
+
+    const created = unwrap(
+      await captureEntry(f.deps, f.vault, { template: 'current', title: 'Kept' }),
+    );
+    // The block, version included, is stripped from the created note.
+    expect(f.fs.files.get(created.path)).not.toContain('version');
+
+    expect(await captureEntry(f.deps, f.vault, { template: 'future', title: 'X' })).toMatchObject({
+      ok: false,
+      error: {
+        code: 'VALIDATION',
+        message: expect.stringContaining('written for ofl 99.0.0') as string,
+      },
+    });
+    expect(await captureEntry(f.deps, f.vault, { template: 'vague', title: 'Y' })).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    expect(f.fs.writes).toHaveLength(1);
+  });
+
   it('resolves template.path inside the notes directory; a leading / anchors at the root', async () => {
     const f = fixture({ include: ['notes/**/*.md', 'journal/*.md'] });
     f.templates.set(
