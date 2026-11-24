@@ -1,6 +1,7 @@
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import { unwrap } from '../../domain/result.js';
+import { OFL_VERSION } from '../../domain/version.js';
 import { parseAstroTheme } from './astro-theme-file.js';
 
 /** Every case states a version; the version itself is tested on its own below. */
@@ -132,7 +133,10 @@ describe('parseAstroTheme', () => {
     const body = 'collections:\n  a:\n    route: /a/\n';
     expect(parseAstroTheme('site', parse(body))).toMatchObject({
       ok: false,
-      error: { code: 'VALIDATION', message: expect.stringContaining('version: 0.1.0') as string },
+      error: {
+        code: 'VALIDATION',
+        message: expect.stringContaining(`version: ${OFL_VERSION}`) as string,
+      },
     });
     // A newer file is reported by its version, not by the keys this build does not recognize.
     expect(parseAstroTheme('site', parse(`version: 99.0.0\nlayouts: {}\n`))).toMatchObject({

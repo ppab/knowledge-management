@@ -2,7 +2,7 @@ import { validation, type AppError } from './errors.js';
 import { err, ok, type Result } from './result.js';
 
 /** The ofl version; kept equal to package.json by a test, so no file is read at runtime. */
-export const OFL_VERSION = '0.1.0';
+export const OFL_VERSION = '0.2.0';
 
 /*
  * Files whose format ofl defines (Astro themes, the `template:` block of a note template) state

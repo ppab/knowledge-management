@@ -1,0 +1,68 @@
+# Publishes a GitHub release for the CLI when a version tag (`v0.2.0`) is pushed:
+# validates the tagged commit, compiles the four executables, and attaches them
+# to a release whose notes are generated from the merged pull requests.
+#
+# Only `v*` tags trigger it. `release/**` tags are vault publications cut by
+# `ofl release`; they belong to the vault's own workflow, not to this one.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# Creating the release and uploading its assets needs to write to the repository.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # Installs the exact Node and Bun versions pinned in mise.toml.
+      - name: Install pinned Node and Bun (mise.toml)
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      # A tag that disagrees with package.json would ship binaries reporting another version.
+      - name: Check the tag matches package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+
+      # Respects bun.lock and fails rather than updating it.
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      # Linux and macOS, x64 and arm64; the host binary also feeds the smoke tests below.
+      - name: Compile the executables
+        run: bun run compile:all
+
+      - name: Lint, format, type check, and test
+        run: bun run check
+
+      # Only the executables are attached; the sourcemaps beside them stay behind.
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            release/ofl-linux-x64 \
+            release/ofl-linux-arm64 \
+            release/ofl-darwin-arm64 \
+            release/ofl-darwin-x64 \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes
