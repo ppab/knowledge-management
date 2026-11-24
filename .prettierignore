@@ -3,4 +3,4 @@ dist/
 coverage/
 bun.lock
 test/fixtures/
-release/
+/release/

@@ -5,7 +5,11 @@ import {
   type EntryHistory,
   type RevisionDiff,
 } from '../../../application/history/history.js';
-import { snapshotEntry, type SnapshotResult } from '../../../application/history/snapshot-entry.js';
+import {
+  snapshotEntry,
+  type PushOutcome,
+  type SnapshotResult,
+} from '../../../application/history/snapshot-entry.js';
 import { isEntry } from '../../../domain/entry/entry.js';
 import {
   abbreviate,
@@ -14,7 +18,7 @@ import {
 } from '../../../domain/revision/revision.js';
 import type { Exit } from '../commands.js';
 import { contextFor, inScope, type CliIo } from '../context.js';
-import { emit, table } from '../output.js';
+import { emit, EXIT_CODES, table } from '../output.js';
 
 /** `2026-10-27 13:22` from an ISO timestamp, in the zone the revision was recorded in. */
 export const revisionDate = (revision: Revision): string =>
@@ -63,11 +67,16 @@ const diffText = (diff: RevisionDiff): string =>
     ? `No differences between ${endText(diff.from)} and ${endText(diff.to)} for ${diff.entry.path}`
     : diff.patch.trimEnd();
 
+const pushText = (push: PushOutcome | undefined): string => {
+  if (push === undefined) return '';
+  return push.kind === 'pushed' ? '\nPushed' : `\nNot pushed: ${push.message}`;
+};
+
 const snapshotText = (saved: SnapshotResult): string => {
   const path = saved.entry.path;
   switch (saved.outcome.kind) {
     case 'saved':
-      return `Saved ${path} as revision ${abbreviate(saved.outcome.revision.id)}: ${saved.outcome.revision.summary}`;
+      return `Saved ${path} as revision ${abbreviate(saved.outcome.revision.id)}: ${saved.outcome.revision.summary}${pushText(saved.outcome.push)}`;
     case 'nothing-to-save':
       return `Nothing to save: ${statusText(path, { kind: 'clean', last: saved.outcome.last })}`;
     case 'not-under-version-control':
@@ -132,29 +141,47 @@ export const registerHistoryCommands = (program: Command, io: CliIo, exit: Exit)
       '-m, --message <message>',
       'revision message, recorded as "note: <message>" (default: "note: snapshot <title>")',
     )
-    .action(async (query: string, opts: { message?: string }, cmd: Command) => {
+    .option('--push', "also push the branch (default: the vault's snapshot.push setting)")
+    .option('--no-push', "record only, whatever the vault's snapshot.push says")
+    .action(async (query: string, opts: { message?: string; push?: boolean }, cmd: Command) => {
       const ctx = contextFor(io, cmd);
-      exit(
-        await emit(
-          ctx,
-          inScope(ctx, (scope) =>
+      // The revision is recorded either way; a push that failed still fails the command.
+      const state = { pushFailed: false };
+      const code = await emit(
+        ctx,
+        async () => {
+          const saved = await inScope(ctx, (scope) =>
             snapshotEntry(
               ctx.deps,
               scope,
               { query },
               {
                 ...(opts.message !== undefined && { message: opts.message }),
+                ...(opts.push !== undefined && { push: opts.push }),
               },
             ),
-          ),
-          snapshotText,
-          (saved) => ({
-            ...entryJson(saved),
-            status: saved.outcome.kind,
-            ...(saved.outcome.kind === 'saved' && { revision: saved.outcome.revision }),
-            ...(saved.outcome.kind === 'nothing-to-save' && { last: saved.outcome.last }),
+          )();
+          if (saved.ok && saved.value.outcome.kind === 'saved') {
+            state.pushFailed = saved.value.outcome.push?.kind === 'failed';
+          }
+          return saved;
+        },
+        snapshotText,
+        (saved) => ({
+          ...entryJson(saved),
+          status: saved.outcome.kind,
+          ...(saved.outcome.kind === 'saved' && {
+            revision: saved.outcome.revision,
+            ...(saved.outcome.push !== undefined && {
+              pushed: saved.outcome.push.kind === 'pushed',
+              ...(saved.outcome.push.kind === 'failed' && {
+                pushError: saved.outcome.push.message,
+              }),
+            }),
           }),
-        ),
+          ...(saved.outcome.kind === 'nothing-to-save' && { last: saved.outcome.last }),
+        }),
       );
+      exit(code === 0 && state.pushFailed ? EXIT_CODES.INTERNAL : code);
     });
 };

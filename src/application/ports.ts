@@ -172,6 +172,33 @@ export interface RevisionProvider {
    * revision surfaces as `INTERNAL` with the hook's output in `details`.
    */
   record(root: string, path: string, message: string): Promise<Result<Revision, AppError>>;
+  /**
+   * Sends the recorded revisions of the checked-out branch wherever the provider's own
+   * configuration says they go. A refusal surfaces as `INTERNAL` with the provider's output.
+   */
+  push(root: string): Promise<Result<void, AppError>>;
+}
+
+/** Where a release would be cut: the checked-out commit of the repository holding a vault. */
+export interface ReleaseHead {
+  readonly commit: string;
+  /** The vault has changes the commit does not hold; a release leaves them behind. */
+  readonly uncommitted: boolean;
+}
+
+/*
+ * Release marks on the repository that holds a vault. Unlike revisions these concern the whole
+ * repository; `push` sends one tag, where `RevisionProvider.push` sends the branch.
+ */
+export interface ReleaseProvider {
+  /** `null` when no repository holds `root`; `UNAVAILABLE` when it has no commit yet. */
+  head(root: string): Promise<Result<ReleaseHead | null, AppError>>;
+  /** Names of the configured remotes, in the provider's order. */
+  remotes(root: string): Promise<Result<string[], AppError>>;
+  /** An annotated tag on the checked-out commit; `CONFLICT` when `name` is already a tag. */
+  tag(root: string, name: string, message: string): Promise<Result<void, AppError>>;
+  /** Sends the tag (and the commits it needs) to `remote`; nothing else is pushed. */
+  push(root: string, remote: string, tag: string): Promise<Result<void, AppError>>;
 }
 
 export interface TemplateSource {
@@ -279,6 +306,7 @@ export interface AppDeps {
   readonly frontmatter: FrontmatterCodec;
   readonly templates: TemplateRepository;
   readonly revisions: RevisionProvider;
+  readonly releases: ReleaseProvider;
   readonly indexes: EntryIndexProvider;
   readonly userConfig: UserConfigRepository;
   readonly outputs: OutputStore;

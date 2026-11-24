@@ -94,6 +94,18 @@ An Astro site of your own needs no plugin: declare its collections, required fie
 mapping in `.ofl/astro-themes/<name>/theme.yaml` and use `theme: <name>` (see
 `docs/configuration.md`).
 
+To hand publishing to CI, cut a release instead of publishing locally:
+
+```bash
+ofl release site            # annotated tag release/site/20261123T143200Z on HEAD, pushed to the remote
+ofl release site --dry-run  # print the tag; create and push nothing
+ofl release site --no-push  # tag only
+```
+
+The name must be a publication in `.ofl/config.yaml`. `release` writes no publication itself: a
+workflow triggered by `release/**` tags runs `ofl publish <name>` on the tagged commit. Uncommitted
+changes are not part of a release (the command says so when the vault has any).
+
 References between published notes become real links; a reference to an excluded or missing note is
 handled by the publication's `references` policy. Every publication also emits a `manifest.json`.
 

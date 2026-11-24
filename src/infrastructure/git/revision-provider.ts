@@ -1,9 +1,9 @@
-import { execFile } from 'node:child_process';
 import { relative, resolve } from 'node:path';
 import type { RevisionProvider } from '../../application/ports.js';
 import { appError, notFound, unavailable, type AppError } from '../../domain/errors.js';
 import { err, ok, type Result } from '../../domain/result.js';
 import { abbreviate, type Revision, type RevisionStatus } from '../../domain/revision/revision.js';
+import { output, runGit, type GitOptions } from './run-git.js';
 
 /*
  * Revisions through the user's own `git` binary (docs/architecture.md A4): one file at a time,
@@ -14,48 +14,9 @@ import { abbreviate, type Revision, type RevisionStatus } from '../../domain/rev
  * directly; the user's git, hooks and configuration stay in charge.
  */
 
-export interface GitOptions {
-  /** Extra environment for the spawned git (tests pin an identity and isolate the config). */
-  readonly env?: Readonly<Record<string, string>>;
-}
+export type { GitOptions } from './run-git.js';
 
-interface GitOutput {
-  readonly code: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-const MAX_OUTPUT = 64 * 1024 * 1024;
 const FORMAT = '%x01%H%x00%aI%x00%an%x00%s';
-
-const runGit = (
-  cwd: string,
-  args: readonly string[],
-  env: NodeJS.ProcessEnv,
-): Promise<Result<GitOutput, AppError>> =>
-  new Promise((resolveRun) => {
-    execFile(
-      'git',
-      [...args],
-      { cwd, env, maxBuffer: MAX_OUTPUT, encoding: 'utf8' },
-      (error, stdout, stderr) => {
-        if (error && !('code' in error && typeof error.code === 'number')) {
-          const cause = error as NodeJS.ErrnoException;
-          resolveRun(
-            err(
-              cause.code === 'ENOENT'
-                ? unavailable('git was not found on PATH; revisions need it')
-                : unavailable(`Cannot run git: ${cause.message}`),
-            ),
-          );
-          return;
-        }
-        resolveRun(ok({ code: error ? Number(error.code) : 0, stdout, stderr }));
-      },
-    );
-  });
-
-const output = (result: GitOutput): string => `${result.stdout}${result.stderr}`.trim();
 
 /** Parses `--format=FORMAT --name-status` output: one chunk per revision, newest first. */
 const parseLog = (text: string, fallbackPath: string): Revision[] => {
@@ -228,6 +189,23 @@ export const createGitRevisionProvider = (options: GitOptions = {}): RevisionPro
       return revision
         ? ok(revision)
         : err(appError('INTERNAL', `Recorded ${path} but cannot read the revision back`));
+    },
+
+    // A bare `git push`: the user's upstream and `push.default` decide where the branch goes.
+    async push(root) {
+      const top = await topLevel(root);
+      if (!top.ok) return top;
+      if (top.value === null) return err(notVersioned(root));
+      const pushed = await runGit(top.value, ['push'], writeEnv);
+      if (!pushed.ok) return pushed;
+      if (pushed.value.code === 0) return ok(undefined);
+      const text = output(pushed.value);
+      return err(
+        appError('INTERNAL', `git push exited ${String(pushed.value.code)}: ${text}`, {
+          code: pushed.value.code,
+          output: text,
+        }),
+      );
     },
   };
 };

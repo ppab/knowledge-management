@@ -17,6 +17,8 @@ export interface VaultConfig {
   readonly exclude: readonly string[];
   readonly identity: IdentityConfig;
   readonly editor?: string;
+  /** `push`: a snapshot also sends the branch to its remote; absent = record locally only. */
+  readonly snapshot?: { readonly push: boolean };
   /** Enabled plugins by name with their raw settings (`{}` for a bare key); absent = none. */
   readonly plugins?: Readonly<Record<string, unknown>>;
   /** Named publications keyed by name; absent = none defined. */
