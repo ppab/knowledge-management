@@ -54,6 +54,7 @@ const schema = z.object({
     ])
     .default({ strategy: 'ulid' }),
   editor: z.string().min(1).optional(),
+  snapshot: z.object({ push: z.boolean().default(false) }).optional(),
   // `todos:` with nothing after it parses as null; it means "enabled, default settings".
   plugins: z.record(z.string().min(1), z.unknown()).optional(),
   publications: z.record(z.string().min(1), publicationSchema).optional(),
@@ -89,7 +90,7 @@ export const parseVaultConfig = (data: unknown): Result<VaultConfig, AppError> =
   }
   const identity = validateIdentityConfig(parsed.data.identity);
   if (!identity.ok) return identity;
-  const { vault, entries, editor, plugins, publications } = parsed.data;
+  const { vault, entries, editor, snapshot, plugins, publications } = parsed.data;
   return ok({
     id: asVaultId(vault.id),
     name: vault.name,
@@ -97,6 +98,7 @@ export const parseVaultConfig = (data: unknown): Result<VaultConfig, AppError> =
     exclude: entries.exclude,
     identity: parsed.data.identity,
     ...(editor !== undefined && { editor }),
+    ...(snapshot !== undefined && { snapshot }),
     ...(plugins !== undefined && {
       plugins: Object.fromEntries(
         Object.entries(plugins).map(([name, settings]) => [name, settings ?? {}]),
@@ -127,6 +129,7 @@ export const toVaultConfigFile = (config: VaultConfig): VaultConfigFile => ({
   entries: { include: [...config.include], exclude: [...config.exclude] },
   identity: config.identity,
   ...(config.editor !== undefined && { editor: config.editor }),
+  ...(config.snapshot !== undefined && { snapshot: { push: config.snapshot.push } }),
   ...(config.plugins !== undefined && { plugins: { ...config.plugins } }),
   ...(config.publications !== undefined && {
     publications: Object.fromEntries(

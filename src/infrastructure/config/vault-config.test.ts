@@ -29,6 +29,29 @@ describe('vault config plugins key', () => {
   });
 });
 
+describe('vault config snapshot key', () => {
+  it('is absent by default, defaults push to off, and round-trips when set', () => {
+    const base = unwrap(parseVaultConfig(parse('vault:\n  id: V\n  name: v\n')));
+    expect(base.snapshot).toBeUndefined();
+    expect(toVaultConfigFile(base)).not.toHaveProperty('snapshot');
+
+    const bare = unwrap(parseVaultConfig(parse('vault:\n  id: V\n  name: v\nsnapshot: {}\n')));
+    expect(bare.snapshot).toEqual({ push: false });
+
+    const config = unwrap(
+      parseVaultConfig(parse('vault:\n  id: V\n  name: v\nsnapshot:\n  push: true\n')),
+    );
+    expect(config.snapshot).toEqual({ push: true });
+    expect(toVaultConfigFile(config).snapshot).toEqual({ push: true });
+  });
+
+  it('rejects a push that is not a boolean', () => {
+    expect(
+      parseVaultConfig(parse('vault:\n  id: V\n  name: v\nsnapshot:\n  push: origin\n')),
+    ).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+  });
+});
+
 describe('vault config publications key', () => {
   const withPublications = (body: string) =>
     parseVaultConfig(parse(`vault:\n  id: V\n  name: v\npublications:\n${body}`));

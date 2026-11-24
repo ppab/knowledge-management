@@ -153,6 +153,47 @@ describe('ofl history / diff / snapshot / show --at (M7)', () => {
     ]);
   });
 
+  it('snapshot.push pushes after recording; --no-push holds it; a failed push exits 1', async () => {
+    const file = join(vault, 'renamed.md');
+    const config = join(vault, '.ofl', 'config.yaml');
+    const edit = async (line: string) =>
+      writeFile(file, `${await readFile(file, 'utf8')}\n${line}\n`);
+    const remoteHead = async () =>
+      (await run('git', ['rev-parse', 'refs/heads/main'], { cwd: remote, env })).stdout.trim();
+    const remote = join(base, 'remote.git');
+    await run('git', ['init', '-q', '--bare', remote], { env });
+    await git('remote', 'add', 'origin', remote);
+    await git('push', '-q', '-u', 'origin', 'main');
+    const start = await remoteHead();
+
+    // Off by default: recorded, not pushed, and the JSON says nothing about a push.
+    await edit('one');
+    const local = await ofl(vault, 'snapshot', id, '--json');
+    expect(JSON.parse(local.stdout)).not.toHaveProperty('pushed');
+    expect(await remoteHead()).toBe(start);
+
+    await writeFile(config, `${await readFile(config, 'utf8')}snapshot:\n  push: true\n`);
+    await edit('two');
+    const held = await ofl(vault, 'snapshot', id, '--no-push', '--json');
+    expect(JSON.parse(held.stdout)).not.toHaveProperty('pushed');
+    expect(await remoteHead()).toBe(start);
+
+    await edit('three');
+    const pushed = await ofl(vault, 'snapshot', id, '--json');
+    expect(pushed.code).toBe(0);
+    const outcome = JSON.parse(pushed.stdout) as { pushed: boolean; revision: { id: string } };
+    expect(outcome.pushed).toBe(true);
+    expect(await remoteHead()).toBe(outcome.revision.id);
+
+    await git('remote', 'set-url', 'origin', join(base, 'missing.git'));
+    await edit('four');
+    const failed = await ofl(vault, 'snapshot', id);
+    expect(failed.code).toBe(1);
+    expect(failed.stdout).toContain('Saved renamed.md as revision');
+    expect(failed.stdout).toContain('Not pushed: git push exited');
+    expect((await git('log', '-1', '--format=%s')).trim()).toBe('note: snapshot Hello');
+  });
+
   it('handles a vault outside any repository gracefully', async () => {
     const plain = join(base, 'plain');
     await mkdir(plain);

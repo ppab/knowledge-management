@@ -63,7 +63,8 @@ export const planProblems = (resolved: ResolvedPublication, plan: PublicationPla
 export const listPublications = (registry: PluginRegistry): readonly ResolvedPublication[] =>
   registry.publications();
 
-const findPublication = (
+/** The one publication called `name` in the scope; shared with `release`, which only marks it. */
+export const findPublication = (
   registry: PluginRegistry,
   session: ScopeSession,
   name: string,

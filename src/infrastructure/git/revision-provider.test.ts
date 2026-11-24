@@ -156,6 +156,26 @@ describe('git revision provider', () => {
     expect(unwrap(await provider.read(vault, recorded))).toBe('# plan\n');
   });
 
+  it('pushes the branch to its upstream, and surfaces a refused push with its output', async () => {
+    const provider = createGitRevisionProvider({ env });
+    // No upstream yet: git refuses, and says so.
+    const refused = await provider.push(vault);
+    expect(refused).toMatchObject({ ok: false, error: { code: 'INTERNAL' } });
+
+    const remote = join(base, 'remote.git');
+    await exec('git', ['init', '-q', '--bare', remote], { env: { ...process.env, ...env } });
+    await git('remote', 'add', 'origin', remote);
+    await git('push', '-q', '-u', 'origin', 'main');
+    await writeFile(join(vault, 'pushed.md'), '# pushed\n');
+    const recorded = unwrap(await provider.record(vault, 'pushed.md', 'to be pushed'));
+    unwrap(await provider.push(vault));
+    const remoteHead = await exec('git', ['rev-parse', 'refs/heads/main'], {
+      cwd: remote,
+      env: { ...process.env, ...env },
+    });
+    expect(remoteHead.stdout.trim()).toBe(recorded.id);
+  });
+
   it('reports a missing historical path as not found', async () => {
     const provider = createGitRevisionProvider({ env });
     const [latest] = unwrap(await provider.list(vault, 'docs/moved.md'));

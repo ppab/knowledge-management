@@ -10,15 +10,24 @@ import { withScope } from '../scope/session.js';
  * `save` is the only way a revision comes to exist (docs/architecture.md A4): explicit, one
  * note, the message the user gave. Nothing to record and nowhere to record it are outcomes,
  * not errors, so scripts can call `save` unconditionally.
+ *
+ * A vault may ask (`snapshot.push`) for every recorded revision to be pushed as well. The push
+ * comes after the record and never undoes it: a push that fails is part of a `saved` outcome.
  */
 
 export interface SnapshotInput {
   /** Revision message, recorded as `note: <message>`; default: `note: snapshot <title>`. */
   readonly message?: string;
+  /** Push after recording; default: the vault's `snapshot.push` (off when absent). */
+  readonly push?: boolean;
 }
 
+export type PushOutcome =
+  { readonly kind: 'pushed' } | { readonly kind: 'failed'; readonly message: string };
+
 export type SnapshotOutcome =
-  | { readonly kind: 'saved'; readonly revision: Revision }
+  /** `push` is absent when no push was asked for. */
+  | { readonly kind: 'saved'; readonly revision: Revision; readonly push?: PushOutcome }
   | { readonly kind: 'nothing-to-save'; readonly last: Revision }
   | { readonly kind: 'not-under-version-control' };
 
@@ -64,5 +73,12 @@ export const snapshotEntry = (
       snapshotMessage(entry, input.message),
     );
     if (!recorded.ok) return recorded;
-    return ok({ ...found.value, outcome: { kind: 'saved', revision: recorded.value } });
+    if (!(input.push ?? vault.config.snapshot?.push ?? false)) {
+      return ok({ ...found.value, outcome: { kind: 'saved', revision: recorded.value } });
+    }
+    const pushed = await deps.revisions.push(vault.root);
+    const push: PushOutcome = pushed.ok
+      ? { kind: 'pushed' }
+      : { kind: 'failed', message: pushed.error.message };
+    return ok({ ...found.value, outcome: { kind: 'saved', revision: recorded.value, push } });
   });

@@ -102,8 +102,13 @@ const modifiedMarker = (status: RevisionStatus | undefined): string =>
 
 const snapshotText = (path: string, outcome: SnapshotOutcome): string => {
   switch (outcome.kind) {
-    case 'saved':
-      return `Saved revision ${abbreviate(outcome.revision.id)}: ${outcome.revision.summary}`;
+    case 'saved': {
+      const saved = `Saved revision ${abbreviate(outcome.revision.id)}: ${outcome.revision.summary}`;
+      if (outcome.push === undefined) return saved;
+      return outcome.push.kind === 'pushed'
+        ? `${saved} (pushed)`
+        : `${saved} (not pushed: ${outcome.push.message})`;
+    }
     case 'nothing-to-save':
       return `Nothing to save: ${path} matches revision ${abbreviate(outcome.last.id)}`;
     case 'not-under-version-control':

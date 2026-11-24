@@ -51,6 +51,27 @@ describe('history and save in the TUI', () => {
     await term.waitFor((f) => !f.includes('▎'));
   });
 
+  it('pushes from the s prompt when the vault sets snapshot.push, and says when it could not', async () => {
+    const h = harness((f) => {
+      Object.assign(f.vault.config, { snapshot: { push: true } });
+      f.revisions.enable('/vault');
+      f.fs.files.set('n.md', v1);
+    });
+    term = h.start([{ kind: 'list', cursor: 0 }, entryScreen({ query: 'N1' })], { columns: 100 });
+    await term.waitFor('Entry · monitor · N1 ●');
+    await term.press('s', KEYS.enter);
+    await term.waitFor('Saved revision rev0001: note: snapshot Entry (pushed)');
+    expect(h.f.revisions.pushes).toEqual(['/vault']);
+
+    h.f.revisions.rejectNextPush('remote unreachable');
+    h.f.fs.files.set('n.md', v2);
+    h.changes.fire();
+    await term.waitFor('Entry · monitor · N1 ●');
+    await term.press('s', KEYS.enter);
+    await term.waitFor('(not pushed: git push exited 1: remote unreachable)');
+    expect(h.f.revisions.recorded).toHaveLength(2);
+  });
+
   it('explains an unversioned vault and a rejecting hook', async () => {
     const h = harness((f) => {
       f.fs.files.set('n.md', v1);

@@ -23,6 +23,7 @@ reporting the offending `path` and message rather than crashing.
 | `notes.exclude` | string[] (globs)         | no       | `[]`                 |                                               |
 | `identity`      | union (below)            | no       | `{ strategy: ulid }` | how new note ids are minted                   |
 | `editor`        | string                   | no       | —                    | overrides `$EDITOR` for the editor handoff    |
+| `snapshot.push` | boolean                  | no       | `false`              | a snapshot also pushes the branch (below)     |
 | `plugins`       | map `name → settings`    | no       | —                    | which plugins are enabled, and their settings |
 | `publications`  | map `name → publication` | no       | —                    | publish targets (below)                       |
 
@@ -35,6 +36,19 @@ identity: { strategy: ulid } # the default
 # identity: { strategy: uuidv7 }
 # identity: { strategy: formatted, format: 'YYYY-MM-DD-{{seq}}' }
 ```
+
+### `snapshot`
+
+```yaml
+snapshot:
+  push: true # after recording a revision, also `git push` the checked-out branch
+```
+
+Off by default: a snapshot (`ofl snapshot`, TUI `s`) records one entry locally and nothing more.
+With `push: true` it then runs a bare `git push`, so the repository's own upstream and
+`push.default` decide where the branch goes; `ofl snapshot --push` / `--no-push` override the
+setting for one call. A push that fails never undoes the revision: the snapshot reports it as
+saved and not pushed (the CLI exits 1).
 
 ### `plugins`
 

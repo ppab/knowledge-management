@@ -46,6 +46,49 @@ describe('snapshotEntry', () => {
     expect(unwrap(await listRevisions(f.deps, f.scope, { query: 'O1' })).revisions).toEqual([]);
   });
 
+  it('pushes after recording when the vault asks for it, and only then', async () => {
+    const quiet = fixture();
+    quiet.revisions.enable('/vault');
+    quiet.fs.files.set('n.md', v1);
+    const local = unwrap(await snapshotEntry(quiet.deps, quiet.scope, { query: 'N1' }));
+    expect(local.outcome).not.toHaveProperty('push');
+    expect(quiet.revisions.pushes).toEqual([]);
+
+    const f = fixture({ snapshot: { push: true } });
+    f.revisions.enable('/vault');
+    f.fs.files.set('n.md', v1);
+    const saved = unwrap(await snapshotEntry(f.deps, f.scope, { query: 'N1' }));
+    expect(saved.outcome).toMatchObject({ kind: 'saved', push: { kind: 'pushed' } });
+    expect(f.revisions.pushes).toEqual(['/vault']);
+
+    // Nothing recorded, nothing pushed.
+    unwrap(await snapshotEntry(f.deps, f.scope, { query: 'N1' }));
+    expect(f.revisions.pushes).toHaveLength(1);
+
+    // The call overrides the vault either way.
+    f.fs.files.set('n.md', v2);
+    const held = unwrap(await snapshotEntry(f.deps, f.scope, { query: 'N1' }, { push: false }));
+    expect(held.outcome).not.toHaveProperty('push');
+    expect(f.revisions.pushes).toHaveLength(1);
+    quiet.fs.files.set('n.md', v2);
+    unwrap(await snapshotEntry(quiet.deps, quiet.scope, { query: 'N1' }, { push: true }));
+    expect(quiet.revisions.pushes).toEqual(['/vault']);
+  });
+
+  it('a failed push keeps the recorded revision and reports why', async () => {
+    const f = fixture({ snapshot: { push: true } });
+    f.revisions.enable('/vault');
+    f.fs.files.set('n.md', v1);
+    f.revisions.rejectNextPush('remote unreachable');
+    const saved = unwrap(await snapshotEntry(f.deps, f.scope, { query: 'N1' }));
+    expect(saved.outcome).toMatchObject({
+      kind: 'saved',
+      revision: { summary: 'note: snapshot Entry' },
+      push: { kind: 'failed', message: 'git push exited 1: remote unreachable' },
+    });
+    expect(f.revisions.recorded).toHaveLength(1);
+  });
+
   it('answers not-under-version-control for an unversioned vault', async () => {
     const f = fixture();
     f.fs.files.set('n.md', v1);

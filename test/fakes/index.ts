@@ -3,6 +3,7 @@ import type {
   AppDeps,
   EntryStore,
   OutputStore,
+  ReleaseProvider,
   RevisionProvider,
   TemplateRepository,
   UserConfig,
@@ -180,7 +181,11 @@ export interface FakeRevisions extends RevisionProvider {
   seed(root: string, path: string, source: string, summary?: string): Revision;
   /** Makes the next `record` fail the way a rejecting pre-commit hook does. */
   rejectNext(output: string): void;
+  /** Makes the next `push` fail the way an unreachable remote does. */
+  rejectNextPush(output: string): void;
   readonly recorded: { root: string; path: string; message: string }[];
+  /** The roots whose branch was pushed, in order. */
+  readonly pushes: string[];
 }
 
 /** Revisions per vault root and path; `status` compares against the fake filesystem. */
@@ -189,6 +194,8 @@ export const createFakeRevisions = (roots: Map<string, FakeFs>): FakeRevisions =
   const recorded: { root: string; path: string; message: string }[] = [];
   let n = 0;
   let rejection: string | null = null;
+  const pushes: string[] = [];
+  let pushRejection: string | null = null;
   const historyOf = (root: string, path: string) => repos.get(root)?.get(path) ?? [];
   const add = (root: string, path: string, source: string, summary: string, author: string) => {
     const repo = repos.get(root);
@@ -209,6 +216,24 @@ export const createFakeRevisions = (roots: Map<string, FakeFs>): FakeRevisions =
     revision;
   return {
     recorded,
+    pushes,
+    rejectNextPush: (output) => {
+      pushRejection = output;
+    },
+    push: (root) => {
+      if (!repos.has(root)) {
+        return Promise.resolve(err(unavailable(`${root} is not under version control`)));
+      }
+      if (pushRejection !== null) {
+        const output = pushRejection;
+        pushRejection = null;
+        return Promise.resolve(
+          err(appError('INTERNAL', `git push exited 1: ${output}`, { code: 1, output })),
+        );
+      }
+      pushes.push(root);
+      return Promise.resolve(ok(undefined));
+    },
     enable: (root) => {
       if (!repos.has(root)) repos.set(root, new Map());
     },
@@ -272,9 +297,74 @@ export const createFakeRevisions = (roots: Map<string, FakeFs>): FakeRevisions =
   };
 };
 
+export interface FakeReleases extends ReleaseProvider {
+  /** Marks `root` as held by a repository checked out at `commit`, with these remotes. */
+  enable(root: string, repo?: { commit?: string; remotes?: string[]; uncommitted?: boolean }): void;
+  /** Makes the next `push` fail the way an unreachable remote does. */
+  rejectNextPush(output: string): void;
+  readonly tags: { root: string; name: string; message: string }[];
+  readonly pushed: { root: string; remote: string; tag: string }[];
+}
+
+export const createFakeReleases = (): FakeReleases => {
+  const repos = new Map<string, { commit: string; remotes: string[]; uncommitted: boolean }>();
+  const tags: { root: string; name: string; message: string }[] = [];
+  const pushed: { root: string; remote: string; tag: string }[] = [];
+  let rejection: string | null = null;
+  return {
+    tags,
+    pushed,
+    enable: (root, repo = {}) => {
+      repos.set(root, {
+        commit: repo.commit ?? `head${'0'.repeat(36)}`,
+        remotes: repo.remotes ?? ['origin'],
+        uncommitted: repo.uncommitted ?? false,
+      });
+    },
+    rejectNextPush: (output) => {
+      rejection = output;
+    },
+    head: (root) => {
+      const repo = repos.get(root);
+      return Promise.resolve(
+        ok(repo ? { commit: repo.commit, uncommitted: repo.uncommitted } : null),
+      );
+    },
+    remotes: (root) => Promise.resolve(ok(repos.get(root)?.remotes ?? [])),
+    tag: (root, name, message) => {
+      if (tags.some((t) => t.root === root && t.name === name)) {
+        return Promise.resolve(err(conflict(`Tag ${name} already exists`, { tag: name })));
+      }
+      tags.push({ root, name, message });
+      return Promise.resolve(ok(undefined));
+    },
+    push: (root, remote, tag) => {
+      if (rejection !== null) {
+        const output = rejection;
+        rejection = null;
+        return Promise.resolve(
+          err(
+            appError(
+              'INTERNAL',
+              `Tag ${tag} was not pushed to ${remote} (git exited 1): ${output}`,
+              {
+                code: 1,
+                output,
+              },
+            ),
+          ),
+        );
+      }
+      pushed.push({ root, remote, tag });
+      return Promise.resolve(ok(undefined));
+    },
+  };
+};
+
 export interface Fixture {
   deps: AppDeps;
   revisions: FakeRevisions;
+  releases: FakeReleases;
   /** What publications wrote; empty until a publish runs. */
   outputs: FakeOutputs;
   /** The default vault at `/vault`, named `monitor`. */
@@ -305,6 +395,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
   const snippets = new Map<string, string>();
   const userConfig: UserConfig & { scopes: Record<string, { vaults: string[] }> } = { scopes: {} };
   const revisions = createFakeRevisions(roots);
+  const releases = createFakeReleases();
   const outputs = createFakeOutputStore();
   const ids = ['ID1', 'ID2', 'ID3', 'ID4'];
   let n = 0;
@@ -341,6 +432,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
     frontmatter: createFrontmatterCodec(),
     templates: createFakeTemplateRepository(templates, snippets),
     revisions,
+    releases,
     indexes: {
       open: (root) => {
         const database = databases.get(root);
@@ -365,6 +457,7 @@ export const fixture = (overrides: Partial<VaultConfig> = {}): Fixture => {
   return {
     deps,
     revisions,
+    releases,
     outputs,
     fs: main.fs,
     vault,
