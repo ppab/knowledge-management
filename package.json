@@ -1,6 +1,6 @@
 {
   "name": "ofl",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenFormLink — local-first, Git-native, agent-friendly knowledge management",
   "type": "module",
   "private": true,

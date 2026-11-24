@@ -142,6 +142,21 @@ exercised rather than skipped, and the suite still runs only once. The workflow 
 repository permissions and performs no publishing, deployment, or writes back to the repository; a
 failing step fails the run.
 
+## Releasing
+
+`.github/workflows/release.yml` publishes a GitHub release when a version tag is pushed. Bump
+`version` in `package.json` and `OFL_VERSION` in `src/domain/version.ts` together (a test keeps them
+equal), merge that to `main`, then tag the merged commit:
+
+```bash
+git tag -a v0.2.0 -m v0.2.0
+git push origin v0.2.0
+```
+
+The workflow refuses a tag that does not match `package.json`, runs `bun run check`, compiles the
+four executables, and attaches them to a release with generated notes. Only `v*` tags trigger it;
+`release/**` tags are vault publications cut by `ofl release`.
+
 ## Documentation
 
 - `docs/architecture.md`: layers, domain model, ports, TUI and CLI contracts.
